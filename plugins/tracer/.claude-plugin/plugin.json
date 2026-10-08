@@ -1,0 +1,34 @@
+{
+  "name": "tracer",
+  "description": "Which session did what — a structural index over Claude Code's own transcripts (~/.claude/projects/*.jsonl), verbatim, no LLM pass. Its own command, `tracer` (bin/, on the Bash PATH while the plugin is on), with two groups: `tracer sessions` (ls · live · show · replay · turns · search — the conversations) and `tracer trace` (every tool call, plus turn · blame · index — what was done in them); every older spelling still runs, unlisted. With the ak CLI installed the same groups are also `ak sessions` and `ak trace`. Also the /tracer:trace, :blame and :index skills, and a Stop-hook index writer (it also launches the tool-call indexer this plugin ships under traces/, the store behind `tracer trace`). Its index lives under ~/.claude/plugins/data/conversation-index; it needs no vault, no ak and no other plugin.",
+  "version": "2.7.1",
+  "visibility": "public",
+  "setup": {"summary": "find which session did what", "needs": {"bins": ["uv"]},
+            "gives": ["ak sessions — your past sessions, searchable from the shell",
+                      "ak trace blame <file> — which session touched a file",
+                      "/tracer:trace in Claude Code — what a past session did, step by step"],
+            "changes": "an index of your history under ~/.claude/plugins/data, updated after every turn",
+            "first_run": {"title": "index your Claude Code history", "run": ["bin/tracer", "trace", "index", "--all"], "reads": "history"}},
+  "cli": [
+    {
+      "command": "sessions",
+      "entry": "scripts/cli.py",
+      "attr": "sessions"
+    },
+    {
+      "command": "trace",
+      "entry": "scripts/cli.py",
+      "attr": "trace"
+    },
+    {
+      "command": "tracer",
+      "entry": "scripts/cli.py",
+      "attr": "cli",
+      "hidden": true
+    }
+  ],
+  "relocate": {
+    "entry": "scripts/relocate.py",
+    "attr": "handler"
+  }
+}

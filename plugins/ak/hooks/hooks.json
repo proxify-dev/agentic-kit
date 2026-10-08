@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/install-global.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

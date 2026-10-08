@@ -1,1 +1,0 @@
-[agentic-engineering] a plugin's rule rides its own hooks, said at the moment it applies. CLAUDE.md and AGENTS.md hold the rules for working in their folder: when your change makes a line there wrong, fix that line in the same change. A subfolder's rule goes in a CLAUDE.md there, loaded only there. What happened goes to memory. Where a rule goes: harness-engineering.

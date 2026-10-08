@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# `sessions …` is `tracer sessions …`: the short name the tracer's skills write. hooks/session.py puts this
+# folder first on the Bash tool's PATH (CLAUDE_ENV_FILE), since a plugin's own bin/ is appended after /usr/bin.
+set -euo pipefail
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/bin/tracer" sessions "$@"

@@ -14,19 +14,26 @@ const run = (command: string, args: string) => ({
 const TEMPLATES = {
   'skills/agent-development/_template.md': '---\n# Only name and description are required.\nname: agent-name\n# The requests first: [how Claude chooses an agent](./SKILL.md)\ndescription: When Claude should delegate to this agent.\n# model: inherit\n---\n\n<!-- Replace this comment: [writing the body](./body.md) -->\n',
   'skills/skill-development/_template.md': '---\nname: skill-name\ndescription: What this skill does and when to use it.\n---\n',
+  'templates/plugin-README.md': '# {{name}}\n\n| skill | `skills/<skill>/SKILL.md` | `/{{name}}:<skill>` |\n',
+  'templates/plugin-AGENTS.md': '# {{name}}\n\n- Use skill /plugin-authoring and /agentic-engineering:harness-engineering for advanced customization.\n',
 }
 
 // No disk in a test: these hooks stand in for it, holding what was written and answering the templates. The
 // engine hands them the path made absolute under the working directory; they key it from its last `.claude/` on,
-// since the working directory can hold one itself (a worktree under .claude/worktrees/).
-const disk = (on: On, present: string[] = []) => {
-  const files = new Map<string, string>(present.map(p => [p, '']))
-  const rel = (path: string) => path.slice(path.lastIndexOf('.claude/'))
+// since the working directory can hold one itself (a worktree under .claude/worktrees/). A path in the user's
+// plugin, under their home folder, is kept whole. A folder exists when a file is under it.
+const disk = (on: On, present: string[] = [], texts: Record<string, string> = {}) => {
+  const files = new Map<string, string>([...present.map((p): [string, string] => [p, '']), ...Object.entries(texts)])
+  const rel = (path: string) => path.startsWith(HOME) ? path : path.slice(path.lastIndexOf('.claude/'))
+  const under = (dir: string) => [...files.keys()].filter(path => path.startsWith(`${rel(dir)}/`))
   on('fs.read', ($, e, next) => {
     const template = Object.entries(TEMPLATES).find(([path]) => e.path.endsWith(path))
-    return template ? { value: template[1] } : next(e)
+    if (template) return { value: template[1] }
+    const text = files.get(rel(e.path))
+    return text === undefined ? next(e) : { value: text }
   })
-  on('fs.exists', ($, e) => ({ value: files.has(rel(e.path)) }))
+  on('fs.exists', ($, e) => ({ value: files.has(rel(e.path)) || under(e.path).length > 0 }))
+  on('fs.list', ($, e) => ({ value: under(e.path).map(path => ({ name: path.slice(rel(e.path).length + 1), kind: 'file' as const, size: 0, isLink: false })) }))
   on('fs.write', ($, e) => {
     files.set(rel(e.path), e.text)
     return { value: undefined }
@@ -34,7 +41,33 @@ const disk = (on: On, present: string[] = []) => {
   return files
 }
 
-const SKILLS = ['agentic-engineering:agent-development', 'agentic-engineering:skill-development']
+// The rest of the machine /new-plugin touches: the user's home folder, this plugin's store, the user's settings, and
+// the commands run on the host, each exiting 0 unless it starts with `fails`.
+const HOME = '/home/ana'
+const PLUGIN = `${HOME}/ana-claude`
+const machine = (on: On, { store = {}, settings = {}, fails = '' }: { store?: Record<string, unknown>; settings?: Record<string, unknown>; fails?: string } = {}) => {
+  const kept = new Map(Object.entries(store))
+  const ran: string[] = []
+  on('env.get', ($, e) => ({ value: e.name === 'HOME' ? HOME : undefined }))
+  on('store.get', ($, e) => ({ value: kept.get(e.key) }))
+  on('store.set', ($, e) => {
+    kept.set(e.key, e.value)
+    return { value: undefined }
+  })
+  on('settings.read', () => ({ value: settings }))
+  on('process.run', ($, e) => {
+    const line = [...e.argv, ...(e.init?.cwd ? [`(in ${e.init.cwd})`] : [])].join(' ')
+    ran.push(line)
+    const failed = fails !== '' && line.startsWith(fails)
+    return { value: failed ? { exitCode: 1, stdout: '', stderr: 'Error: it broke\nno such marketplace\n' } : { exitCode: 0, stdout: '', stderr: '' } }
+  })
+  return { kept, ran }
+}
+// A user whose plugin /new-plugin made: in the store, its manifest in its folder.
+const HAS_PLUGIN = { store: { home: { name: 'ana', folder: PLUGIN } } }
+const MANIFEST = `${PLUGIN}/.claude-plugin/plugin.json`
+
+const SKILLS = ['agentic-engineering:agent-development', 'agentic-engineering:skill-development', 'reload-plugins']
 
 // A session, its clock the test's: the panes opened (and how), closed, the lines logged, the skill commands run
 // (`/name args`), and each submitted prompt with the context it carried.
@@ -88,7 +121,7 @@ const pane = (requestId: string, placement: 'dock' | 'inline' = 'dock') => ({
 })
 
 describe('new', () => {
-  test('registers /new-agent and /new-skill as immediate commands', async ($, on) => {
+  test('registers /new-agent, /new-skill and /new-plugin as immediate commands', async ($, on) => {
     const registered: { name: string; immediate?: true }[] = []
     on('session.start', ($, e) => ({ cwd: e.cwd }))
     on('command.register', ($, e) => {
@@ -99,6 +132,7 @@ describe('new', () => {
     expect(registered).toEqual([
       { name: 'new-agent', immediate: true },
       { name: 'new-skill', immediate: true },
+      { name: 'new-plugin', immediate: true },
     ])
   })
 
@@ -262,6 +296,193 @@ describe('new', () => {
       }
       expect(await bordered('dock')).toBe(true)
       expect(await bordered('inline')).toBe(false)
+    })
+  })
+
+  describe('/new-plugin: the user\'s own plugin, in a folder they pick', () => {
+    test('writes the plugin as a one-plugin marketplace, makes it a git repo, adds and installs it, and keeps it as the home', async ($, on) => {
+      const { seen, clock } = session(on)
+      const files = disk(on)
+      const { kept, ran } = machine(on)
+      await $.session.start(start())
+      const { text, context } = await $.command.run(run('new-plugin', 'Ana'))
+      expect(text).toBe('created your plugin ana at ~/ana-claude: /new-skill and /new-agent write there now')
+      expect(JSON.parse(files.get(MANIFEST) ?? '')).toEqual({ name: 'ana', version: '0.1.0', description: "ana's own skills and agents, in every session." })
+      expect(JSON.parse(files.get(`${PLUGIN}/.claude-plugin/marketplace.json`) ?? '').plugins).toEqual([{ name: 'ana', source: './', description: "ana's own skills and agents, in every session." }])
+      expect(files.get(`${PLUGIN}/README.md`)).toBe('# ana\n\n| skill | `skills/<skill>/SKILL.md` | `/ana:<skill>` |\n')
+      expect(files.get(`${PLUGIN}/AGENTS.md`)).toBe('# ana\n\n- Use skill /plugin-authoring and /agentic-engineering:harness-engineering for advanced customization.\n')
+      expect(files.get(`${PLUGIN}/CLAUDE.md`)).toBe('@AGENTS.md\n')
+      expect([...files.keys()].filter(path => path.startsWith(PLUGIN)).sort()).toEqual([
+        `${PLUGIN}/.claude-plugin/marketplace.json`, MANIFEST, `${PLUGIN}/.gitignore`, `${PLUGIN}/AGENTS.md`, `${PLUGIN}/CLAUDE.md`, `${PLUGIN}/README.md`, `${PLUGIN}/agents/.gitkeep`, `${PLUGIN}/skills/.gitkeep`,
+      ])
+      expect(ran).toEqual([`git init -q (in ${PLUGIN})`, `claude plugin marketplace add ${PLUGIN}`, 'claude plugin install ana@ana --scope user'])
+      expect(kept.get('home')).toEqual({ name: 'ana', folder: PLUGIN })
+      expect(context?.[0]).toContain(`their own plugin, ana, is at ${PLUGIN}`)
+      expect(seen.ran).toEqual([])
+      await clock.settle()
+      expect(seen.ran).toEqual(['/reload-plugins '])
+    })
+
+    test('--folder takes ~/ and a path relative to the working directory', async ($, on) => {
+      session(on)
+      disk(on)
+      const { kept } = machine(on)
+      await $.session.start(start())
+      await $.command.run(run('new-plugin', '--name ana --folder ~/code/mine'))
+      expect(kept.get('home')).toEqual({ name: 'ana', folder: `${HOME}/code/mine` })
+      await $.command.run(run('new-plugin', '--name bo --folder plugins/bo/'))
+      expect(kept.get('home')).toEqual({ name: 'bo', folder: '/work/plugins/bo' })
+    })
+
+    test('a folder with other files in it is left untouched, and nothing runs', async ($, on) => {
+      session(on)
+      const files = disk(on, [`${PLUGIN}/notes.md`])
+      const { ran, kept } = machine(on)
+      await $.session.start(start())
+      expect((await $.command.run(run('new-plugin', 'ana'))).text).toBe('not empty, left untouched: ~/ana-claude')
+      expect(files.size).toBe(1)
+      expect(ran).toEqual([])
+      expect(kept.size).toBe(0)
+    })
+
+    test('a folder that already holds the plugin (a clone) is added and installed: only a missing marketplace.json is written, no git init', async ($, on) => {
+      session(on)
+      const files = disk(on, [`${PLUGIN}/README.md`], { [MANIFEST]: '{"name": "ana"}' })
+      const { ran, kept } = machine(on)
+      await $.session.start(start())
+      expect((await $.command.run(run('new-plugin', 'ana'))).text).toBe('added your plugin ana at ~/ana-claude: /new-skill and /new-agent write there now')
+      expect(files.get(`${PLUGIN}/README.md`)).toBe('')
+      expect(files.has(`${PLUGIN}/.claude-plugin/marketplace.json`)).toBe(true)
+      expect(files.has(`${PLUGIN}/skills/.gitkeep`)).toBe(false)
+      expect(ran).toEqual([`claude plugin marketplace add ${PLUGIN}`, 'claude plugin install ana@ana --scope user'])
+      expect(kept.get('home')).toEqual({ name: 'ana', folder: PLUGIN })
+    })
+
+    test('run again after it was added and installed, it runs nothing more', async ($, on) => {
+      session(on)
+      disk(on, [], { [MANIFEST]: '{"name": "ana"}' })
+      const { ran } = machine(on, { settings: { extraKnownMarketplaces: { ana: { source: { source: 'directory', path: PLUGIN } } }, enabledPlugins: { 'ana@ana': true } } })
+      await $.session.start(start())
+      await $.command.run(run('new-plugin', 'ana'))
+      expect(ran).toEqual([])
+    })
+
+    test('a name taken by another plugin or marketplace, or a folder holding another plugin, is refused', async ($, on) => {
+      session(on)
+      disk(on, [], { [`${HOME}/bo-claude/.claude-plugin/plugin.json`]: '{"name": "other"}', [`${HOME}/dee-claude/.claude-plugin/plugin.json`]: '{name' })
+      machine(on, { settings: { extraKnownMarketplaces: { ana: { source: { source: 'github', repo: 'x/ana' } } }, enabledPlugins: { 'cy@somewhere': true } } })
+      await $.session.start(start())
+      expect((await $.command.run(run('new-plugin', 'ana'))).text).toBe('a marketplace named ana already comes from elsewhere: pick another name')
+      expect((await $.command.run(run('new-plugin', 'cy'))).text).toBe('a plugin named cy is already installed (cy@somewhere): pick another name')
+      expect((await $.command.run(run('new-plugin', 'bo'))).text).toBe("~/bo-claude holds the plugin 'other': name it other, or pick another folder")
+      expect((await $.command.run(run('new-plugin', 'dee'))).text).toBe('cannot read ~/dee-claude/.claude-plugin/plugin.json: fix it, or pick another folder')
+      expect((await $.command.run(run('new-plugin', '--name foo/bar'))).text).toBe("bad name 'foo/bar': use lowercase letters, digits and hyphens")
+    })
+
+    test('a claude command that fails stops it with its last line, and nothing is kept as the home', async ($, on) => {
+      session(on)
+      disk(on)
+      const { kept } = machine(on, { fails: 'claude plugin marketplace' })
+      await $.session.start(start())
+      expect((await $.command.run(run('new-plugin', 'ana'))).text).toBe('claude plugin marketplace add failed: no such marketplace')
+      expect(kept.size).toBe(0)
+    })
+
+    test('headless, nothing after the command shows the usage; at a session, the form opens', async ($, on) => {
+      const { seen } = session(on)
+      machine(on)
+      await $.session.start(start(false))
+      expect((await $.command.run(run('new-plugin', ''))).text).toBe('usage: /new-plugin <name>, or /new-plugin --name <name> --folder <folder>')
+      await $.session.start(start())
+      await $.command.run(run('new-plugin', ''))
+      expect(seen.opened).toEqual([{ id: 'new-plugin', rows: 12, focus: true, closeOnEscape: true }])
+    })
+
+    test('the form: the folder shown follows the name, and Create plugin makes it and closes the pane', async ($, on) => {
+      const { seen } = session(on)
+      disk(on)
+      const { kept } = machine(on)
+      await $.session.start(start())
+      await $.command.run(run('new-plugin', ''))
+      const form = await $.ui.mount(pane('new-plugin'))
+      await form.input({ key: 'name-1', text: 'ana', kind: 'change' })
+      await form.redraw()
+      expect((await form.find({ key: 'folder-1' }))?.props.placeholder).toBe('~/ana-claude')
+      await form.press({ key: 'create' })
+      expect(kept.get('home')).toEqual({ name: 'ana', folder: PLUGIN })
+      expect(seen.closed).toEqual(['new-plugin'])
+      expect(seen.logged).toEqual(['created your plugin ana at ~/ana-claude: /new-skill and /new-agent write there now'])
+    })
+  })
+
+  describe('with a plugin of their own, /new-skill and /new-agent write into it', () => {
+    test('--name writes in the plugin, without .claude/, says the name Claude Code knows it by, and reloads plugins', async ($, on) => {
+      const { seen, clock } = session(on)
+      const files = disk(on, [MANIFEST])
+      machine(on, HAS_PLUGIN)
+      await $.session.start(start())
+      const { text, context } = await $.command.run(run('new-skill', '--name release-notes'))
+      expect(text).toBe('created ~/ana-claude/skills/release-notes/SKILL.md, in your plugin: ana:release-notes')
+      expect(files.get(`${PLUGIN}/skills/release-notes/SKILL.md`)).toContain('name: release-notes\n')
+      expect(context?.[0]).toContain(`It is in the user's own plugin, ana (${PLUGIN}), so Claude Code knows it as ana:release-notes`)
+      await clock.settle()
+      expect(seen.ran).toEqual(['/reload-plugins '])
+    })
+
+    test('--where project writes under the working directory, as without a plugin', async ($, on) => {
+      session(on)
+      const files = disk(on, [MANIFEST])
+      machine(on, HAS_PLUGIN)
+      await $.session.start(start())
+      expect((await $.command.run(run('new-agent', '--name code-reviewer --where project'))).text).toBe('created .claude/agents/code-reviewer.md')
+      expect(files.has('.claude/agents/code-reviewer.md')).toBe(true)
+    })
+
+    test('--where plugin with no plugin, or a --where it does not know, writes nothing', async ($, on) => {
+      session(on)
+      const files = disk(on)
+      machine(on)
+      await $.session.start(start())
+      expect((await $.command.run(run('new-agent', '--name x --where plugin'))).text).toBe('no plugin of yours yet: /new-plugin makes one')
+      expect((await $.command.run(run('new-agent', '--name x --where there'))).text).toBe("--where takes plugin or project, not 'there'")
+      expect(files.size).toBe(0)
+    })
+
+    test('a plugin whose folder no longer holds it is forgotten: the file goes under the working directory', async ($, on) => {
+      session(on)
+      const files = disk(on)
+      machine(on, HAS_PLUGIN)
+      await $.session.start(start())
+      await $.command.run(run('new-skill', '--name release-notes'))
+      expect(files.has('.claude/skills/release-notes/SKILL.md')).toBe(true)
+    })
+
+    test('free text asks Claude, the words saying where in the plugin the file goes', async ($, on) => {
+      const { seen, clock } = session(on)
+      disk(on, [MANIFEST])
+      machine(on, HAS_PLUGIN)
+      await $.session.start(start())
+      await $.command.run(run('new-agent', 'a reviewer for pull requests'))
+      await clock.settle()
+      expect(seen.ran).toEqual([`/agentic-engineering:agent-development a reviewer for pull requests (put it in my plugin ana: ${PLUGIN}/agents/<name>.md)`])
+    })
+
+    test('the form has a Where row, the plugin picked; picking this project writes under the working directory', async ($, on) => {
+      const { seen } = session(on)
+      const files = disk(on, [MANIFEST])
+      machine(on, HAS_PLUGIN)
+      await $.session.start(start())
+      await $.command.run(run('new-skill', ''))
+      expect(seen.opened).toEqual([{ id: 'new-skill', rows: 13, focus: true, closeOnEscape: true }])
+      const form = await $.ui.mount(pane('new-skill'))
+      const where = await form.find({ key: 'where-1' })
+      expect(where?.props.value).toBe('plugin')
+      expect(await form.find({ text: 'Writes ~/ana-claude/skills/<name>/SKILL.md from the skill template.' })).toBeDefined()
+      await form.select({ key: 'where-1', value: 'project' })
+      await form.input({ key: 'name-1', text: 'release-notes', kind: 'change' })
+      await form.press({ key: 'create' })
+      expect(files.has('.claude/skills/release-notes/SKILL.md')).toBe(true)
+      expect(files.has(`${PLUGIN}/skills/release-notes/SKILL.md`)).toBe(false)
     })
   })
 })

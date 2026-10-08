@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# COPY of scripts/seam/launcher: edit that file, never this one (scripts/copies.py)
+# A plugin's command, named by this file: bin/<name> runs the `<name>` console script of the plugin it
+# sits in (its pyproject.toml [project.scripts]) in that plugin's own uv project env. Claude Code puts an
+# enabled plugin's bin/ on the Bash tool's PATH, so `<name> …` answers in every session the plugin is on.
+# `uv run --project` resolves and caches the deps on the first run, instant after: no global install.
+# Canonical in scripts/seam/; every plugin bin/ carries a copy (scripts/copies.py).
+set -euo pipefail
+
+NAME="${0##*/}"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+command -v uv >/dev/null 2>&1 || { echo "$NAME: needs uv - install it from https://docs.astral.sh/uv" >&2; exit 127; }
+
+# Plugin installs copy .venv without its python symlinks, leaving a corpse uv
+# refuses to use. Drop it so uv rebuilds a valid env on first run. Either venv layout
+# counts as healthy (bin/python on POSIX, Scripts/python.exe on Windows under Git Bash).
+[ -x "$ROOT/.venv/bin/python" ] || [ -f "$ROOT/.venv/Scripts/python.exe" ] || rm -rf "$ROOT/.venv"
+
+exec uv run --project "$ROOT" --quiet "$NAME" "$@"

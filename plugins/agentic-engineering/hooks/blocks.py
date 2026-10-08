@@ -1,7 +1,9 @@
 """blocks — the text every agentic-engineering hook says, read from its home in prompts/.
 
-prompts/<name>.txt is the block itself, the whole file, verbatim: what the agent reads and nothing
-else. Its why lives in the commit and the eval's story. Nothing to edit here — change the file.
+prompts/<moment>.<name>.md holds one block. The file name says when the agent sees it (MOMENTS) and
+what it is about; the frontmatter says why the text is what it is (`why`), the sessions it came from
+(`from`) and the eval cases that test its words (`evals`); the body is the block, verbatim. load()
+strips the frontmatter: the agent reads the body and nothing else. Nothing to edit here — change the file.
 
 delivered() and said() answer "is this already in the agent's context?" from the transcript
 Claude Code hands every hook: a read, never a write (plugins/HOOKS.md §3). Standard library only.
@@ -14,14 +16,41 @@ import re
 from pathlib import Path
 
 PROMPTS = Path(__file__).resolve().parents[1] / "prompts"
+MOMENTS = ("session-start", "before-edit", "before-create", "before-edit-or-run", "before-delegate")
 _COMPACT = b'"subtype":"compact_boundary"'
 _HOOK_RECORDS = (b'"hook_additional_context"', b'"hook_success"')
 _DENY_RECORD = (b'"tool_result"', b'"is_error":true', b"hook error: ")
 
 
+def name_of(p: Path) -> str | None:
+    """NAME of prompts/<moment>.<name>.md; None for a file outside that shape."""
+    for moment in MOMENTS:
+        if p.name.startswith(moment + ".") and p.name.endswith(".md"):
+            return p.name[len(moment) + 1:-3] or None
+    return None
+
+
+def path(name: str) -> Path:
+    """prompts/<moment>.<name>.md, the one file holding block NAME."""
+    for moment in MOMENTS:
+        p = PROMPTS / f"{moment}.{name}.md"
+        if p.is_file():
+            return p
+    raise FileNotFoundError(f"no prompts/<moment>.{name}.md")
+
+
+def split(text: str) -> tuple[str, str]:
+    """(frontmatter, body) of a block file; '' and the whole text when it opens on no `---` line."""
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 3)
+        if end != -1:
+            return text[4:end], text[end + 5:]
+    return "", text
+
+
 def load(name: str) -> str:
-    """prompts/<name>.txt, without its closing newline."""
-    return (PROMPTS / f"{name}.txt").read_text(encoding="utf-8").rstrip("\n")
+    """Block NAME as the agent reads it: the file's body, without frontmatter or closing newline."""
+    return split(path(name).read_text(encoding="utf-8"))[1].strip("\n")
 
 
 def tag(block: str) -> str:

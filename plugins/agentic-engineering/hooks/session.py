@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """agentic-engineering session (SessionStart startup|resume|clear|compact|fork, and SubagentStart): the map.
 
-Says prompts/session.txt as additionalContext: how an instruction reaches an agent, and the
+Says prompts/session-start.where-instructions-go.md as additionalContext: how an instruction reaches an agent, and the
 skill that holds the depth. SubagentStart says it too, because a worker gets none of the session's
 start context. It is the plugin's tool-teaching line, so a person's session and a program's get the
 same thing (plugins/HOOKS.md §3: 800 characters a plugin, 2,400 all together; the contract test holds
@@ -26,7 +26,7 @@ def main() -> None:
     event = payload.get("hook_event_name") if isinstance(payload, dict) else None
     if event not in EVENTS:
         return
-    sys.stdout.write(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": load("session")}}))
+    sys.stdout.write(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": load("where-instructions-go")}}))
 
 
 if __name__ == "__main__":

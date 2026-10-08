@@ -1,0 +1,26 @@
+{
+  "why": "One call's label, as both readers derive it: src/tracer/step_label.py (sessions show, trace turn, live) and traces/src/traces-blobs.ts stepLabel (the index's summary.label, ak trace). tests/test_step_label.py and app's selftest:traces read this file, so the two rules cannot drift.",
+  "cases": [
+    {"tool": "Bash", "input": {"command": "git rebase -q docs/api", "description": "Stack the export branch on top of the docs commit"},
+     "label": "Stack the export branch on top of the docs commit"},
+    {"tool": "Bash", "input": {"command": "git status --short"}, "label": "$ git status --short"},
+    {"tool": "Bash", "input": {"command": "ls\n  -la", "description": "   "}, "label": "$ ls -la"},
+    {"tool": "Monitor", "input": {"command": "tail -f x.log", "description": "Watch the build log\nuntil it ends"},
+     "label": "Watch the build log until it ends"},
+    {"tool": "Agent", "input": {"description": "Audit memory write-lint", "prompt": "Read every rule in…"},
+     "label": "Audit memory write-lint"},
+    {"tool": "Read", "input": {"file_path": "/repo/src/a.py", "offset": 10}, "label": "/repo/src/a.py"},
+    {"tool": "Edit", "input": {"file_path": "/repo/src/a.py", "old_string": "x", "new_string": "y"}, "label": "/repo/src/a.py"},
+    {"tool": "NotebookEdit", "input": {"notebook_path": "/repo/n.ipynb", "new_source": "1"}, "label": "/repo/n.ipynb"},
+    {"tool": "Grep", "input": {"pattern": "away_summary", "path": "plugins/"}, "label": "'away_summary' in plugins/"},
+    {"tool": "Grep", "input": {"pattern": "TODO"}, "label": "'TODO'"},
+    {"tool": "Glob", "input": {"pattern": "**/*.md", "path": "docs"}, "label": "**/*.md in docs"},
+    {"tool": "Skill", "input": {"skill": "tracer:trace", "args": "13e34f21"}, "label": "tracer:trace 13e34f21"},
+    {"tool": "WebFetch", "input": {"url": "https://example.com/a", "prompt": "the price"}, "label": "https://example.com/a"},
+    {"tool": "ToolSearch", "input": {"query": "select:Read", "max_results": 1}, "label": "select:Read"},
+    {"tool": "mcp__plugin_observer_observer__search", "input": {"query": "setup TUI", "limit": 5}, "label": "setup TUI"},
+    {"tool": "TaskCreate", "input": {"subject": "Ship the label column"}, "label": "Ship the label column"},
+    {"tool": "SomethingNew", "input": {"count": 3, "flag": true}, "label": ""},
+    {"tool": "Bash", "input": "not an object", "label": ""}
+  ]
+}

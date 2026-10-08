@@ -1,0 +1,46 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/convo-index-stop.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/raw_read.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/convo-index-stop.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

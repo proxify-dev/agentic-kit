@@ -1,7 +1,13 @@
 {
   "name": "agentic-engineering",
-  "description": "Agentic engineering kit: seven skills (context engineering, harness engineering, skill development, agent development, evals, sandboxing, fewer faster tests), most named by a short block a hook prints at the moment it applies; an agentic-engineer agent that starts with two of them loaded; and /new-agent and /new-skill, which write the file from the skill's template or hand your words to Claude with the skill loaded (a Claude Mod: needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1).",
-  "version": "0.11.0",
+  "description": "Agentic engineering kit: seven skills (context engineering, harness engineering, skill development, agent development, evals, sandboxing, fewer faster tests), most named by a short block a hook prints at the moment it applies; an agentic-engineer agent that starts with two of them loaded; /new-plugin, which makes your own plugin in a folder you pick; and /new-agent and /new-skill, which write the file into that plugin or the project from the skill's template, or hand your words to Claude with the skill loaded (a Claude Mod: needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1).",
+  "version": "0.13.1",
   "visibility": "public",
-  "setup": {"summary": "seven skills, an agentic-engineer agent, and /new-agent and /new-skill for building with agents"}
+  "setup": {"summary": "seven skills, an agentic-engineer agent, /new-plugin for your own plugin, and /new-agent and /new-skill for building with agents",
+            "depends_on": ["settings.function-hooks"],
+            "gives": ["seven skills Claude loads when one applies — context, harness, skill and agent development, evals, sandboxing, fewer faster tests",
+                      "an agentic-engineer agent, with two of them loaded",
+                      "a one-line reminder from a hook at the moment a rule applies",
+                      "/new-plugin — your own plugin, in a folder you pick: a git repo of your skills and agents, on in every session",
+                      "/new-agent and /new-skill — a new agent or skill file from the skill's template, into your plugin or the project"]}
 }

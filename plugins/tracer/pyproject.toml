@@ -1,0 +1,27 @@
+[project]
+name = "tracer"
+version = "2.7.1"
+description = "Which session did what: a structural index over Claude Code's transcripts, read through a CLI"
+requires-python = ">=3.10"
+# jinja2: the trace skill's report template · rich-click, rich: the CLI and its output, through this
+# plugin's copies of ak's ui, groups and help (scripts/copies.py); 1.9 is the first with command aliases.
+dependencies = ["jinja2", "click", "rich-click>=1.9", "rich"]
+
+# The documented gate is `uv run pytest -q`; uv includes the dev group by default,
+# so declaring pytest here is what lets that literal command spawn it.
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tracer"]
+
+[project.scripts]
+tracer = "tracer.cli:main"
+tracer-engine = "tracer.__main__:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

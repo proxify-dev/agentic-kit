@@ -14,7 +14,7 @@ import sys
 
 import pytest
 from _brand import env_name
-from blocks import PROMPTS, load
+from blocks import PROMPTS, load, name_of
 from conftest import COMPACT, PROMPT, hook_said, run, snapshot, tool_result, write_transcript
 
 SURFACES = [
@@ -62,7 +62,7 @@ NOT_SURFACES = [
     "docs/plans/roadmap.md",
     "plugins/demo/skills/sweep/scripts/run.py",
 ]
-BLOCKS = sorted(p.stem for p in PROMPTS.glob("*.txt"))
+BLOCKS = sorted(name_of(p) for p in PROMPTS.glob("*.md"))
 
 
 def edit(repo, rel: str, transcript=None, tool: str = "Edit", **extra) -> dict:
@@ -140,7 +140,7 @@ def test_the_record_alone_counts_either_way_claude_code_writes_it(world, home, t
 
 
 def test_the_block_read_as_a_file_is_not_the_block_delivered(world, home, tmp_path):
-    """Reading prompts/hooks.txt puts its text in a tool result; the agent has not been told at the edit."""
+    """Reading prompts/before-edit.hooks.md puts its text in a tool result; the agent has not been told at the edit."""
     t = write_transcript(tmp_path / "t" / "s.jsonl", [PROMPT, tool_result(load("hooks"))])
     assert run("on_edit.py", edit(world, ".claude/settings.json", t), home)["ctx"] == load("hooks")
 
@@ -293,7 +293,7 @@ def test_no_command_runs_git(world, home, tmp_path):
 def test_every_block_has_a_moment_here():
     """Each block but the start line fires somewhere in this file's tables."""
     fired = {b for _, b in SURFACES} | {b for _, b in COMMANDS} | {"brief"}
-    assert fired == set(BLOCKS) - {"session"}
+    assert fired == set(BLOCKS) - {"where-instructions-go"}
 
 
 # ── after_edit.py: what the check found (model), what changed (person) ───────────────────────────

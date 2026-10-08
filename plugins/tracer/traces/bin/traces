@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# traces — the POSIX shell door onto bin/traces.mjs: `index` (what the tracer Stop hook
+# runs after every turn) and the reads `ak tracer calls` (hoisted: `ak trace`) makes
+# (list · get · stats · purge). The verbs and the JSON contract are in bin/traces.ts.
+# The hook and the CLI run `node bin/traces.mjs <verb>` directly, on any OS; that entry owns
+# the node floor, the bundle check (dist/traces.mjs, committed), the debug line and the move
+# to the home directory. All this file adds is finding a node when the caller's PATH has
+# none new enough (find-node.sh).
+#
+# STDOUT IS THE JSON DOCUMENT. Every diagnostic is one line on stderr.
+#
+#   exit 127  no node >= 22.13 found
+#   exit 66   the bundle is absent (from the entry)
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd -P)"
+
+# shellcheck source=find-node.sh
+. "$root/bin/find-node.sh"
+
+if ! brain_find_node; then
+  if [ -n "${FIND_NODE:-}" ]; then
+    echo "traces: node ${FIND_NODE_VERSION:-?} at ${FIND_NODE} is below the required ${FIND_NODE_MIN} (node:sqlite)" >&2
+  else
+    echo "traces: node >= ${FIND_NODE_MIN} not found on PATH or in the usual install places" >&2
+  fi
+  exit 127
+fi
+
+# The entry moves to the home directory itself; this keeps the shell door's own cwd
+# the same, for anything the hook environment inherits from it.
+cd ~
+exec "$FIND_NODE" --no-warnings "$root/bin/traces.mjs" "$@"

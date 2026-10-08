@@ -1,5 +1,0 @@
-[agentic-engineering: hooks] you are wiring a hook:
-  text for the model goes in additionalContext (permissionDecisionReason on a deny); systemMessage reaches the person only
-  a failing hook exits 0, silent
-  proof: the text is in the transcript as the hook's context record, and a with/without eval shows the agent acts on it
-Channels and moments: skill harness-engineering.

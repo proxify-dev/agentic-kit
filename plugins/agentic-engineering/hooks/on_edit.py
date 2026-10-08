@@ -2,7 +2,7 @@
 """agentic-engineering on-edit (PreToolUse): the block for the moment this call starts.
 
 PreToolUse context reaches the agent making the call, main session or worker, where a start block
-does not; it lands beside the call's result. Each block is prompts/<name>.txt:
+does not; it lands beside the call's result. Each block is prompts/<moment>.<name>.md (blocks.py):
 
   CLAUDE.md · AGENTS.md · CLAUDE.local.md · .claude/rules/*            instruction-files
   a plugin's evals/ or tests/; Bash: claude -p · claude plugin eval ·

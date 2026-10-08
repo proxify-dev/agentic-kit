@@ -1,0 +1,9 @@
+{
+  "name": "ak",
+  "description": "The ak command, and ak setup, the kit's installer: it checks your machine, installs the plugins you pick, and takes a run back with ak setup undo. Its own verbs: plugin ls, inspect and log (what your plugins put in front of your agent) and hooks (which hook ran, when, how long); with the gateway, gateway, xray (the exact prompt a claude launch would send, as a dry run), sysprompt and shim. Every other kit plugin adds its verbs to it: the tracer's are ak sessions and ak trace. A uv tool, kept up to date when a session starts.",
+  "version": "4.3.1",
+  "visibility": "public",
+  "setup": {"summary": "the ak command every other plugin plugs into",
+            "gives": ["ak — what is installed, and every verb the plugins below add"],
+            "changes": "the ak command in ~/.local/bin, kept up to date when a session starts"}
+}

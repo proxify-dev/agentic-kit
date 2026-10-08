@@ -1,2 +1,0 @@
-[agentic-engineering: agent text] an agent reads this file cold, every line, each time it loads: steps and pointers, one fact in one place, nothing written for a person. The file holds only that text; its why and history go in the commit and the eval's story.
-The words: skill context-engineering.

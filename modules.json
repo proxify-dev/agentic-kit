@@ -1,0 +1,43 @@
+{
+  "//": [
+    "What the kit installs but does not carry: each module is its own repo, pinned to a released version.",
+    "id: the component `ak setup` shows (`ak setup --only <id>`). A module either ships a Claude Code",
+    "plugin (plugin: its name, source: a marketplace source at the pinned tag; scripts/kit.py lists it in",
+    "kit/.claude-plugin/marketplace.json) or is installed by its own script (install: the path in the repo,",
+    "fetched at tag v<version> through gh when logged in, else curl, and run as `sh <it> --version <version>`).",
+    "setup: what ak setup needs to know, the same block a plugin.json may carry (catalog.py says its keys)."
+  ],
+  "modules": [
+    {
+      "id": "shim",
+      "repo": "teocns/cc-shim",
+      "version": "0.1.1",
+      "install": "install.sh",
+      "label": "claude shim",
+      "description": "The claude on your PATH becomes a wrapper that runs your fragments and appends your system prompt.",
+      "setup": {"summary": "the wrapper the claude you type goes through", "group": "Launcher", "comes_with": "gateway",
+                "gives": ["ak sysprompt — your own instructions, added to every claude you start",
+                          "small scripts of yours that run before claude starts (its conf.d folder)",
+                          "claude --account <name>, with the gateway — start on the account you name"],
+                "changes": "the claude you type becomes a small wrapper, first on your PATH through one line in your shell's startup files; the real claude is untouched",
+                "route": "claude → shim → Claude Code → Anthropic, on Claude Code's own login",
+                "default": false, "needs": {"os": ["macos", "linux", "wsl"], "bins": ["node>=22.13", "claude"]}}
+    },
+    {
+      "id": "gateway",
+      "repo": "teocns/cc-gateway",
+      "version": "0.1.1",
+      "install": "install.sh",
+      "label": "gateway",
+      "description": "Routes every model call through one local service: accounts, redaction, a record of what was sent.",
+      "setup": {"summary": "all your Claude accounts behind one claude", "group": "Launcher",
+                "gives": ["claude --account <name> — start on the account you name",
+                          "the next account answers when one runs out",
+                          "ak gateway — your accounts, and what went through it",
+                          "ak sysprompt — your own instructions on every claude"],
+                "changes": "the claude you type becomes a small wrapper, the claude shim (the real one untouched) · a background service on 127.0.0.1:4747 that every model call goes through · you sign in to your Claude account once",
+                "route": "claude → shim → Claude Code → gateway → Anthropic, on your accounts in turn",
+                "default": false, "depends_on": ["shim"], "needs": {"os": ["macos", "linux", "wsl"], "bins": ["node>=22.7"], "service": true}}
+    }
+  ]
+}

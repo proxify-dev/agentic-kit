@@ -1,7 +1,8 @@
-"""Each block has one home, prompts/<name>.txt, and the hooks deploy the whole file verbatim at its moment.
+"""Each block has one home, prompts/<moment>.<name>.md, and the hooks deploy its body verbatim at its moment.
 
-The file is the text the agent reads and nothing else: no frontmatter, no headings, no why (that lives
-in the commit and the eval's story). This test holds that shape, the budgets and the wiring.
+The frontmatter is for the person editing the block: why, from, evals. The hook strips it, so the body is
+the text the agent reads and nothing else: no headings, no fences, no bold. This test holds that shape,
+the budgets and the wiring.
 The session line is also held by plugins/memory/tests/test_session_start_contract.py (800
 characters a plugin and 2,400 together in a program's session, with a vault planted; nothing written).
 """
@@ -11,32 +12,45 @@ import json
 import re
 
 import pytest
-from blocks import PROMPTS, load, tag
+from blocks import PROMPTS, load, name_of, path, split, tag
 from conftest import PLUGIN, PROMPT, run, snapshot, write_transcript
 
+SESSION = "where-instructions-go"
 # session: HOOKS.md §3 gives all start lines 2,400 together in a program's session; with a vault the
 # five plugins print 2,399 (2026-09-28). The contract test holds the sum, this the plugin's own share.
 # The others: the kit's design sized each block; a block over its budget is cut, not raised.
-BUDGET = {"session": 370, "instruction-files": 628, "agent-text": 307, "brief": 388, "hooks": 376,
+BUDGET = {SESSION: 370, "instruction-files": 628, "agent-text": 307, "brief": 388, "hooks": 376,
           "skills": 486, "evals": 617}
 # The one skill each block names: the block sends the agent there, it never waits to be picked.
-DEPTH = {"session": "harness-engineering", "hooks": "harness-engineering",
+DEPTH = {SESSION: "harness-engineering", "hooks": "harness-engineering",
          "instruction-files": "context-engineering", "agent-text": "context-engineering", "brief": "context-engineering",
          "skills": "skill-development", "evals": "evals"}
-ON_EDIT = sorted(set(BUDGET) - {"session"})
+ON_EDIT = sorted(set(BUDGET) - {SESSION})
+EVALS = PLUGIN / "evals"
 LAUNCH = 'uv run --quiet --no-project --python ">=3.10" "${CLAUDE_PLUGIN_ROOT}/hooks/%s"'
 BASH = {"Bash(claude *)": "evals", "Bash(env *claude *)": "evals", "Bash(tmux *)": "evals"}
 
 
 @pytest.mark.parametrize("name", sorted(BUDGET))
 def test_each_block_is_only_the_text_the_agent_reads(name):
-    text = (PROMPTS / f"{name}.txt").read_text(encoding="utf-8")
-    assert not text.startswith("---"), f"{name}: frontmatter is for a reader who never sees this file"
-    assert not re.search(r"^#{1,6} |^```|\*\*", text, re.M), f"{name}: markdown the agent pays for and never needs"
+    body = load(name)
+    assert not body.startswith("---"), f"{name}: a second frontmatter would reach the agent"
+    assert not re.search(r"^#{1,6} |^```|\*\*", body, re.M), f"{name}: markdown the agent pays for and never needs"
+
+
+@pytest.mark.parametrize("name", sorted(BUDGET))
+def test_each_block_says_why_where_from_and_which_evals(name):
+    front = split(path(name).read_text(encoding="utf-8"))[0]
+    for field in ("why", "from", "evals"):
+        assert re.search(rf"^{field}:", front, re.M), f"{name}: frontmatter needs `{field}:`"
+    assert len(re.findall(r"^\S", front, re.M)) == 3, f"{name}: why, from, evals and nothing else (git holds the rest)"
+    cases = re.search(r"^evals: \[(.*)\]$", front, re.M).group(1).split(", ")
+    assert all((EVALS / c / "story.json").is_file() for c in cases), f"{name}: every case in evals: exists"
 
 
 def test_prompts_holds_only_blocks_with_a_budget():
-    assert sorted(p.name for p in PROMPTS.iterdir()) == sorted(f"{n}.txt" for n in BUDGET)
+    assert sorted(name_of(p) or p.name for p in PROMPTS.iterdir()) == sorted(BUDGET), \
+        "every file is prompts/<moment>.<name>.md, its moment one of blocks.MOMENTS"
 
 
 @pytest.mark.parametrize("name,limit", sorted(BUDGET.items()))
@@ -66,7 +80,7 @@ def test_session_says_the_map_and_nothing_else(home, event, entrypoint):
     before = snapshot(home)
     r = run("session.py", payload, home, entrypoint=entrypoint)
     assert r["rc"] == 0, r["stderr"][-400:]
-    assert r["out"] == {"hookSpecificOutput": {"hookEventName": event, "additionalContext": load("session")}}
+    assert r["out"] == {"hookSpecificOutput": {"hookEventName": event, "additionalContext": load(SESSION)}}
     assert len(r["ctx"]) <= 800, "plugins/HOOKS.md §3: a plugin's line in a program's session"
     assert snapshot(home) == before, "the start hook writes nothing"
 

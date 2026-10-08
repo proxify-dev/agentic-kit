@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# `trace …` is `tracer trace …`: the short name the tracer's skills write. hooks/session.py puts this folder
+# first on the Bash tool's PATH (CLAUDE_ENV_FILE), so it wins over macOS's /usr/bin/trace in the session.
+set -euo pipefail
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/bin/tracer" trace "$@"

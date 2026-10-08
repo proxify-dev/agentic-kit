@@ -41,9 +41,33 @@ conversation, with a fixed brief (tasks walked through the links, each Claude Co
 stated twice, steps the reader cannot run, metaphors). The blocks still reach it, because the plugin's
 hooks fire inside subagents too.
 
-## /new-agent and /new-skill
+## /new-plugin, /new-agent and /new-skill
 
-Two commands that make a new agent or skill file, three ways (`hooks/new.tsx`):
+Three commands in `hooks/new.tsx`. `/new-plugin` makes your own plugin: one folder, tracked with git, for the
+skills and agents you want in every project. `/new-agent` and `/new-skill` make a new agent or skill file, by
+default in that plugin.
+
+```
+  /new-plugin my-tools                          (or /new-plugin --name my-tools --folder ~/code/my-tools, or a form)
+     ├─ writes ~/my-tools-claude/: .claude-plugin/plugin.json, .claude-plugin/marketplace.json (a marketplace of
+     │  this one plugin, source "./"), skills/, agents/, README.md (templates/plugin-README.md), .gitignore,
+     │  AGENTS.md (templates/plugin-AGENTS.md: where things go, and /plugin-authoring and
+     │  /agentic-engineering:harness-engineering for advanced customization), CLAUDE.md (@AGENTS.md: Claude Code
+     │  reads CLAUDE.md, not AGENTS.md)
+     ├─ runs  git init · claude plugin marketplace add ~/my-tools-claude · claude plugin install my-tools@my-tools --scope user
+     ├─ keeps {name, folder} in this plugin's store, then runs /reload-plugins
+     └─ you see   created your plugin my-tools at ~/my-tools-claude: /new-skill and /new-agent write there now
+```
+
+- **Live**: Claude Code reads a plugin from a directory marketplace's folder, not from a copy (`claude plugin
+  update` says so on 2.1.294): an edit there loads at `/reload-plugins` or the next session.
+- **Refused**: a folder with other files in it, a name another plugin or marketplace has, a bad name. A failing
+  `claude plugin` step stops it with that command's last line, and no plugin is kept.
+- **A folder that already holds the plugin** (a clone on a new machine, a run that stopped half-way): it is added and
+  installed, and only a missing `marketplace.json` is written. Nothing else in the folder is written over.
+- **Names**: Claude Code puts the plugin's name before each skill and agent in it (`/my-tools:release-notes`).
+
+`/new-agent` and `/new-skill` make a new agent or skill file, three ways:
 
 ```
   /new-agent --name code-reviewer --description "Reviews diffs for bugs"
@@ -77,8 +101,12 @@ Two commands that make a new agent or skill file, three ways (`hooks/new.tsx`):
   checks a template still has what the command replaces: one single-line `name:` and `description:`, and links
   that resolve.
 - **Never overwrites**: an existing file is left untouched, and the command says so.
-- **Where**: under the session's working directory. A `.claude/agents/` that did not exist when the session
-  started is not watched: the new agent loads in the next session.
+- **Where**: with a plugin of yours, in it (the same path without `.claude/`: `skills/<name>/SKILL.md`,
+  `agents/<name>.md`), then `/reload-plugins` runs so it loads now; the form's Where row, or `--where project`,
+  writes under the session's working directory instead. Without one, under the working directory: a
+  `.claude/agents/` that did not exist when the session started is not watched, and the new agent loads in the
+  next session. A plugin whose folder no longer holds its `plugin.json` is ignored. Design with Claude and free
+  text add where the file goes to the words: `(put it in my plugin my-tools: <folder>/agents/<name>.md)`.
 - **Headless** (`claude -p`, the SDK): the flags and free text work the same; with nothing after the command, the usage.
 - **Runs the moment you type it**, even while the agent is mid-turn.
 
@@ -102,9 +130,9 @@ this: a skill's text always goes to the model, and a hook that blocks a skill's 
 - The module loads only with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`; without it the commands are missing and the
   rest of the plugin works as before. `/new-agent` missing from the `/` menu means it did not load:
   `claude plugin validate plugins/agentic-engineering` lists the module and the hooks the loader sees.
-- A skill or command of yours named `new-agent` or `new-skill` wins: Claude Code refuses the plugin's command at
-  session start.
-- Tested on Claude Code 2.1.292. The mods API is early access.
+- A skill or command of yours named `new-agent`, `new-skill` or `new-plugin` wins: Claude Code refuses the plugin's
+  command at session start.
+- Tested on Claude Code 2.1.292; `/new-plugin` on 2.1.294. The mods API is early access.
 
 From the repo root, in order:
 

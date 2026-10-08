@@ -1,0 +1,29 @@
+{
+  "name": "agentic-kit",
+  "owner": {
+    "name": "Proxify"
+  },
+  "metadata": {
+    "description": "Power-user tooling for Claude Code: the ak command, the session tracer, the agentic-engineering skills, and the modules they work with (cc-gateway, cc-shim)."
+  },
+  "plugins": [
+    {
+      "name": "ak",
+      "source": "./plugins/ak",
+      "description": "The ak command, and ak setup, the kit's installer: it checks your machine, installs the plugins you pick, and takes a run back with ak setup undo. Its own verbs: plugin ls, inspect and log (what your plugins put in front of your agent) and hooks (which hook ran, when, how long); with the gateway, gateway, xray (the exact prompt a claude launch would send, as a dry run), sysprompt and shim. Every other kit plugin adds its verbs to it: the tracer's are ak sessions and ak trace. A uv tool, kept up to date when a session starts.",
+      "version": "4.3.1"
+    },
+    {
+      "name": "agentic-engineering",
+      "source": "./plugins/agentic-engineering",
+      "description": "Agentic engineering kit: seven skills (context engineering, harness engineering, skill development, agent development, evals, sandboxing, fewer faster tests), most named by a short block a hook prints at the moment it applies; an agentic-engineer agent that starts with two of them loaded; /new-plugin, which makes your own plugin in a folder you pick; and /new-agent and /new-skill, which write the file into that plugin or the project from the skill's template, or hand your words to Claude with the skill loaded (a Claude Mod: needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1).",
+      "version": "0.13.1"
+    },
+    {
+      "name": "tracer",
+      "source": "./plugins/tracer",
+      "description": "Which session did what — a structural index over Claude Code's own transcripts (~/.claude/projects/*.jsonl), verbatim, no LLM pass. Its own command, `tracer` (bin/, on the Bash PATH while the plugin is on), with two groups: `tracer sessions` (ls · live · show · replay · turns · search — the conversations) and `tracer trace` (every tool call, plus turn · blame · index — what was done in them); every older spelling still runs, unlisted. With the ak CLI installed the same groups are also `ak sessions` and `ak trace`. Also the /tracer:trace, :blame and :index skills, and a Stop-hook index writer (it also launches the tool-call indexer this plugin ships under traces/, the store behind `tracer trace`). Its index lives under ~/.claude/plugins/data/conversation-index; it needs no vault, no ak and no other plugin.",
+      "version": "2.7.1"
+    }
+  ]
+}

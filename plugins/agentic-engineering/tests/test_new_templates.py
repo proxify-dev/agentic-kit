@@ -1,8 +1,8 @@
-"""The templates /new-agent and /new-skill copy (hooks/new.tsx), read as fill() reads them.
+"""The templates /new-agent, /new-skill and /new-plugin copy (hooks/new.tsx), read as the mod reads them.
 
 fill() sets the first `name: ` and `description: ` lines, each replaced whole, and turns `](./file)` links into
-the skill's name. The mod's own tests use cut-down templates (they have no disk), so a change to a real one is
-checked here.
+the skill's name. scaffold() replaces `{{name}}` in the plugin's README and nothing else. The mod's own tests use
+cut-down templates (they have no disk), so a change to a real one is checked here.
 """
 import re
 from pathlib import Path
@@ -10,6 +10,19 @@ from pathlib import Path
 import pytest
 
 SKILLS = Path(__file__).resolve().parent.parent / "skills"
+TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
+
+
+@pytest.mark.parametrize("template", ["plugin-README.md", "plugin-AGENTS.md"])
+def test_plugin_templates_have_only_the_name_to_fill(template):
+    text = (TEMPLATES / template).read_text(encoding="utf-8")
+    assert set(re.findall(r"\{\{(\w+)\}\}", text)) == {"name"}, f"scaffold() fills {{{{name}}}} alone; another {{{{…}}}} would stay in the user's {template}"
+
+
+def test_plugin_agents_md_names_the_skills_for_advanced_customization():
+    text = (TEMPLATES / "plugin-AGENTS.md").read_text(encoding="utf-8")
+    assert "/plugin-authoring" in text and "/agentic-engineering:harness-engineering" in text
+    assert (SKILLS / "harness-engineering" / "SKILL.md").is_file(), "plugin-AGENTS.md names a skill this plugin no longer ships"
 
 
 @pytest.mark.parametrize("skill", ["agent-development", "skill-development"])

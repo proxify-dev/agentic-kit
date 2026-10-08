@@ -1,0 +1,9 @@
+dialogue_limit: 30
+query_limit: 5
+observer_limit: 15
+include_structure: true
+include_observer: true
+dialogue_full: false
+include_delegated: true
+include_artifacts: true
+artifact_lines: 40

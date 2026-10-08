@@ -1,0 +1,18 @@
+{
+  "name": "traces",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "The tool-call index: one row per tool_use_id from every session, kept by the tracer Stop hook's one-shot and read by `ak tracer calls` (hoisted: `ak trace`). dist/traces.mjs is the only artefact a user runs.",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "link:dev": "ln -sfn ../../../app/node_modules node_modules"
+  },
+  "link:dev-why": "MONOREPO PERIOD ONLY. The sources import nothing but node:*; the one package here is esbuild, for the build. node_modules is a relative SYMLINK to app/node_modules (gitignored, recreated by `npm run link:dev`) rather than a second install, so the app and this bundle build with the same esbuild and bundle-fresh compares like with like.",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
