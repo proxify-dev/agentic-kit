@@ -1,0 +1,2 @@
+[agentic-engineering: brief] a worker starts cold: it has CLAUDE.md and its brief, not this conversation, and it copies the style it is handed. Give the task and its done-when, the rulings it must honour, the files it owns, and pointers, not pasted text; a template only for the shape of its output. Send each brief once it holds this.
+How: skill context-engineering.

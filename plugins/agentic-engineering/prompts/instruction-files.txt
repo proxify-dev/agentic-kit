@@ -1,0 +1,5 @@
+[agentic-engineering: instruction-files] CLAUDE.md and AGENTS.md are prompts: every session working in this folder reads every line and obeys it, so a finding, work left or how-to steps written here become orders; they go to the session's memory tool.
+Each line: an instruction and its reason, one fact in one place, under 200 lines.
+A rule a plugin injects stays in the plugin: a copy here drifts.
+With an AGENTS.md, shared lines go there and CLAUDE.md is `@AGENTS.md` plus Claude-only lines; where a CLAUDE.md sits here or above, Claude reads AGENTS.md only through that import.
+The words: skill context-engineering.

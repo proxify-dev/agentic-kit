@@ -1,0 +1,17 @@
+[project]
+name = "agentic-engineering"
+version = "0.11.0"
+description = "Agentic engineering kit: seven skills (context engineering, harness engineering, skill development, agent development, evals, sandboxing, fewer faster tests), most named by a short block a hook prints at the moment it applies; an agentic-engineer agent that starts with two of them loaded; and /new-agent and /new-skill, which write the file from the skill's template or hand your words to Claude with the skill loaded (a Claude Mod: needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1)."
+requires-python = ">=3.10"
+dependencies = []
+
+# Nothing to install: the hooks run on the standard library through `uv run --no-project`. This project exists so
+# `uv run pytest -q` is the gate; uv includes the dev group by default.
+[dependency-groups]
+dev = ["pytest>=8", "click>=8"]  # click: only to test scripts/cli.py, the shim ak loads
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

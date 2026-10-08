@@ -1,0 +1,76 @@
+{
+  "description": "Blocks from prompts/, each said at its moment: the start line at every start (session.py); before an edit, a brief or an eval run, the block for that moment (on_edit.py; one Bash handler per `if`, each naming its moment); a CLAUDE.md lint and a note to the person after (after_edit.py). The module new.tsx (a Claude Mod, loaded only with CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1) is /new-agent and /new-skill: --name/--description writes the file from the skill's template, free text runs the skill's command, nothing opens a form.",
+  "modules": ["./new.tsx"],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Agent|Task|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/on_edit.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(claude *)",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/on_edit.py\" evals",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(env *claude *)",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/on_edit.py\" evals",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(tmux *)",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/on_edit.py\" evals",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/after_edit.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

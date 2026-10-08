@@ -1,0 +1,2 @@
+- Wrapping a command-line tool as an MCP server for an agent (was "bash-mcp" in SKILL.md): write short instructions, or decide the `bin/` folder covers it.
+- body.md § Cutting it may belong in context-engineering § Pruning, which already says a line the model would follow anyway is a no-op (was "Move below to another surface" in body.md).
