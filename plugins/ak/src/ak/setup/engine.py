@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from ak._brand import CLI, claude_home, cmd, config_dir, data_dir, env_name, is_windows, spawn_detached, which_exe
+from ak._brand import CLI, claude_home, cmd, config_dir, env, env_name, is_windows, spawn_detached, which_exe
 from ak.move.doctor import _f
 from ak.setup import catalog, claude_cli, settings, source
 from ak.setup.backup import Run
@@ -44,6 +44,10 @@ class Step:
     interactive: bool = False       # needs the terminal (a browser login)
     background: bool = False        # a plugin's first run: started on its own, so it keeps going after setup ends
     edits: list[settings.SettingsEdit] = field(default_factory=list)  # a settings step: the keys it sets
+    needs_key: tuple[str, ...] = ()  # a settings step that adds to an object another step wrote: skipped when it is not there
+    # (plugin id, the folder its argv and cwd were planned with): when the step runs, that folder becomes the plugin's
+    # installPath in installed_plugins.json, which the install step before it wrote
+    plugin_root: tuple[str, str] | None = None
 
 
 @dataclass
@@ -70,6 +74,7 @@ LET_GO = threading.Event()
 RunInteractive = Callable[[Step, Callable[[], int]], int]
 
 IN_PLACE = "already in place"
+KEPT_BY_CLAUDE = "Claude Code clones it"  # the release row of a kit at a URL: the marketplace step makes the clone
 # The probe of Machine whose answer a component's state is read from; when it failed, the component is left alone.
 PROBE_OF = {"release": "release", "marketplace": "marketplaces", "ak-tool": "uv_tools", "shim": "shim", "gateway": "gateway"}
 SHIM_DIR = "cc-shim"  # the folder the shim installs itself into, under the data dir (shim/cc-shim.mjs NAME)
@@ -100,6 +105,41 @@ def _release_path(m: Machine) -> str:
     return m.release.path if m.release else str(source.release_dir())
 
 
+@dataclass(frozen=True)
+class Kit:
+    """Where the kit comes from and where it sits on disk.
+    by_claude: a URL Claude Code clones (github, https, http, ssh): `claude plugin marketplace add <it>` makes the clone at
+    <claude home>/plugins/marketplaces/<name> and Claude Code updates it. Else a path or a file:// URL: setup clones it
+    to the release clone, a local folder Claude Code reads and never updates."""
+    url: str | None   # --repo, $AK_REPO_URL, or what source.repo_url() finds; None when nothing says
+    by_claude: bool
+    dir: str          # the kit on disk: Claude Code's marketplace clone, or the release clone
+
+    @property
+    def source(self) -> str:
+        """What `claude plugin marketplace add` is given: owner/repo, the git URL, or the release clone's path."""
+        return source.marketplace_source(self.url) if self.by_claude else self.dir
+
+
+def kit_of(m: Machine, repo: str | None = None) -> Kit:
+    """The kit's source on m. Unless --repo or $AK_REPO_URL names one, a marketplace Claude Code already cloned
+    decides (status on a machine set up from a URL); else source.repo_url()."""
+    market = catalog.MARKETPLACE
+    row = m.marketplace_rows.get(market) or {}
+    url = repo or env("REPO_URL")
+    if not url and row.get("source") in source.GIT_SOURCES:
+        url = source.url_of(row)
+    url = url or source.repo_url(None)
+    if not source.cloned_by_claude(url):
+        return Kit(url, False, _release_path(m))
+    here = row.get("installLocation") if row.get("source") in source.GIT_SOURCES else None
+    return Kit(url, True, here or str(source.marketplace_clone(market)))
+
+
+def _kit_on_disk(kit: Kit) -> bool:
+    return catalog._is_kit(Path(kit.dir))
+
+
 def _line(argv: list[str]) -> str:
     return shlex.join(argv)
 
@@ -117,12 +157,13 @@ def _rc_files(names: tuple[str, ...]) -> list[str]:
 
 
 # ── one maker per component: its steps, [] when it is in place, Refusal when it can't be ──────────────
-def _release(m: Machine, rel: str, repo: str | None) -> list[Step]:
+def _release(m: Machine, kit: Kit) -> list[Step]:
     if m.release and m.release.exists:
         return []
+    rel = kit.dir
     if os.path.isdir(rel) and os.listdir(rel):
         raise Refusal(f"{rel} exists and is not a clone of the kit; move it away or pick another {env_name('HOME')}")
-    url = source.repo_url(repo)
+    url = kit.url
     if not url:
         raise Refusal(f"no repo URL: pass --repo or set {env_name('REPO_URL')}")
     argv = [_exe(m, "git"), "clone", url, rel]
@@ -130,7 +171,78 @@ def _release(m: Machine, rel: str, repo: str | None) -> list[Step]:
                  undo={"kind": "clone", "path": rel})]
 
 
-def _marketplace(m: Machine, rel: str, repo: str | None) -> list[Step]:
+AUTO_UPDATE = "autoUpdate"
+REMOVE_NOTE = ("removing the marketplace also uninstalls every plugin from it, deletes their data folders "
+               "(<claude home>/plugins/data/<plugin>-{market}) and empties its extraKnownMarketplaces and enabledPlugins "
+               "entries; tracer's index (plugins/data/conversation-index) and the cached plugin copies stay on disk")
+
+
+def _kind(here: str, row: dict) -> str:
+    """A marketplace's source kind: its listing row's, else guessed from where it comes from."""
+    return row.get("source") or ("directory" if os.path.isabs(here) else "github" if source.github_repo(
+        "https://github.com/" + here) == here else "git")
+
+
+def _same_marketplace(m: Machine, market: str, kit: Kit) -> bool:
+    here = m.marketplaces.get(market) or ""
+    row = m.marketplace_rows.get(market) or {"source": _kind(here, {}), "repo": here, "url": here}
+    return source.same_source(row, kit.url or "")
+
+
+def _move_over(market: str, kit: Kit) -> str:
+    return (f"claude plugin marketplace remove {market} (it also uninstalls the kit's plugins), then "
+            f"{cmd('setup --repo ' + shlex.quote(kit.url or ''))}")
+
+
+def _auto_update(m: Machine, market: str, kit: Kit) -> Step | None:
+    """extraKnownMarketplaces.<market>.autoUpdate = true in settings.json, added to the entry `marketplace add` writes
+    (and rewrites without the key on every add). None when the key holds a value already: true, or the person's false."""
+    key = ("extraKnownMarketplaces", market, AUTO_UPDATE)
+    if _setting_held(m, key) is not settings.ABSENT:
+        return None
+    entry = ("extraKnownMarketplaces", market, "source")
+    assume = [] if _setting_held(m, entry) is not settings.ABSENT else \
+        [settings.SettingsEdit(entry, source.settings_source(kit.url or ""))]  # what `marketplace add` will have written
+    try:
+        sp = settings.plan([settings.SettingsEdit(key, True)], assume=assume)
+    except ValueError as e:
+        raise Refusal(str(e)) from None
+    return Step("marketplace:auto-update", "marketplace", f"turn on auto-update for the {market} marketplace", "settings",
+                touches=[sp.path], preview=sp.diff, edits=[settings.SettingsEdit(key, True)], needs_key=key[:2])
+
+
+def _marketplace(m: Machine, kit: Kit) -> list[Step]:
+    return (_marketplace_by_claude if kit.by_claude else _marketplace_local)(m, kit)
+
+
+def _marketplace_by_claude(m: Machine, kit: Kit) -> list[Step]:
+    """`claude plugin marketplace add <owner/repo or URL>`: Claude Code clones the kit and keeps it current; then
+    auto-update on, which a second run repairs (every add rewrites the settings entry without it)."""
+    market = catalog.MARKETPLACE
+    here = m.marketplaces.get(market)
+    steps: list[Step] = []
+    if here is not None:
+        if _kind(here, m.marketplace_rows.get(market) or {}) == "directory":
+            raise Refusal(f"the {market} marketplace is the local folder {here}, from an older setup, and Claude Code never "
+                          f"updates a local folder; setup does not remove it. To move over: {_move_over(market, kit)}")
+        if not _same_marketplace(m, market, kit):
+            raise Refusal(f"the {market} marketplace comes from {here}, not from {kit.source}; setup never re-points it "
+                          f"(claude plugin marketplace remove {market}, then run setup again)")
+    else:
+        exe = m.bin("claude").path
+        undo = {**claude_cli.marketplace_remove(market, exe).undo(), "note": REMOVE_NOTE.format(market=market)}
+        add = _from_call("marketplace", "marketplace", f"add the {market} marketplace from {kit.source}",
+                         claude_cli.marketplace_add(kit.source, exe), undo)
+        add.preview += (f"\n# Claude Code clones it to {kit.dir} and keeps it current"
+                        f"\n# undo runs claude plugin marketplace remove {market}: " + REMOVE_NOTE.format(market=market))
+        steps.append(add)
+    auto = _auto_update(m, market, kit)
+    return steps + ([auto] if auto else [])
+
+
+def _marketplace_local(m: Machine, kit: Kit) -> list[Step]:
+    """`claude plugin marketplace add <release clone>`: a local folder, which Claude Code never updates."""
+    rel = kit.dir
     market = catalog.MARKETPLACE
     here = m.marketplaces.get(market)
     if here is not None:
@@ -152,13 +264,29 @@ def _plugin(c: catalog.Component, m: Machine) -> list[Step]:
                        claude_cli.uninstall(pid, exe).undo())]
 
 
-def _venv_warm(c: catalog.Component, m: Machine, rel: str) -> Step:
-    argv = [_exe(m, "uv"), "sync", "--frozen", "--project", os.path.join(rel, "plugins", c.plugin)]
-    return _exec(f"venv:{c.id}", c.id, f"build the {c.id} environment", argv, long=True,
+def _plugin_folder(c: catalog.Component, kit: Kit) -> str:
+    """Where the plugin runs from: for a kit at a URL, Claude Code's cached copy (installed_plugins.json's installPath,
+    else where the install puts it: <claude home>/plugins/cache/<marketplace>/<plugin>/<version>; a plugin_root step
+    reads it again when it runs); else its folder in the release clone."""
+    if not kit.by_claude:
+        return os.path.join(kit.dir, "plugins", c.plugin)
+    return claude_cli.install_path(catalog.plugin_id(c)) or os.path.join(
+        str(claude_home()), "plugins", "cache", catalog.MARKETPLACE, c.plugin, c.version or "<version>")
+
+
+def _root_of(c: catalog.Component, kit: Kit, folder: str) -> tuple[str, str] | None:
+    return (catalog.plugin_id(c), folder) if kit.by_claude else None
+
+
+def _venv_warm(c: catalog.Component, m: Machine, kit: Kit) -> Step:
+    """uv sync where the plugin's hooks will run (CLAUDE_PLUGIN_ROOT)."""
+    folder = _plugin_folder(c, kit)
+    argv = [_exe(m, "uv"), "sync", "--frozen", "--project", folder]
+    return _exec(f"venv:{c.id}", c.id, f"build the {c.id} environment", argv, long=True, plugin_root=_root_of(c, kit, folder),
                  undo={"kind": "none", "note": f"the {c.id} environment is a cache; the plugin builds it on demand"})
 
 
-def _size(n: int) -> str:
+def _size(n: float) -> str:
     """1536 → "1.5 KB", 7_340_032_000 → "6.8 GB": a size a person reads."""
     for unit in ("B", "KB", "MB", "GB"):
         if n < 1024 or unit == "GB":
@@ -167,9 +295,10 @@ def _size(n: int) -> str:
     return f"{n} GB"
 
 
-def _first_run(c: catalog.Component, m: Machine, rel: str) -> Step | None:
-    """The plugin's first run (its setup block), run from its folder in the release clone; None when there is nothing
-    for it to read yet (no Claude Code history on this machine)."""
+def _first_run(c: catalog.Component, m: Machine, kit: Kit) -> Step | None:
+    """The plugin's first run (its setup block), run from its folder: Claude Code's cached copy for a kit at a URL
+    (where its environment was warmed; never Claude Code's marketplace clone, which an update replaces whole), else
+    the release clone. None when there is nothing for it to read yet (no Claude Code history on this machine)."""
     fr = c.first_run
     title = fr.title
     if fr.reads == "history":
@@ -177,31 +306,32 @@ def _first_run(c: catalog.Component, m: Machine, rel: str) -> Step | None:
             return None
         size, sessions = m.history
         title += f" ({_size(size)} · {sessions:,} session{'s' * (sessions != 1)})"
-    folder = os.path.join(rel, "plugins", c.plugin)
+    folder = _plugin_folder(c, kit)
     exe = os.path.join(folder, *PurePosixPath(fr.run[0]).parts)  # plugin.json says it the POSIX way
     if is_windows() and os.path.isfile(exe + ".cmd"):  # a plugin's bin/ launcher is a .cmd beside the sh one there
         exe += ".cmd"
     argv = [exe, *fr.run[1:]]
     return Step(f"first-run:{c.id}", c.id, title, "exec", argv, cwd=folder, preview=_line(argv), background=True,
+                plugin_root=_root_of(c, kit, folder),
                 undo={"kind": "none", "note": f"what {c.id}'s first run wrote is its own store, rebuilt from your files"})
 
 
-def _ak_tool(m: Machine, rel: str, repo: str | None) -> list[Step]:
+def _ak_tool(m: Machine, kit: Kit) -> list[Step]:
     if source.DIST in m.uv_tools:
         return []
     others = sorted(t for t, exes in m.uv_tool_exes.items() if any(e.removesuffix(".exe") == CLI for e in exes))
     if others:  # install-global.py uninstalls them, and an undo could not bring them back
         raise Refusal(f"the uv tool {', '.join(others)} already provides {CLI}, and installing the kit's would remove it; "
                       f"remove it yourself ({' && '.join('uv tool uninstall ' + t for t in others)}) and run setup again")
-    host = os.path.join(rel, "plugins", "ak")
-    env = {env_name("SRC"): host,
-           "CLAUDE_PLUGIN_DATA": os.path.join(str(claude_home()), "plugins", "data", f"ak-{catalog.MARKETPLACE}")}
+    host = os.path.join(kit.dir, "plugins", "ak")  # Claude Code's clone keeps this path across updates (it swaps the folder)
+    child_env = {env_name("SRC"): host,
+                 "CLAUDE_PLUGIN_DATA": os.path.join(str(claude_home()), "plugins", "data", f"ak-{catalog.MARKETPLACE}")}
     argv = [_exe(m, "uv"), "run", "--no-project", "--python", ">=3.10", os.path.join(host, "hooks", "install-global.py")]
-    return [_exec("ak-tool", "ak-tool", f"install the {CLI} command", argv, env=env, long=True,
+    return [_exec("ak-tool", "ak-tool", f"install the {CLI} command", argv, env=child_env, long=True,
                   undo={"kind": "exec", "argv": [_exe(m, "uv"), "tool", "uninstall", source.DIST]})]
 
 
-def _ak_path(m: Machine, rel: str, repo: str | None) -> list[Step]:
+def _ak_path(m: Machine, kit: Kit) -> list[Step]:
     if m.local_bin_on_path:
         return []
     files = _rc_files(UV_RCS) + [os.path.join(str(config_dir()), "fish", "conf.d", "uv.env.fish")]
@@ -238,7 +368,7 @@ def _gateway_launcher() -> str:
     return os.path.join(os.environ.get("CC_GATEWAY_BIN_DIR") or str(Path.home() / ".local" / "bin"), "cc-gateway")
 
 
-def _shim(m: Machine, rel: str, repo: str | None) -> list[Step]:
+def _shim(m: Machine, kit: Kit) -> list[Step]:
     legacy = bool(m.shim.get("legacy"))
     if m.shim.get("present") and not legacy:
         return []
@@ -254,7 +384,7 @@ def _shim(m: Machine, rel: str, repo: str | None) -> list[Step]:
     return [step]
 
 
-def _gateway(m: Machine, rel: str, repo: str | None) -> list[Step]:
+def _gateway(m: Machine, kit: Kit) -> list[Step]:
     if m.gateway.get("on"):
         return []
     launcher = _gateway_launcher()
@@ -326,10 +456,13 @@ def _in_place_note(c: catalog.Component, m: Machine) -> str:
 
 
 def plan(m: Machine, ids: list[str], repo: str | None = None) -> Plan:
-    """The steps that put ids (and what they need) in place on m. repo: what to clone from (else source.repo_url)."""
+    """The steps that put ids (and what they need) in place on m. repo: where the kit comes from (else kit_of's answer)."""
+    kit = kit_of(m, repo)
     ordered = catalog.with_deps(ids)
+    if kit.by_claude and "release" in ordered and "marketplace" not in ordered:  # Claude Code's clone is the kit
+        ordered = catalog.with_deps([*ids, "marketplace"])
     p = Plan(ordered)
-    rel = _release_path(m)
+    rel = kit.dir
     refused: set[str] = set()
     setting_components: list[catalog.Component] = []
     edits: list[settings.SettingsEdit] = []
@@ -350,12 +483,15 @@ def plan(m: Machine, ids: list[str], repo: str | None = None) -> Plan:
             else:
                 p.skipped[cid] = f"{'.'.join(c.settings_key)} already holds {json.dumps(held)}; left alone"
             continue
+        if not why and cid == "release" and kit.by_claude:  # no clone of setup's own: the marketplace step makes it
+            p.skipped[cid] = IN_PLACE if _kit_on_disk(kit) else f"{KEPT_BY_CLAUDE} (the marketplace step), to {kit.dir}"
+            continue
         if not why:
             try:
                 legacy_left = cid == "shim" and m.shim.get("legacy") and cid not in ids  # only there as a dependency
                 if not (legacy_left or c.plugin or cid in MAKERS):
                     raise Refusal(f"setup has no steps for {cid} yet")
-                made = [] if legacy_left else _plugin(c, m) if c.plugin else MAKERS[cid](m, rel, repo)
+                made = [] if legacy_left else _plugin(c, m) if c.plugin else MAKERS[cid](m, kit)
             except Refusal as e:
                 why, made = str(e), []
             if not why:
@@ -363,11 +499,11 @@ def plan(m: Machine, ids: list[str], repo: str | None = None) -> Plan:
                 if not made:
                     p.skipped[cid] = _in_place_note(c, m)
                 elif c.plugin in ("observer", "tracer"):
-                    p.steps.append(_venv_warm(c, m, rel))
+                    p.steps.append(_venv_warm(c, m, kit))
                 if c.plugin == "observer" and made:
                     p.skipped["observer.embed"] = embed_note(m)
                 if made and c.first_run:
-                    first = _first_run(c, m, rel)
+                    first = _first_run(c, m, kit)
                     if first:
                         p.steps.append(first)
                     else:
@@ -443,7 +579,7 @@ def _run_captured(step: Step, run: Run, emit: Emit) -> tuple[int, str]:
             log.write(f"{e}\n")
             return 127, str(e)
         try:
-            for raw in child.stdout:
+            for raw in child.stdout or ():
                 text = raw.rstrip("\r\n")
                 log.write(raw if raw.endswith("\n") else raw + "\n")
                 emit("line", **{"step": step, "text": text})  # a literal text= reads as a text-mode subprocess to windows-review
@@ -520,7 +656,11 @@ def command_line(step: Step) -> str:
 
 def _do_settings(step: Step, run: Run) -> tuple[str, str, dict]:
     """(status, detail, undo): the keys set, with what the file held when they were. A key somebody set
-    since the preview is left as it is, and the detail says so."""
+    since the preview is left as it is, and the detail says so. A step with needs_key adds to an object another
+    step wrote (`marketplace add`'s extraKnownMarketplaces entry): when that is not there it is skipped, never made."""
+    if step.needs_key and not settings.holds(step.needs_key):
+        return "skipped", f"settings.json has no {'.'.join(step.needs_key)} to add to; nothing was changed", \
+            {"kind": "none", "note": "nothing was changed"}
     sp = settings.plan(step.edits)
     # plan() only made edits for keys that held nothing; one that holds something now was set since the preview
     taken = [{"keypath": c["keypath"], "found": c["before"]} for c in sp.changes if c["before"] is not settings.ABSENT]
@@ -555,8 +695,22 @@ def _do_command(step: Step, run: Run, emit: Emit, run_interactive: RunInteractiv
 NOTHING_TO_TAKE_BACK = {"kind": "none", "note": "the step failed; nothing to take back"}
 
 
+def _bound(step: Step) -> Step:
+    """The step as it runs: a plugin_root step's planned folder, in its argv and cwd, becomes the installPath the
+    install before it wrote to installed_plugins.json (the version folder is only known then)."""
+    if not step.plugin_root:
+        return step
+    pid, planned = step.plugin_root
+    real = claude_cli.install_path(pid)
+    if not real or real == planned:
+        return step
+    swap = lambda w: real + w[len(planned):] if w == planned or w.startswith(planned + os.sep) else w  # noqa: E731
+    return dataclasses.replace(step, argv=[swap(w) for w in step.argv], cwd=swap(step.cwd) if step.cwd else step.cwd)
+
+
 def _perform(step: Step, run: Run, emit: Emit, run_interactive: RunInteractive | None) -> tuple[str, str, dict]:
     """(status, detail, undo) of one step: its touches snapshotted, then run."""
+    step = _bound(step)
     try:
         for path in step.touches:
             run.snapshot(path)
@@ -650,8 +804,39 @@ def _verify_settings(c: catalog.Component, m: Machine) -> dict:
     return _f(c.id, "fail", f"settings.json has no {name}", cmd(f"setup --only {c.id}"))
 
 
+def _verify_by_claude(c: catalog.Component, m: Machine, kit: Kit) -> dict:
+    """The kit's clone and its marketplace when Claude Code keeps them: the clone on disk, the marketplace a clone
+    of the kit's URL, auto-update on in settings.json (Claude Code lists it nowhere else)."""
+    market = catalog.MARKETPLACE
+    if c.id == "release":
+        if _kit_on_disk(kit):
+            return _f(c.id, "pass", f"Claude Code keeps the kit's clone at {kit.dir}")
+        return _f(c.id, "fail", f"no clone of the kit at {kit.dir}", cmd("setup --only marketplace"))
+    here = m.marketplaces.get(market)
+    if here is None:
+        return _f(c.id, "fail", f"the {market} marketplace is not added", cmd("setup --only marketplace"))
+    if _kind(here, m.marketplace_rows.get(market) or {}) == "directory":
+        return _f(c.id, "fail", f"the {market} marketplace is the local folder {here}: Claude Code never updates it",
+                  _move_over(market, kit))
+    if not _same_marketplace(m, market, kit):
+        return _f(c.id, "fail", f"the {market} marketplace comes from {here}, not from {kit.source}",
+                  f"claude plugin marketplace remove {market}, then {cmd('setup --only marketplace')}")
+    key = f"extraKnownMarketplaces.{market}.{AUTO_UPDATE}"
+    auto = _setting_held(m, ("extraKnownMarketplaces", market, AUTO_UPDATE))
+    if auto is settings.ABSENT:
+        return _f(c.id, "fail", f"the {market} marketplace is Claude Code's clone of {kit.source}, but auto-update is off "
+                  f"({key} is not in settings.json)", cmd("setup --only marketplace"))
+    if auto is not True:  # a value somebody set: setup leaves it
+        return _f(c.id, "warn", f"the {market} marketplace is Claude Code's clone of {kit.source}, but auto-update is off "
+                  f"({key} is {json.dumps(auto)} in settings.json)", f"set {key} to true in settings.json")
+    return _f(c.id, "pass", f"the {market} marketplace is Claude Code's clone of {kit.source}, auto-update on")
+
+
 def _verify_component(c: catalog.Component, m: Machine) -> dict | None:
-    rel = _release_path(m)
+    kit = kit_of(m)
+    rel = kit.dir
+    if kit.by_claude and c.id in ("release", "marketplace"):
+        return _verify_by_claude(c, m, kit)
     if c.id == "release":
         if m.release and m.release.exists:
             return _f(c.id, "pass", f"the release clone is at {rel}" + (f" ({m.release.head})" if m.release.head else ""))

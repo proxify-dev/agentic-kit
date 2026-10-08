@@ -3,6 +3,8 @@
 A tmp HOME and Claude home per test, and fake git / claude / uv / node / ak on PATH that append what
 they were asked (argv, and the environment the engine hands them) to one log. Nothing real is installed.
 """
+import dataclasses
+import json
 import os
 
 import pytest
@@ -10,7 +12,7 @@ from ak._brand import CLI, MARKETPLACE
 from ak.setup import backup, catalog, engine, settings, source
 from ak.setup.machine import Bin, Machine, Release
 
-URL = "https://example.test/kit.git"
+URL = "/srv/kits/agentic-kit"  # a local directory kit: setup clones it to the release clone, today's flow
 FAKE = """#!/bin/sh
 echo "NAME $* | AK_SRC=$AK_SRC CLAUDE_PLUGIN_DATA=$CLAUDE_PLUGIN_DATA CC_SHIM_DISABLE=$CC_SHIM_DISABLE CLAUDECODE=${CLAUDECODE-unset} PWD=$(pwd -P)" >> "$FAKE_LOG"
 [ "$FAKE_FAIL" = "NAME" ] && { echo "NAME: it broke" >&2; exit 1; }
@@ -124,7 +126,7 @@ def test_a_machine_with_everything_makes_no_step(box):
 
 def test_an_existing_clone_is_never_pulled_or_cloned_again(box):
     m = machine(box, release=Release(str(source.release_dir()), True, "9a86fc0f", URL), uv_tools=[source.DIST])
-    p = engine.plan(m, ["ak"], repo="https://elsewhere.test/other.git")
+    p = engine.plan(m, ["ak"], repo="/srv/kits/other")
     assert [s.id for s in p.steps] == ["marketplace", "plugin:ak"] and p.skipped["release"] == engine.IN_PLACE
     run_all(p)
     assert not any(c.startswith("git ") for c in commands(box))
@@ -587,3 +589,192 @@ def test_letting_go_of_a_background_step_leaves_it_running(box):
             break
         time.sleep(0.1)
     assert marker.exists(), "the step went on after setup stopped following it"
+
+
+# ── a kit at a URL: Claude Code keeps the clone ──────────────────────────────────────────────────────
+GITHUB = "https://github.com/proxify-dev/agentic-kit"
+
+
+def claude_clone(box):
+    """Claude Code's clone of the kit, as `marketplace add` leaves it: <claude home>/plugins/marketplaces/<name>."""
+    clone = box["claude"] / "plugins" / "marketplaces" / MARKETPLACE
+    (clone / "plugins" / "ak").mkdir(parents=True, exist_ok=True)
+    (clone / ".claude-plugin").mkdir(exist_ok=True)
+    (clone / ".claude-plugin" / "marketplace.json").write_text(json.dumps({"name": MARKETPLACE}))
+    return clone
+
+
+def declared(box, entry):
+    """settings.json with the extraKnownMarketplaces entry `marketplace add` writes."""
+    path = box["claude"] / "settings.json"
+    path.write_text(json.dumps({"extraKnownMarketplaces": {MARKETPLACE: entry}}, indent=2) + "\n")
+    return path
+
+
+def from_github(box, **kw):
+    """A machine set up from GitHub: the marketplace is Claude Code's clone, the default plugins enabled."""
+    clone = claude_clone(box)
+    row = {"name": MARKETPLACE, "source": "github", "repo": "proxify-dev/agentic-kit", "installLocation": str(clone)}
+    held = {"extraKnownMarketplaces": {MARKETPLACE: {"source": {"source": "github", "repo": "proxify-dev/agentic-kit"},
+                                                     "autoUpdate": True}}}
+    plugins = {f"{c.plugin}@{MARKETPLACE}": {"version": "3.0.0", "enabled": True, "scope": "user"}
+               for c in catalog.COMPONENTS if c.plugin}
+    have = dict(marketplaces={MARKETPLACE: "proxify-dev/agentic-kit"}, marketplace_rows={MARKETPLACE: row},
+                plugins=plugins, uv_tools=[source.DIST], settings=held)
+    return machine(box, **{**have, **kw})
+
+
+def test_a_kit_at_a_github_url_is_added_by_owner_repo_and_never_cloned_by_setup(box):
+    clone = f"{box['claude']}/plugins/marketplaces/{MARKETPLACE}"
+    p = engine.plan(machine(box), ["ak", "ak-tool"], repo=GITHUB)
+    assert [s.id for s in p.steps] == ["marketplace", "marketplace:auto-update", "plugin:ak", "ak-tool"]
+    add = p.steps[0]
+    assert add.argv[1:] == ["plugin", "marketplace", "add", "proxify-dev/agentic-kit"]
+    assert p.skipped["release"].startswith(engine.KEPT_BY_CLAUDE) and clone in p.skipped["release"]
+    # the undo removes the marketplace, and says what Claude Code takes with it
+    assert add.undo["argv"][1:] == ["plugin", "marketplace", "remove", MARKETPLACE]
+    assert "uninstalls every plugin" in add.undo["note"] and "conversation-index" in add.undo["note"]
+    assert "uninstalls every plugin" in add.preview and f"clones it to {clone}" in add.preview
+    tool = p.steps[-1]
+    assert tool.env["AK_SRC"] == f"{clone}/plugins/ak"  # the ak command runs from Claude Code's clone
+    assert tool.argv[-1] == f"{clone}/plugins/ak/hooks/install-global.py"
+    run_all(p)
+    assert not any(c.startswith("git ") for c in commands(box))
+
+
+def test_asking_for_the_kit_clone_alone_brings_the_marketplace_that_makes_it(box):
+    p = engine.plan(machine(box), ["ak-tool"], repo=GITHUB)
+    assert [s.id for s in p.steps] == ["marketplace", "marketplace:auto-update", "ak-tool"]
+
+
+def test_a_kit_at_another_url_is_added_as_that_git_url(box):
+    for url in ("http://localhost:8080/kit.git", "git@git.example.test:team/kit.git", "ssh://git@example.test/kit.git"):
+        add = engine.plan(machine(box), ["marketplace"], repo=url).steps[0]
+        assert add.id == "marketplace" and add.argv[-1] == url
+    add = engine.plan(machine(box), ["marketplace"], repo="git+https://github.com/proxify-dev/agentic-kit.git").steps[0]
+    assert add.argv[-1] == "proxify-dev/agentic-kit"  # uv's git+ prefix, GitHub: owner/repo
+
+
+def test_a_file_url_or_a_path_keeps_the_release_clone(box):
+    rel = str(source.release_dir())
+    for where in ("file:///srv/kits/agentic-kit", "/srv/kits/agentic-kit"):
+        p = engine.plan(machine(box), ["marketplace"], repo=where)
+        assert [s.id for s in p.steps] == ["release", "marketplace"]  # `marketplace add` refuses file://
+        assert p.steps[0].argv[1:] == ["clone", where, rel] and p.steps[1].argv[-1] == rel
+
+
+def test_the_auto_update_step_previews_one_key_in_the_entry_marketplace_add_writes(box):
+    step = engine.plan(machine(box), ["marketplace"], repo=GITHUB).steps[1]
+    assert step.kind == "settings" and step.needs_key == ("extraKnownMarketplaces", MARKETPLACE)
+    added = [ln for ln in step.preview.splitlines() if ln.startswith("+") and not ln.startswith("+++")]
+    assert any('"autoUpdate": true' in ln for ln in added)
+    assert not any("source" in ln or "repo" in ln for ln in added), step.preview  # the entry itself is marketplace add's
+    assert '"repo": "proxify-dev/agentic-kit"' in step.preview  # shown as context: what the add will have written
+    assert not (box["claude"] / "settings.json").exists()
+
+
+def test_auto_update_is_added_to_the_entry_and_undo_takes_back_only_that_key(box):
+    p = engine.plan(machine(box), ["marketplace"], repo=GITHUB)
+    entry = {"source": {"source": "github", "repo": "proxify-dev/agentic-kit"}}
+    path = declared(box, entry)  # what the real `claude plugin marketplace add` writes
+    ok, events = run_all(p)
+    assert ok and json.loads(path.read_text())["extraKnownMarketplaces"][MARKETPLACE] == {**entry, "autoUpdate": True}
+    box["log"].unlink()
+    results = backup.undo()
+    assert all(r["ok"] for r in results), results
+    assert json.loads(path.read_text())["extraKnownMarketplaces"][MARKETPLACE] == entry
+    assert commands(box) == [f"claude plugin marketplace remove {MARKETPLACE}"]
+    removed = next(r for r in results if "marketplace remove" in r["action"])
+    assert "uninstalls every plugin" in removed["detail"]
+
+
+def test_auto_update_never_makes_an_entry_marketplace_add_did_not_write(box):
+    p = engine.plan(machine(box), ["marketplace"], repo=GITHUB)
+    ok, events = run_all(p)
+    done = [d for e, d in events if e == "step_done" and d["step"].id == "marketplace:auto-update"]
+    assert ok and done[0]["status"] == "skipped" and "extraKnownMarketplaces" in done[0]["detail"]
+    assert not (box["claude"] / "settings.json").exists()
+
+
+def test_a_second_run_repairs_auto_update_that_a_marketplace_add_dropped(box):
+    m = from_github(box)
+    assert engine.plan(m, ["ak", "marketplace"]).steps == []
+    entry = {"source": {"source": "github", "repo": "proxify-dev/agentic-kit"}}
+    p = engine.plan(dataclasses.replace(m, settings={"extraKnownMarketplaces": {MARKETPLACE: entry}}), ["ak"])
+    assert [s.id for s in p.steps] == ["marketplace:auto-update"]
+    assert p.skipped["release"] == engine.IN_PLACE  # Claude Code's clone is on disk
+
+
+def test_a_person_who_turned_auto_update_off_is_left_alone_and_verify_says_so(box):
+    m = from_github(box, settings={"extraKnownMarketplaces": {MARKETPLACE: {"source": {}, "autoUpdate": False}}})
+    assert engine.plan(m, ["marketplace"]).steps == []
+    (found,) = engine.verify(m, ["marketplace"], with_deps=False)
+    assert found["level"] == "warn" and "false" in found["what"]
+
+
+def test_tracer_warms_and_first_runs_in_its_cached_copy_read_when_the_step_runs(box):
+    tracer = catalog.get("tracer")
+    p = engine.plan(from_github(box, plugins={}, history=(1024, 3)), ["tracer"])
+    assert [s.id for s in p.steps] == ["plugin:tracer", "venv:tracer", "first-run:tracer"]
+    planned = f"{box['claude']}/plugins/cache/{MARKETPLACE}/tracer/{tracer.version}"
+    warm, first = p.steps[1], p.steps[2]
+    assert warm.argv[-1] == planned and first.cwd == planned and first.argv[0] == f"{planned}/bin/tracer"
+    # the install writes the real folder to installed_plugins.json; each step reads it when it runs
+    real = box["tmp"] / "cache-real" / "tracer" / "9.9.9"
+    (real / "bin").mkdir(parents=True)
+    (real / "bin" / "tracer").write_text(FAKE.replace("NAME", "tracer").replace("EXTRA", ":"))
+    (real / "bin" / "tracer").chmod(0o755)
+    (box["claude"] / "plugins" / "installed_plugins.json").write_text(json.dumps(
+        {"version": 2, "plugins": {f"tracer@{MARKETPLACE}": [{"scope": "user", "installPath": str(real)}]}}))
+    ok, _ = run_all(p)
+    assert ok
+    seen = calls(box)
+    assert seen[1][0] == f"uv sync --frozen --project {real}"
+    assert seen[2][0] == "tracer trace index --all" and f"PWD={os.path.realpath(real)}" in seen[2][1]
+
+
+def test_a_local_folder_marketplace_from_an_older_setup_is_refused_with_the_way_over(box, monkeypatch):
+    monkeypatch.setattr(source, "repo_url", lambda explicit=None: explicit or GITHUB)  # the old release clone's origin
+    old = str(source.release_dir())
+    m = machine(box, release=Release(old, True, "9a86fc0f", GITHUB), marketplaces={MARKETPLACE: old},
+                marketplace_rows={MARKETPLACE: {"source": "directory", "path": old, "installLocation": old}},
+                uv_tools=[source.DIST])
+    p = engine.plan(m, ["ak"], repo=GITHUB)
+    assert p.steps == []
+    why = p.skipped["marketplace"]
+    assert "local folder" in why and old in why and "never updates" in why
+    assert f"claude plugin marketplace remove {MARKETPLACE}" in why and f"setup --repo {GITHUB}" in why
+    assert p.skipped["ak"] == "needs marketplace, which was skipped"
+    (found,) = engine.verify(m, ["marketplace"], with_deps=False)
+    assert found["level"] == "fail" and "local folder" in found["what"]
+
+
+def test_a_marketplace_cloned_from_another_repo_is_refused_never_repointed(box):
+    m = from_github(box, marketplaces={MARKETPLACE: "someone/fork"},
+                    marketplace_rows={MARKETPLACE: {"source": "github", "repo": "someone/fork"}})
+    p = engine.plan(m, ["marketplace"], repo=GITHUB)
+    assert p.steps == [] and "someone/fork" in p.skipped["marketplace"] and "never re-points" in p.skipped["marketplace"]
+
+
+def test_verify_a_kit_from_github(box):
+    clone = f"{box['claude']}/plugins/marketplaces/{MARKETPLACE}"
+    m = from_github(box)
+    found = {f["check"]: f for f in engine.verify(m, ["release", "marketplace"], with_deps=False)}
+    assert found["release"]["level"] == "pass" and clone in found["release"]["what"]
+    assert found["marketplace"]["what"] == \
+        f"the {MARKETPLACE} marketplace is Claude Code's clone of proxify-dev/agentic-kit, auto-update on"
+    (miss,) = engine.verify(dataclasses.replace(m, settings={}), ["marketplace"], with_deps=False)
+    assert miss["level"] == "fail" and "auto-update is off" in miss["what"] and miss["fix"] == f"{CLI} setup --only marketplace"
+
+
+def test_status_of_a_kit_from_github(box, monkeypatch):
+    from click.testing import CliRunner
+    from ak import ui
+    from ak.setup import machine as machine_mod
+    from ak.setup.cli import setup
+    monkeypatch.setattr(machine_mod, "detect", lambda on_probe=None: from_github(box, ak_on_path=True))
+    monkeypatch.setattr(ui, "_MODE", "plain")
+    out = CliRunner().invoke(setup, ["status"]).output
+    assert "pass\trelease\tClaude Code keeps the kit's clone at " in out, out
+    assert f"pass\tmarketplace\tthe {MARKETPLACE} marketplace is Claude Code's clone of proxify-dev/agentic-kit, auto-update on" in out
+    assert "release clone" not in out

@@ -128,11 +128,32 @@ def _diff(before: str, after: str, path: str) -> str:
     return "".join(difflib.unified_diff(lines(before), lines(after), fromfile=path, tofile=path))
 
 
-def plan(edits: list[SettingsEdit], path: str | None = None) -> SettingsPlan:
-    """What the edits would do to the file. Writes nothing. ValueError on a non-object on the way down."""
+def holds(keypath, path: str | None = None) -> bool:
+    """The file has a value at keypath now (an unreadable or non-object file: False)."""
+    path = path or settings_path()
+    try:
+        node, _ = walk_down(parse_object(_read(path), path), tuple(keypath), create=False)
+    except ValueError:
+        return False
+    return node is not None and keypath[-1] in node
+
+
+def plan(edits: list[SettingsEdit], path: str | None = None, assume: list[SettingsEdit] | tuple = ()) -> SettingsPlan:
+    """What the edits would do to the file. Writes nothing. ValueError on a non-object on the way down.
+    assume: keys another step will have written by the time this one runs (`claude plugin marketplace add` writes
+    its extraKnownMarketplaces entry), set in the "before" of the diff where absent, so the diff shows only the edits.
+    A plan made with assume is a preview: apply() takes one made without."""
     path = path or settings_path()
     raw = _read(path)
     data = parse_object(raw, path)
+    added = False
+    for e in assume:
+        node, _ = walk_down(data, tuple(e.keypath), create=True)
+        if e.keypath[-1] not in node:
+            node[e.keypath[-1]] = copy.deepcopy(e.value)
+            added = True
+    if added:
+        raw = render(data, raw)
     changes = []
     for e in edits:
         keypath = tuple(e.keypath)

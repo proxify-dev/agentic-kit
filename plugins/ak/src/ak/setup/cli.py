@@ -111,6 +111,8 @@ def _state(c, m, selected: set[str], skipped: dict) -> tuple[str, str | None]:
         return "in-place", "an older bash shim"
     if skipped.get(c.id) == engine.IN_PLACE:
         return "in-place", None
+    if str(skipped.get(c.id, "")).startswith(engine.KEPT_BY_CLAUDE):  # the kit's clone, made by the marketplace step
+        return ("install" if c.id in selected else "off"), skipped[c.id]
     if c.id in skipped:
         return "skipped", skipped[c.id]
     return ("install" if c.id in selected else "off"), None
@@ -243,7 +245,8 @@ EPILOG = (f"Examples:\n  {cmd('setup')}                          pick what to in
 @click.option("--yes", "-y", is_flag=True, help="install without asking (otherwise only the plan is printed)")
 @click.option("--only", metavar="IDS", help="install just these components, e.g. memory,observer (what they need comes along)")
 @click.option("--dry-run", is_flag=True, help="print the plan and every diff; setup itself writes nothing")
-@click.option("--repo", metavar="URL", help="clone the kit from here, e.g. https://github.com/proxify-dev/agentic-kit")
+@click.option("--repo", metavar="URL", help="where the kit comes from, e.g. https://github.com/proxify-dev/agentic-kit "
+              "(a URL: Claude Code clones it and keeps it current; a path or file://: setup clones it to the release clone)")
 @ui.json_option
 @click.pass_context
 def setup(ctx, yes, only, dry_run, repo, as_json):

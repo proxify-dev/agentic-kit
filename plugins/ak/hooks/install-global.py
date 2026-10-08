@@ -1,18 +1,38 @@
 """SessionStart hook — put the `ak` CLI on PATH as an editable install of the
-RELEASED plugins: ${CLAUDE_PLUGIN_ROOT}, i.e. plugins/ak inside the release
-clone the `ak` marketplace points at (RELEASING.md, repo root), with the vault
-and memory packages beside it (plugins/vault, plugins/memory) in the same tool
-environment — the hooks of both run on that interpreter (hooks/akpy.py), and the
-host mounts their verbs by import name. A sibling that is not on disk is left out.
-Editable, so a release pull changes the CLI with no reinstall; the gate below
-reinstalls only when the source path or one of the pyproject.toml files (the
-dependency sets) changes. AK_SRC overrides the source on a machine with no release clone.
+RELEASED plugins: plugins/ak of the marketplace this plugin was installed from,
+with the vault and memory packages beside it (plugins/vault, plugins/memory) in
+the same tool environment — the hooks of both run on that interpreter
+(hooks/akpy.py), and the host mounts their verbs by import name. A sibling that
+is not on disk beside the chosen source is left out. Editable, so a release pull
+changes the CLI with no reinstall; the gate below reinstalls only when the source
+path or one of the pyproject.toml files (the dependency sets) changes.
+
+The source, first match wins:
+1. AK_SRC: a machine with no marketplace tree, or a person pointing at one by hand.
+2. Claude Code's clone of a git marketplace (GitHub, the public kit). There Claude Code
+   runs a plugin from its versioned cache, so ${CLAUDE_PLUGIN_ROOT} is
+   <claude home>/plugins/cache/<marketplace>/<plugin>/<version>/. When the clone
+   <claude home>/plugins/marketplaces/<marketplace>/plugins/<plugin> has a
+   pyproject.toml, install from it. Why: the cache path changes with every version
+   and is deleted 14 days after it is replaced, so an editable install there breaks;
+   and a session still on the old version would reinstall the old path (the
+   downgrade below). The clone is one path that holds the newest tree, laid out as
+   the repo is, so the gate stays quiet across version bumps.
+3. ${CLAUDE_PLUGIN_ROOT}: plugins/ak inside the release clone that a local-folder
+   marketplace points at (RELEASING.md, repo root), where plugins run in place; or
+   the cache path itself, when its clone is not on disk and no uv tool puts `ak`
+   on PATH yet. With the clone missing and an `ak` installed, change nothing:
+   `claude plugin marketplace update` deletes the clone and writes the new one at
+   the same path, so the clone can be missing for a moment, and an install from
+   the cache then would be undone by the next session (install from the cache,
+   then from the clone again).
+<claude home> is claude_home() (_brand.py), which honours $CLAUDE_CONFIG_DIR.
 
 Why not the working checkout: until 2026-09-22 this installed from ~/agentic-kit,
 so an experiment in the tree was live in the global `ak` at once. Why not
 the marketplace cache: that copy lagged plugin.json and force-downgraded the
-CLI every session (2026-09-06, -10). The release clone is one tree that is
-never stale and never a playground.
+CLI every session (2026-09-06, -10). The release clone, or the marketplace
+clone, is one tree that is never stale and never a playground.
 
 Contract: never block a session. Every failure path exits 0, all diagnostics
 go to stderr, and stdout stays empty (SessionStart stdout is injected as
@@ -44,6 +64,22 @@ def manifest(src: Path, siblings) -> bytes:
     return out
 
 
+def marketplace_clone(root: str, claude: Path):
+    """For ROOT in Claude Code's versioned cache, CLAUDE/plugins/cache/<marketplace>/<plugin>/<version>:
+    the same plugin in Claude Code's clone of that marketplace, CLAUDE/plugins/marketplaces/<marketplace>/plugins/<plugin>
+    (a kit plugin's folder in the repo is its name), whether or not it is on disk. None for any other ROOT."""
+    if not root:
+        return None
+    plugins = claude / "plugins"
+    try:
+        parts = Path(root).resolve().relative_to((plugins / "cache").resolve()).parts
+    except (OSError, ValueError):
+        return None
+    if len(parts) < 2:
+        return None
+    return plugins / "marketplaces" / parts[0] / "plugins" / parts[1]
+
+
 def project_name(pyproject: Path) -> str:
     for line in pyproject.read_text(encoding="utf-8").splitlines():
         if line.startswith("name = "):
@@ -51,22 +87,27 @@ def project_name(pyproject: Path) -> str:
     return ""
 
 
-def others_with(uv, exe, keep):
-    """The other uv tools that put EXE on PATH (an install from before the packages had these names):
-    `uv tool list` prints each tool as `<name> v<version>` and its executables under it as `- <exe>`."""
+def tools_with(uv, exe):
+    """The uv tools that put EXE on PATH: `uv tool list` prints each tool as `<name> v<version>`
+    and its executables under it as `- <exe>`."""
     p = subprocess.run([uv, "tool", "list"], capture_output=True, text=True, encoding="utf-8",
                        errors="replace", stdin=subprocess.DEVNULL)
     tool, found = "", []
     for line in (p.stdout or "").splitlines():
         if line and not line.startswith((" ", "-")):
             tool = line.split()[0]
-        elif line.strip() in (f"- {exe}", f"- {exe}.exe") and tool and tool != keep and tool not in found:
+        elif line.strip() in (f"- {exe}", f"- {exe}.exe") and tool and tool not in found:
             found.append(tool)
     return sorted(found)
 
 
+def others_with(uv, exe, keep):
+    """The other uv tools that put EXE on PATH (an install from before the packages had these names)."""
+    return [t for t in tools_with(uv, exe) if t != keep]
+
+
 def main():
-    from _brand import CLI, env
+    from _brand import CLI, claude_home, env
     from ak.session_origin import automated
 
     # A program's session (claude -p, the SDKs — ak/session_origin.py is the rule) installs nothing
@@ -74,7 +115,12 @@ def main():
     if automated():
         return
     data = os.environ.get("CLAUDE_PLUGIN_DATA", "")
+    # The source rule is the docstring's: AK_SRC, else the marketplace clone for a cached root, else the root.
     src = env("SRC") or os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    clone = None if env("SRC") else marketplace_clone(src, claude_home())
+    if clone and (clone / "pyproject.toml").is_file():
+        src, clone = str(clone), None
+    # From here on, CLONE is set only when ROOT is in the cache and its clone is not on disk.
     if not (src and (Path(src) / "pyproject.toml").is_file()):
         src = ""
     if not src or not data:
@@ -82,7 +128,7 @@ def main():
         return
 
     root = Path(src)
-    # The packages installed together: this plugin's, then each sibling's that is on disk.
+    # The packages installed together: this plugin's, then each sibling's on disk beside the chosen source.
     siblings = [(root / ".." / s).resolve() for s in SIBLINGS if (root / ".." / s / "pyproject.toml").is_file()]
     stamp = Path(data) / "pyproject.toml"
     srcstamp = Path(data) / "source"
@@ -99,6 +145,12 @@ def main():
             return
     except OSError:
         pass
+
+    # A cached root whose clone is not on disk: `claude plugin marketplace update` swaps the clone out and back
+    # at the same path, so an `ak` installed from it stays. Only with no `ak` yet does the cache path serve.
+    if clone and tools_with(uv, CLI):
+        say(f"{CLI}: {clone} is not on disk (a marketplace update?); keeping the installed {CLI}")
+        return
 
     try:
         Path(data).mkdir(parents=True, exist_ok=True)

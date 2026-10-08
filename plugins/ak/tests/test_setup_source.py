@@ -104,6 +104,47 @@ def test_the_local_checkout_is_the_last_resort(home):
     assert source.repo_url() == str(home / REPO_DIR)
 
 
+def test_an_install_from_claude_codes_clone_names_the_url_it_was_cloned_from(home, monkeypatch, tmp_path):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    clone = source.marketplace_clone("agentic-kit")
+    (clone / ".git").mkdir(parents=True)
+    _git_on_path(home, monkeypatch)
+    monkeypatch.setattr(metadata, "distribution", _installed({"url": f"file://{clone}/plugins/ak", "dir_info": {"editable": True}}))
+    assert source.repo_url() == "https://example.test/kit.git"
+
+
+@pytest.mark.parametrize("where, by_claude, given", [
+    ("https://github.com/proxify-dev/agentic-kit", True, "proxify-dev/agentic-kit"),
+    ("https://github.com/proxify-dev/agentic-kit.git/", True, "proxify-dev/agentic-kit"),
+    ("git+https://github.com/proxify-dev/agentic-kit", True, "proxify-dev/agentic-kit"),
+    ("git@github.com:proxify-dev/agentic-kit.git", True, "proxify-dev/agentic-kit"),
+    ("ssh://git@github.com/proxify-dev/agentic-kit.git", True, "proxify-dev/agentic-kit"),
+    ("http://localhost:8080/kit.git", True, "http://localhost:8080/kit.git"),
+    ("git+ssh://git@example.test/team/kit.git", True, "ssh://git@example.test/team/kit.git"),
+    ("git@example.test:team/kit.git", True, "git@example.test:team/kit.git"),
+    ("file:///srv/kit-src", False, None),       # `claude plugin marketplace add` refuses file://
+    ("git+file:///srv/kit-src", False, None),
+    ("/Users/me/agentic-kit", False, None),
+    ("C:\\Users\\me\\agentic-kit", False, None),
+    (None, False, None),
+])
+def test_a_url_claude_code_clones_and_what_it_is_given(where, by_claude, given):
+    assert source.cloned_by_claude(where) is by_claude
+    if by_claude:
+        assert source.marketplace_source(where) == given
+
+
+def test_a_marketplace_row_is_a_clone_of_the_url_whatever_the_spelling():
+    url = "https://github.com/proxify-dev/agentic-kit"
+    assert source.same_source({"source": "github", "repo": "proxify-dev/agentic-kit"}, url)
+    assert source.same_source({"source": "git", "url": "https://github.com/proxify-dev/agentic-kit.git"}, url)
+    assert not source.same_source({"source": "github", "repo": "someone/fork"}, url)
+    assert not source.same_source({"source": "directory", "path": "/x"}, url)
+    assert source.same_source({"source": "git", "url": "http://localhost:8080/kit.git"}, "http://localhost:8080/kit")
+    assert source.settings_source("http://localhost:8080/kit.git") == {"source": "git", "url": "http://localhost:8080/kit.git"}
+    assert source.url_of({"source": "github", "repo": "o/r"}) == "https://github.com/o/r"
+
+
 def test_git_line_is_none_when_git_is_missing(home, monkeypatch):
     monkeypatch.setenv("PATH", str(home))
     assert source.git_line(home, "rev-parse", "HEAD") is None

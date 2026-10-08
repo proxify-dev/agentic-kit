@@ -144,6 +144,18 @@ def test_a_skipped_key_does_not_leave_an_empty_object_behind(home):
     assert json.loads(open(path).read()) == {"n": {"m": 2}} and p2.empty and len(p2.skipped) == 1
 
 
+def test_a_key_another_step_will_write_is_context_in_the_diff_not_a_change(home):
+    path = put(home, '{\n  "theme": "dark"\n}\n')
+    entry = ("extraKnownMarketplaces", "agentic-kit", "source")
+    key = ("extraKnownMarketplaces", "agentic-kit", "autoUpdate")
+    p = settings.plan([SettingsEdit(key, True)], assume=[SettingsEdit(entry, {"source": "github", "repo": "o/r"})])
+    added = [ln for ln in p.diff.splitlines() if ln.startswith("+") and not ln.startswith("+++")]
+    assert added == ['+      },', '+      "autoUpdate": true'], p.diff
+    assert [c["keypath"] for c in p.changes] == [list(key)]
+    assert json.loads(open(path).read()) == {"theme": "dark"}  # a preview: nothing written
+    assert not settings.holds(key[:2]) and settings.holds(("theme",))
+
+
 def test_apply_writes_through_a_symlinked_settings_file(home, tmp_path):
     real = tmp_path / "dotfiles" / "settings.json"
     real.parent.mkdir()

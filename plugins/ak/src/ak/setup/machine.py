@@ -51,6 +51,7 @@ class Machine:
     service_manager: str | None = None         # "launchd" | "systemd" | "schtasks" | None
     release: Release | None = None
     marketplaces: dict[str, str] = field(default_factory=dict)  # name -> source path/url
+    marketplace_rows: dict[str, dict] = field(default_factory=dict)  # name -> its `marketplace list --json` row
     plugins: dict[str, dict] = field(default_factory=dict)      # "<p>@<mkt>" -> {"version", "enabled", "scope"}
     uv_tools: list[str] = field(default_factory=list)           # `uv tool list` package names
     ak_on_path: bool = False
@@ -154,13 +155,15 @@ def _release() -> Release:
     return Release(str(path), True, source.git_line(path, "rev-parse", "--short", "HEAD"), source.clone_origin(path))
 
 
-def _marketplaces() -> dict[str, str]:
-    """name -> where it comes from (a path for a directory, "owner/repo" for github, else the url)."""
-    out: dict[str, str] = {}
-    for row in _claude_json("plugin", "marketplace", "list"):
-        if isinstance(row, dict) and row.get("name"):
-            out[row["name"]] = str(row.get("path") or row.get("repo") or row.get("url") or row.get("installLocation") or "")
-    return out
+def _marketplaces() -> dict[str, dict]:
+    """name -> its `claude plugin marketplace list --json` row: {"source": "directory"|"github"|"git", "path"|"repo"|"url",
+    "installLocation"}."""
+    return {row["name"]: row for row in _claude_json("plugin", "marketplace", "list") if isinstance(row, dict) and row.get("name")}
+
+
+def where_from(row: dict) -> str:
+    """Where a marketplace comes from: a path for a directory, "owner/repo" for github, else the url."""
+    return str(row.get("path") or row.get("repo") or row.get("url") or row.get("installLocation") or "")
 
 
 def _plugins() -> dict[str, dict]:
@@ -303,7 +306,8 @@ def detect(on_probe: Callable[[str, object], None] | None = None) -> Machine:
             bins={n: f.result() for n, f in bins.items()},
             service_manager=service.result(),
             release=release.result(),
-            marketplaces=marketplaces.result(),
+            marketplaces={name: where_from(row) for name, row in marketplaces.result().items()},
+            marketplace_rows=marketplaces.result(),
             plugins=plugins.result(),
             uv_tools=list(uv_tools.result()),
             uv_tool_exes=uv_tools.result(),

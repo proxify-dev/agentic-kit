@@ -15,7 +15,8 @@ Undo kinds (Step.undo / record()):
     {"kind": "restore", "file": p, "after_sha": sha}             bytes back if sha still matches
     {"kind": "exec", "argv": [...], "env": {...}, "unset": [...]}  the inverse command; "unset" names
                                                                   variables to remove from its environment,
-                                                                  "cwd" the folder to run it in
+                                                                  "cwd" the folder to run it in, "note"
+                                                                  what else it takes away (said in the detail)
     {"kind": "clone", "path": p}                                 rm only if clean and we made it
     {"kind": "none", "note": "..."}                              nothing to take back (a venv warm)
 
@@ -273,7 +274,7 @@ def _undo_exec(run: Run, u: dict, dry: bool):
     argv = u["argv"]
     action = "run " + " ".join(argv)
     if dry:
-        return action, True, ""
+        return action, True, u.get("note", "")
     try:
         gone = set(u.get("unset", ()))
         p = subprocess.run(argv, env={**{k: v for k, v in os.environ.items() if k not in gone}, **u.get("env", {})},
@@ -284,7 +285,8 @@ def _undo_exec(run: Run, u: dict, dry: bool):
     with open(run.log_path("undo-" + re.sub(r"\W+", "-", argv[0])), "a", encoding="utf-8", newline="\n") as fh:
         fh.write(f"$ {' '.join(argv)}\n{p.stdout}{p.stderr}")
     tail = ((p.stderr or p.stdout).strip().splitlines() or [""])[-1]
-    return action, p.returncode == 0, f"exit {p.returncode}" + (f": {tail}" if p.returncode else "")
+    note = f"; {u['note']}" if u.get("note") and p.returncode == 0 else ""
+    return action, p.returncode == 0, f"exit {p.returncode}" + (f": {tail}" if p.returncode else "") + note
 
 
 def _writable(fn, path, _):

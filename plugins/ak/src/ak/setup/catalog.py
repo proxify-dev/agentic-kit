@@ -2,7 +2,7 @@
 
 The rows are read from the kit on disk (tree(): the checkout this code sits in, else the release clone; with
 neither, the public kit's SNAPSHOT), never kept here by name:
-    Kit         setup's own: the release clone, the marketplace, the `ak` command, PATH
+    Kit         setup's own: the kit's clone (Claude Code's, or the release clone), the marketplace, the `ak` command, PATH
     Plugins     one per plugin under plugins/ — its plugin.json's name, description, visibility (missing:
                 private) and dependencies; one listed by no marketplace is shown, not selectable
     Settings    the settings.json keys a present plugin runs on
@@ -23,9 +23,9 @@ starts (the gateway): the whole path once it and what it needs are picked. Choos
 the one the picks give; confirm says the one they give. comes_with names the row whose pick brings this one and whose
 unpick drops it: it has no row of its own, and that row says it comes with it (the shim, with the gateway: the shim is
 how the claude you type reaches the gateway). `ak setup --only <id>` still installs it alone.
-first_run is the plugin's own work once it is installed, run last, from the plugin's folder in the release clone (run[0] is
-a path in it). It keeps going if the person leaves setup before it ends. "reads": "history" puts the size of Claude Code's
-transcripts beside its title.
+first_run is the plugin's own work once it is installed, run last, from the plugin's folder (run[0] is a path in it):
+Claude Code's cached copy of it for a kit at a URL, else its folder in the release clone. It keeps going if the person
+leaves setup before it ends. "reads": "history" puts the size of Claude Code's transcripts beside its title.
 
 A component is blocked on a machine that can't run it (blocked() says why, in words a person reads);
 order() puts a selection in dependency order; with_deps() adds what a selection needs.
@@ -89,6 +89,7 @@ class Component:
     gives: tuple[str, ...] = ()   # what a person gets, one line each, the command first ("ak sessions — your past sessions …")
     changes: str = ""             # what it puts on the machine outside Claude Code's plugin folder; "": nothing
     route: str = ""               # the path `claude` takes once it (and what it needs) is picked: "claude → shim → Claude Code → …"
+    version: str = ""             # a plugin's plugin.json version: the folder Claude Code caches it in (cache/<mkt>/<plugin>/<version>)
 
 
 NOT_IN_MARKETPLACE = "not in the marketplace"
@@ -98,8 +99,8 @@ FUNCTION_HOOKS = ("env", "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")
 def kit_rows(marketplace: str) -> tuple[Component, ...]:
     """Setup's own rows: the source, and the command line over it."""
     return (
-        Component("release", "Release clone", "A local clone of the kit: the folder Claude Code installs every plugin from.",
-                  "Kit", Needs(bins=(("git", None),))),
+        Component("release", "Kit clone", "A clone of the kit: Claude Code's own (kept current) for a kit at a URL, else the "
+                  "release clone setup makes.", "Kit", Needs(bins=(("git", None),))),
         Component("marketplace", f"Marketplace {marketplace}", f"Tells Claude Code where the kit's plugins live, as the {marketplace} marketplace.",
                   "Kit", Needs(bins=(("claude", None),)), ("release",)),
         Component("ak-tool", f"The {CLI} command", f"The {CLI} command-line tool, installed once as a uv tool from the clone.",
@@ -173,7 +174,8 @@ def _plugin_row(meta: dict, listed: bool) -> Component:
                      selectable=listed, note=setup.get("note") if listed else NOT_IN_MARKETPLACE,
                      private=meta.get("visibility") != "public", summary=setup.get("summary", ""),
                      first_run=_first_run(setup.get("first_run")), gives=tuple(setup.get("gives", ())),
-                     changes=setup.get("changes", ""), route=setup.get("route", ""), comes_with=setup.get("comes_with"))
+                     changes=setup.get("changes", ""), route=setup.get("route", ""), comes_with=setup.get("comes_with"),
+                     version=str(meta.get("version") or ""))
 
 
 def _module_row(mod: dict, listed: set[str]) -> Component:

@@ -51,18 +51,29 @@ ak setup --dry-run                 the plan and every diff; setup itself writes 
 ak setup --yes                     the defaults, without asking
 ak setup --yes --only memory       just memory, and what it needs (it says what it pulled in)
 ak setup --json                    the same data as one JSON document
-ak setup --repo URL                clone the kit from URL (else $AK_REPO_URL, the repo uvx built from, the clone's origin)
+ak setup --repo URL                the kit from URL (else $AK_REPO_URL, the repo uvx built from, the clone's origin)
 ak setup status                    what is installed, and the checks on it (exit 1 when one fails)
 ak setup undo                      take the newest run back
 ```
+
+**Where the kit comes from decides who keeps its clone.**
+
+| the kit is | `claude plugin marketplace add` gets | the kit's clone (the "kit dir") | updates |
+|---|---|---|---|
+| a URL Claude Code clones: `https://github.com/o/r` (also `git+https://…`, `git@github.com:o/r`), any other `https://`, `http://` or ssh URL | `o/r` for GitHub, else the URL | Claude Code's own, `<claude home>/plugins/marketplaces/<name>/`; setup clones nothing | Claude Code's: setup sets `extraKnownMarketplaces.<name>.autoUpdate: true` in settings.json |
+| a path, or a `file://` URL (`marketplace add` refuses `file://`) | the release clone's path | the release clone, `git clone`d by setup to `<data dir>/ak/release` | none: Claude Code never refreshes a local folder; `RELEASING.md` |
+
+The public kit, and the `uvx` line above, take the first row: `marketplace add proxify-dev/agentic-kit`, then a settings step, previewed as a one-key diff, that adds `"autoUpdate": true` to the `extraKnownMarketplaces.agentic-kit` entry `marketplace add` wrote (it rewrites that entry without the key on every add, so a second `ak setup` puts it back; the step never makes the entry itself, and is skipped when it is not there). With it, Claude Code refreshes the marketplace in a session and updates a plugin when its `plugin.json` version changes; the plugins run from Claude Code's versioned copies, `<claude home>/plugins/cache/<name>/<plugin>/<version>/`. The `ak` command is installed editable from `<kit dir>/plugins/ak`, a path that holds across updates (Claude Code swaps the whole folder). The tracer's environment is built, and its first run started, in its cached copy (the `installPath` that `installed_plugins.json` holds once it is installed, read when the step runs): never in Claude Code's clone, which an update replaces. Undo runs `claude plugin marketplace remove <name>`, which also uninstalls every plugin from it, deletes their data folders (`plugins/data/<plugin>-<name>`) and empties its `extraKnownMarketplaces` and `enabledPlugins` entries; the tracer's index (`plugins/data/conversation-index`) and the cached copies stay on disk.
+
+Which row a run takes: `--repo` or `$AK_REPO_URL`, else a marketplace Claude Code already cloned (so `ak setup status` needs nothing passed), else what `uvx` built from, the release clone's origin, `~/agentic-kit`. This workspace's kit has no remote and stays on the second row. A machine set up before this change, whose `agentic-kit` marketplace is the release clone, is refused, not moved: the refusal names `claude plugin marketplace remove agentic-kit` (it uninstalls the kit's plugins) and `ak setup --repo <url>`.
 
 The list is read from the kit on disk, never kept in setup: the checkout `ak` runs from (this workspace, or the release clone), else the release clone. Every plugin under `plugins/` is a component (its `plugin.json`: name, description, `visibility`, `dependencies`, and an optional `setup` block for what the rest can't say: `summary`, `gives` (what you get, one line each, led by the command that tries it), `changes` (what it puts on the machine outside Claude Code's plugin folder), `route` (a piece that changes how `claude` starts: the path it takes once that piece is picked), `needs`, `default`, `note`, `depends_on`, `first_run`; `src/ak/setup/catalog.py` has the shape), and every module in `kit/modules.json` (cc-shim, cc-gateway, pinned). Here every plugin is listed and the private ones say so; in the public kit (`proxify-dev/agentic-kit`) only the public ones exist. An `ak` with no kit on disk yet (the `uvx` line above, before the clone) reads `src/ak/setup/kit.json`, the public kit as `scripts/kit.py render` wrote it.
 
 | component | what it is | needs |
 |---|---|---|
-| `release` | a clone of the kit at `<data dir>/ak/release`, the folder every plugin installs from | `git` |
-| `marketplace` | the `ak` marketplace, pointing at that clone | `claude`; `release` |
-| `ak-tool` | the `ak` command, as one uv tool (what `hooks/install-global.py` installs) | `uv`; `release` |
+| `release` | the kit's clone, every plugin installs from it: Claude Code's for a kit at a URL (made by the marketplace step, which asking for it brings), else the release clone at `<data dir>/ak/release` | `git` |
+| `marketplace` | the kit's marketplace (`agentic-kit`, `ak` here): a clone of the kit's URL with auto-update on, or the release clone | `claude`; `release` |
+| `ak-tool` | the `ak` command, as one uv tool (what `hooks/install-global.py` installs), editable from the kit's clone | `uv`; `release` |
 | `ak-path` | uv's tool folder on your shell PATH; skipped when it already is | `ak-tool` |
 | `ak` `vault` `memory` | the host (with `ak plugin`), the link engine, memory | each on the one before it |
 | `observer` `tracer` | what past sessions learned; which session did what. Each builds its venv now; the tracer then indexes your history (its first run) | `uv`; `ak` |
@@ -86,19 +97,25 @@ The shim alone (your instructions and scripts, Claude Code's own login, and `cla
 
 A module's `install.sh` is fetched at its tag (`v<version>`) through `gh` when it is logged in, else `curl`, as its README says; undo runs the same script with `--uninstall`. `tasks`, `routines` and `todo` are listed but not selectable: they are not in the marketplace.
 
-**A plugin's first run.** `setup.first_run` (`{"title", "run", "reads"}`) is the plugin's own work once it is installed: the tracer's indexes your Claude Code history (`bin/tracer trace index --all`). It is the last step, started in its own session from the plugin's folder in the release clone, so it keeps going when the person finishes setup before it ends (the TUI's `enter`, or Ctrl-C at the plain door); `ak`'s tracer row says `indexing your history · 12/26 projects` meanwhile. `"reads": "history"` puts the size of `<claude home>/projects` beside the title; with no history there is no step, and the plan says why.
+**A plugin's first run.** `setup.first_run` (`{"title", "run", "reads"}`) is the plugin's own work once it is installed: the tracer's indexes your Claude Code history (`bin/tracer trace index --all`). It is the last step, started in its own session from the plugin's folder (its cached copy for a kit at a URL, else the release clone), so it keeps going when the person finishes setup before it ends (the TUI's `enter`, or Ctrl-C at the plain door); `ak`'s tracer row says `indexing your history · 12/26 projects` meanwhile. `"reads": "history"` puts the size of `<claude home>/projects` beside the title; with no history there is no step, and the plan says why.
 
-What it leaves alone. A component already in place makes no step, so a second run is a repair. It never pulls an existing clone and never re-points the `ak` marketplace: a marketplace that points elsewhere is a refusal that names the command to remove it. A `settings.json` key that already holds another value stays as it is. The observer's embed is not a step (minutes of work): run `ak observer store embed` later.
+What it leaves alone. A component already in place makes no step, so a second run is a repair. It never pulls an existing clone and never re-points the kit's marketplace: a marketplace that points elsewhere (another folder, another repo, or a local folder where the kit is now a URL) is a refusal that names the command to remove it. An `autoUpdate` somebody set to `false` stays (status warns). A `settings.json` key that already holds another value stays as it is. The observer's embed is not a step (minutes of work): run `ak observer store embed` later.
 
-**The run folder.** Each `--yes` run is `<kit home>/db/setup/<YYYYmmdd-HHMMSS>/`: `run.json` (the steps and how to take each back), `backup/` (every file a step was about to write, as it was) and `logs/` (each step's output). `ak setup undo [RUN]` walks the newest run back newest step first, and takes back only what that run did: settings keys whose value is still ours, rc lines it added, a file nobody wrote since, the clone when it is clean, what it installed. It runs while Claude Code sessions are open, and a second undo does nothing. It leaves the venv builds (a cache) and the gateway account (`cc-gateway account remove <name>`). `--list` lists the runs, `--dry-run` shows what it would do.
+**The run folder.** Each `--yes` run is `<kit home>/db/setup/<YYYYmmdd-HHMMSS>/`: `run.json` (the steps and how to take each back), `backup/` (every file a step was about to write, as it was) and `logs/` (each step's output). `ak setup undo [RUN]` walks the newest run back newest step first, and takes back only what that run did: settings keys whose value is still ours, rc lines it added, a file nobody wrote since, the release clone when it is clean, what it installed (the marketplace it added, with what Claude Code removes along with it, said in the undo's detail). It runs while Claude Code sessions are open, and a second undo does nothing. It leaves the venv builds (a cache) and the gateway account (`cc-gateway account remove <name>`). `--list` lists the runs, `--dry-run` shows what it would do.
 
-Tested with fake `claude`, `uv`, `git` and `node` on PATH, and run end to end from the `uvx` line on a fresh Debian box with systemd and ~100 MB of real history (every public piece, the gateway's sign-in, then a `claude` call through the shim and the gateway). Not run on Windows, nor on a fresh macOS user.
+Tested with fake `claude`, `uv`, `git` and `node` on PATH, and run end to end from the `uvx` line on a fresh Debian box with systemd and ~100 MB of real history (every public piece, the gateway's sign-in, then a `claude` call through the shim and the gateway). Not run on Windows, nor on a fresh macOS user. The URL row's marketplace steps (add from GitHub, auto-update, status, a second `marketplace add` and the repair, undo) were run against the real `claude` in a throwaway HOME on macOS; the whole URL flow on a fresh box has not run yet.
 
 ## Install
 
 `hooks/install-global.py` (SessionStart) puts `ak` on PATH as one uv tool, editable from the release clone:
 `ak` with the vault and memory packages installed beside it (`--with-editable ../vault ../memory`,
-each when it is on disk). It reinstalls when the source path or any of the three `pyproject.toml` changes,
+each when it is on disk). From a GitHub marketplace, where Claude Code runs ak from its versioned cache
+(`<claude home>/plugins/cache/<marketplace>/ak/<version>`, a new path each version, deleted 14 days later), it installs
+from Claude Code's clone of that marketplace instead (`<claude home>/plugins/marketplaces/<marketplace>/plugins/ak`),
+one path across versions. With the clone missing it installs from the cache path only when no `ak` is installed
+yet; otherwise it changes nothing (`claude plugin marketplace update` swaps the clone out and back at the same path).
+`AK_SRC` overrides all of this.
+It reinstalls when the source path or any of the three `pyproject.toml` changes,
 takes out any other uv tool that puts `ak` on PATH, and never runs in a program's session. The vault's and
 memory's hooks run on that tool's Python (`hooks/akpy.py`, canonical here). Inside a checkout, `ak` re-execs
 into the checkout's `plugins/ak` (`uv run --project`). ak builds alone — its pyproject names no sibling (uv

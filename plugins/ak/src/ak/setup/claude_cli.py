@@ -9,11 +9,12 @@ the Call of the inverse as the step's undo.
 """
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ak._brand import which_exe
+from ak._brand import claude_home, which_exe
 
 SCOPE = "user"
 PAST_THE_SHIM = {"CC_SHIM_DISABLE": "1"}
@@ -55,3 +56,16 @@ def install(plugin_id: str, exe: str | None = None) -> Call:
 def uninstall(plugin_id: str, exe: str | None = None) -> Call:
     """Keeps the plugin's data folder: an undo takes back the install, not what the plugin wrote since."""
     return _call(exe, "plugin", "uninstall", plugin_id, "-s", SCOPE, "--keep-data")
+
+
+def install_path(plugin_id: str) -> str | None:
+    """Where Claude Code runs an installed plugin from (CLAUDE_PLUGIN_ROOT for its hooks): its installPath in
+    <claude home>/plugins/installed_plugins.json, the user-scope install first. None when it is not there."""
+    try:
+        doc = json.loads((Path(claude_home()) / "plugins" / "installed_plugins.json").read_text(encoding="utf-8"))
+        rows = doc.get("plugins", {}).get(plugin_id) or []
+    except (OSError, ValueError, AttributeError):
+        return None
+    rows = [r for r in rows if isinstance(r, dict) and r.get("installPath")] if isinstance(rows, list) else []
+    rows.sort(key=lambda r: r.get("scope") != SCOPE)
+    return rows[0]["installPath"] if rows else None

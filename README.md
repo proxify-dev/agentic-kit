@@ -91,9 +91,10 @@ its banner says "API Usage Billing". Needs macOS, Linux or WSL, and Node 22.13 o
 
 ## What setup changes on your machine
 
-- a copy of this repo in `~/.local/share/ak/release`, added to Claude Code as the `agentic-kit` marketplace
-- the plugins you picked, installed from that copy
-- the `ak` command, as a uv tool in `~/.local/bin`
+- the `agentic-kit` marketplace, added to Claude Code from GitHub with auto-update on: Claude Code keeps
+  its own copy and brings you each new version, the same way it updates its official plugins
+- the plugins you picked
+- the `ak` command, as a uv tool in `~/.local/bin`; it runs from Claude Code's copy, so it updates with the kit
 - with agentic-engineering: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in your Claude Code `settings.json`,
   which `/new-plugin`, `/new-skill` and `/new-agent` need
 - only with the gateway: the claude shim on your PATH and a background service on `127.0.0.1:4747`
@@ -116,6 +117,8 @@ ak setup undo            # take the last run back
 /plugin install tracer@agentic-kit                 needs uv
 /plugin install agentic-engineering@agentic-kit    /new-* also need CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1
 ```
+
+For updates, turn on auto-update once: `/plugin` → Marketplaces → agentic-kit → Enable auto-update.
 
 Without `ak`, the tracer's command is `tracer`. It is on the PATH of Claude's Bash tool, not your
 terminal, so Claude runs `tracer sessions` and `tracer trace blame <file>` for you. Ask *"which chat

@@ -1,6 +1,6 @@
 [project]
 name = "ak"
-version = "4.3.1"
+version = "4.4.0"
 description = "The ak host: the `ak` command every kit plugin mounts its verbs into, and its own tooling (shim, gateway, hooks, moves, plugin inspect)"
 requires-python = ">=3.10"
 dependencies = ["rich-click", "rich", "textual>=1.0"]

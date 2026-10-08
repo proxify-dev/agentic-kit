@@ -172,8 +172,12 @@ def machine_rows(m, marketplace: str, needed: set[str] | None = None) -> list[tu
         if needed is None or name in needed:
             rows.append((name, (found.version or "found") if found.found else "missing"))
     release = m.release
-    rows.append(("kit", f"{(release.head or '?')[:8]} at {release.path}" if release and release.exists
-                 else "not downloaded yet"))
+    cloned = (getattr(m, "marketplace_rows", {}) or {}).get(marketplace) or {}
+    if cloned.get("source") in ("github", "git") and cloned.get("installLocation"):  # a kit at a URL: Claude Code's clone
+        rows.append(("kit", f"Claude Code's clone at {cloned['installLocation']}"))
+    else:
+        rows.append(("kit", f"{(release.head or '?')[:8]} at {release.path}" if release and release.exists
+                     else "not downloaded yet"))
     history = getattr(m, "history", None)
     rows.append(("your history", f"{size_words(history[0])} · {history[1]:,} Claude Code sessions" if history
                  else "none yet"))
@@ -650,6 +654,7 @@ class PickScreen(Step):
 
 # ── 3. Confirm ───────────────────────────────────────────────────────────────────────────────────────
 IN_PLACE = "already in place"  # engine.IN_PLACE: the skip that means nothing is left to do
+KEPT_BY_CLAUDE = "Claude Code clones it"  # engine.KEPT_BY_CLAUDE: the kit's clone comes with the marketplace step
 STEP_WORDS = (("release", "download the kit"), ("marketplace", "tell Claude Code where the plugins are"),
               ("plugin:", "install {n} plugin{s}"), ("ak-tool", f"install the {CLI} command"),
               ("ak-path", f"put {CLI} on your PATH"), ("venv:", "build {n} plugin environment{s}"),
@@ -806,7 +811,7 @@ class ReviewScreen(Step):
         words.update(plan_summary(steps, app.backup.runs_dir()) if steps else "")
         words.display = False
         held = [cid for cid, why in self.plan.skipped.items() if why == IN_PLACE and not is_core(app.catalog, cid)]
-        left = {cid: why for cid, why in self.plan.skipped.items() if why != IN_PLACE}
+        left = {cid: why for cid, why in self.plan.skipped.items() if why != IN_PLACE and not str(why).startswith(KEPT_BY_CLAUDE)}
         note = Text(f"✓ already in place: {', '.join(label_of(app.catalog, c) for c in held)}" if held else "", style=OK)
         for cid, why in left.items():
             note.append(("\n" if note.plain else "") + f"left out: {label_of(app.catalog, cid)} — {why}", style=WARN)
