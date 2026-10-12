@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from ak._brand import CLI, claude_home, cmd, config_dir, env, env_name, is_windows, spawn_detached, which_exe
+from ak._brand import CLI, claude_home, cmd, config_dir, data_dir, env, env_name, is_windows, spawn_detached, which_exe
 from ak.move.doctor import _f
 from ak.setup import catalog, claude_cli, settings, source
 from ak.setup.backup import Run
@@ -341,63 +341,50 @@ def _ak_path(m: Machine, kit: Kit) -> list[Step]:
                   touches=files, undo={"kind": "none", "note": "the PATH lines uv wrote are taken out file by file"})]
 
 
-# A module's installer, fetched at its pinned tag the way its own README says: through gh when it is logged in (the
-# repo may be private), else curl. sh -c FETCH_AND_RUN _ <repo> <tag> <path in the repo> <its arguments…>
-FETCH_AND_RUN = (
-    'set -eu; f=$(mktemp); trap \'rm -f "$f"\' EXIT; '
-    'if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; '
-    'then gh api -H "Accept: application/vnd.github.raw" "repos/$1/contents/$3?ref=$2" >"$f"; '
-    'else curl -fsSL -o "$f" "https://raw.githubusercontent.com/$1/$2/$3"; fi; '
-    'shift 3; sh "$f" "$@"')
-
-
-def _module_argv(m: Machine, mod: catalog.Module, *args: str) -> list[str]:
-    return [_exe(m, "sh"), "-c", FETCH_AND_RUN, "install", mod.repo, f"v{mod.version}", mod.install, *args]
-
-
-def _module_step(id: str, cid: str, title: str, m: Machine, mod: catalog.Module, **kw) -> Step:
-    """Run the module's installer at its version; the undo runs the same installer with --uninstall."""
-    step = _exec(id, cid, title, _module_argv(m, mod, "--version", mod.version),
-                 undo={"kind": "exec", "argv": _module_argv(m, mod, "--uninstall")}, **kw)
-    step.preview = f"sh {mod.install} --version {mod.version}   # {mod.repo} at v{mod.version}, fetched through gh (logged in) or curl"
-    return step
-
-
-def _gateway_launcher() -> str:
-    """Where cc-gateway's install.sh writes its launcher: $CC_GATEWAY_BIN_DIR, else ~/.local/bin."""
-    return os.path.join(os.environ.get("CC_GATEWAY_BIN_DIR") or str(Path.home() / ".local" / "bin"), "cc-gateway")
+def _module_dir(kit: Kit, cid: str) -> str:
+    """The module's folder in the kit's clone (kit/modules.json dir): Claude Code's clone keeps this path across updates."""
+    return os.path.join(kit.dir, catalog.get(cid).module.dir)
 
 
 def _shim(m: Machine, kit: Kit) -> list[Step]:
+    """cc-shim installs itself from the kit's shim/ folder: it copies itself into <data dir>/cc-shim, so an update of the
+    clone never pulls the wrapper out from under a running claude (`ak shim install` runs the same)."""
     legacy = bool(m.shim.get("legacy"))
     if m.shim.get("present") and not legacy:
         return []
-    mod = catalog.get("shim").module
+    src = _module_dir(kit, "shim")
     files = [] if is_windows() else _rc_files(SHIM_RCS) + [
         os.path.join(str(config_dir()), "fish", "conf.d", "cc-shim.fish"),
         os.path.join(str(config_dir()), "environment.d", "cc-shim.conf")]
-    step = _module_step("shim", "shim", "update the older bash claude shim to the node one" if legacy else "install the claude shim",
-                        m, mod, touches=files)
+    installed = os.path.join(str(data_dir()), SHIM_DIR, "cc-shim.mjs")
+    step = _exec("shim", "shim", "update the older bash claude shim to the node one" if legacy else "install the claude shim",
+                 [_exe(m, "node"), os.path.join(src, "cc-shim.mjs"), "install"], env={"CC_SHIM_SRC": src}, touches=files,
+                 undo={"kind": "exec", "argv": [_exe(m, "node"), installed, "uninstall"]})
     if legacy:  # cmdInstall copies over the old files and skips rc files that already carry the shim's line
         step.preview += "\n# replaces the files of the older bash shim in place; its rc lines and conf.d fragments stay"
         step.undo = {"kind": "none", "note": "the older bash shim was replaced; `cc-shim uninstall` would remove the wrapper altogether"}
     return [step]
 
 
+def _gateway_argv(m: Machine, kit: Kit, *verb: str) -> list[str]:
+    """The gateway's CLI from the kit's gateway/ folder, the way `ak gateway` runs it. enable copies src/ into the
+    gateway's own data folder before the service starts, so the service never runs from the clone."""
+    return [_exe(m, "node"), "--experimental-strip-types", "--no-warnings",
+            os.path.join(_module_dir(kit, "gateway"), "src", "cli.ts"), *verb]
+
+
 def _gateway(m: Machine, kit: Kit) -> list[Step]:
     if m.gateway.get("on"):
         return []
-    launcher = _gateway_launcher()
+    as_ak = {env_name("GATEWAY_COMMAND"): cmd("gateway")}  # its hints then say `ak gateway …`, the command this person has
     steps = []
-    if not os.path.isfile(launcher):
-        mod = catalog.get("gateway").module
-        steps.append(_module_step("gateway:install", "gateway", "install the gateway", m, mod))
     if not m.gateway.get("accounts"):
-        steps.append(Step("gateway:login", "gateway", "sign in to your Claude account, for the gateway", "login", [launcher, "account", "login"],
-                          preview=_line([launcher, "account", "login"]), interactive=True,
-                          undo={"kind": "none", "note": "the gateway account stays; remove it with cc-gateway account remove <name>"}))
-    steps.append(_exec("gateway:enable", "gateway", "turn the gateway on", [launcher, "enable"],
-                       undo={"kind": "exec", "argv": [launcher, "disable"]}))
+        login = _gateway_argv(m, kit, "account", "login")
+        steps.append(Step("gateway:login", "gateway", "sign in to your Claude account, for the gateway", "login", login,
+                          env=as_ak, preview=_line(login), interactive=True,
+                          undo={"kind": "none", "note": f"the gateway account stays; remove it with {cmd('gateway account remove <name>')}"}))
+    steps.append(_exec("gateway:enable", "gateway", "turn the gateway on", _gateway_argv(m, kit, "enable"), env=as_ak,
+                       undo={"kind": "exec", "argv": _gateway_argv(m, kit, "disable"), "env": as_ak}))
     return steps
 
 
@@ -876,8 +863,9 @@ def _verify_component(c: catalog.Component, m: Machine) -> dict | None:
         if m.gateway.get("on"):
             return _f(c.id, "pass", "the gateway is on")
         if not m.gateway.get("accounts"):
-            return _f(c.id, "fail", "the gateway is off and has no account", "cc-gateway account login, then cc-gateway enable")
-        return _f(c.id, "fail", "the gateway is off", "cc-gateway enable")
+            return _f(c.id, "fail", "the gateway is off and has no account",
+                      f"{cmd('gateway account login')}, then {cmd('gateway enable')}")
+        return _f(c.id, "fail", "the gateway is off", cmd("gateway enable"))
     return None
 
 

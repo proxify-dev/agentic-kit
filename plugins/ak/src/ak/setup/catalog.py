@@ -6,9 +6,8 @@ neither, the public kit's SNAPSHOT), never kept here by name:
     Plugins     one per plugin under plugins/ — its plugin.json's name, description, visibility (missing:
                 private) and dependencies; one listed by no marketplace is shown, not selectable
     Settings    the settings.json keys a present plugin runs on
-    Launcher    one per module in kit/modules.json (modules.json at the root of an exported kit), installed by
-                its own script at its pinned version; a module that ships a plugin is a Plugins row instead,
-                left out when a plugin of that name is on disk
+    Launcher    one per module in kit/modules.json (modules.json at the root of an exported kit): a folder the
+                kit carries that is not a plugin (shim/, gateway/), installed from the kit's clone
 A plugin.json (or a module) may add a "setup" block for what the rest can't say:
     "setup": {"summary": "bookmark sessions to come back to", "depends_on": ["vault"], "default": false, "note": "parked", "group": "Launcher",
               "gives": ["ak sessions — your past sessions, searchable from the shell"],
@@ -56,9 +55,7 @@ class Needs:
 
 @dataclass(frozen=True)
 class Module:
-    repo: str        # "teocns/cc-gateway"
-    version: str     # "0.1.0": the release it installs, fetched at tag v<version>
-    install: str     # the installer's path in the repo: "install.sh"
+    dir: str         # "gateway": its folder at the kit's root, installed from the kit's clone
 
 
 @dataclass(frozen=True)
@@ -82,7 +79,7 @@ class Component:
     note: str | None = None       # a caveat shown beside it ("parked", "untested on Windows")
     settings_key: tuple[str, ...] | None = None  # the user settings.json key it sets; left alone when already set
     private: bool = False         # its plugin.json does not say "visibility": "public": never in the public kit
-    module: Module | None = None  # a module installed by its own script (kit/modules.json)
+    module: Module | None = None  # a folder the kit carries that is not a plugin (kit/modules.json)
     summary: str = ""             # one line a person reads beside the name in `ak setup` ("bookmark sessions to come back to")
     comes_with: str | None = None  # the row whose pick brings it and whose unpick drops it: no row of its own in `ak setup`
     first_run: FirstRun | None = None  # the plugin's own first work once installed (its setup block's first_run)
@@ -178,17 +175,11 @@ def _plugin_row(meta: dict, listed: bool) -> Component:
                      version=str(meta.get("version") or ""))
 
 
-def _module_row(mod: dict, listed: set[str]) -> Component:
+def _module_row(mod: dict) -> Component:
     setup = mod.get("setup") or {}
-    plugin = mod.get("plugin")
-    is_plugin = bool(plugin and plugin in listed)
-    deps = (*(("marketplace",) if is_plugin else ()), *setup.get("depends_on", ()))
-    return Component(mod["id"], mod.get("label", mod["id"]), mod.get("description", ""),
-                     setup.get("group", "Plugins" if plugin else "Launcher"), _needs(setup.get("needs", {})),
-                     tuple(deps), bool(setup.get("default", True)), plugin if is_plugin else None,
-                     selectable=is_plugin or bool(mod.get("install")),
-                     note=setup.get("note") or (None if is_plugin or mod.get("install") else NOT_IN_MARKETPLACE),
-                     module=None if plugin else Module(mod["repo"], mod["version"], mod["install"]),
+    return Component(mod["id"], mod.get("label", mod["id"]), mod.get("description", ""), setup.get("group", "Launcher"),
+                     _needs(setup.get("needs", {})), tuple(setup.get("depends_on", ())), bool(setup.get("default", True)),
+                     note=setup.get("note"), module=Module(mod.get("dir") or mod["id"]),
                      summary=setup.get("summary", ""), gives=tuple(setup.get("gives", ())), changes=setup.get("changes", ""),
                      route=setup.get("route", ""), comes_with=setup.get("comes_with"))
 
@@ -224,16 +215,10 @@ def load(kit: dict) -> tuple[str, tuple[Component, ...]]:
     rank = {n: i for i, n in enumerate([HOST, *names])}
     metas = sorted(kit.get("plugins", []), key=lambda m: (rank.get(m["name"], len(rank)), m["name"]))
     plugins = [_plugin_row(m, m["name"] in listed) for m in metas]
-    # a module's setup words reach its plugin row when the plugin.json has none: an upstream (cc-tool-results)
-    # keeps the kit's words out of its own repo
-    said = {m.get("plugin"): (m.get("setup") or {}).get("summary") for m in kit.get("modules", []) if m.get("plugin")}
-    plugins = [dataclasses.replace(c, summary=said[c.id]) if not c.summary and said.get(c.id) else c for c in plugins]
-    carried = {c.id for c in plugins}  # a module whose plugin the kit carries itself is that plugin
-    mod_rows = [_module_row(m, listed) for m in kit.get("modules", [])
-                if m.get("id") not in carried and m.get("plugin") not in carried]
-    present = carried | {c.plugin for c in mod_rows if c.plugin}
-    settings = [c for c, serves in SETTINGS if serves in present]
-    rows = [*kit_rows(name), *plugins, *[c for c in mod_rows if c.plugin], *settings, *[c for c in mod_rows if not c.plugin]]
+    carried = {c.id for c in plugins}
+    mod_rows = [_module_row(m) for m in kit.get("modules", []) if m.get("id") not in carried]
+    settings = [c for c, serves in SETTINGS if serves in carried]
+    rows = [*kit_rows(name), *plugins, *settings, *mod_rows]
     return name, tuple(_without_missing(rows))
 
 

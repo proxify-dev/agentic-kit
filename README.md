@@ -2,13 +2,14 @@
 
 # agentic-kit
 
-**Claude can already do almost anything.<br>The kit makes the answer quicker and cheaper to get.**
+**Nothing you did with Claude gets lost.<br>Nothing it did stays a guess.**
 
-Tools for people who work in Claude Code all day.
+For people who work in Claude Code all day: find any past chat, see what really happened in it,
+and check an agent's work before it ships.
 
-Search your past sessions&nbsp; ◦ &nbsp;Skills for building with agents&nbsp; ◦ &nbsp;All your accounts behind one `claude`&nbsp; ◦ &nbsp;One install, one undo
+Find any chat&nbsp; ◦ &nbsp;See what Claude really sent&nbsp; ◦ &nbsp;Skills that check your work&nbsp; ◦ &nbsp;All your accounts behind one `claude`&nbsp; ◦ &nbsp;One install, one undo
 
-[Install](#install) • [Why](#why) • [What you can pick](#what-you-can-pick) • [What changes](#what-setup-changes-on-your-machine) • [Without setup](#without-setup)
+[What it does](#what-it-does-for-you) • [Install](#install) • [Measured](#measured) • [What you can pick](#what-you-can-pick) • [What changes](#what-setup-changes-on-your-machine) • [Without setup](#without-setup)
 
 ![for Claude Code](https://img.shields.io/badge/for-Claude%20Code-D97757?logo=claude&logoColor=white)
 ![install with uv](https://img.shields.io/badge/install%20with-uv-DE5FE9?logo=uv&logoColor=white)
@@ -18,6 +19,22 @@ Search your past sessions&nbsp; ◦ &nbsp;Skills for building with agents&nbsp; 
 </div>
 
 ---
+
+## What it does for you
+
+Every chat you have with Claude Code is saved on your machine, often gigabytes of it. Without help,
+that history is a pile of raw files: a chat you lost stays lost, and an hour that went wrong stays a
+guess. The kit turns it into answers. Each row below is a real question from real work, answered by the kit:
+
+| You ask | You run | What came back |
+|---|---|---|
+| *"I know we did this somewhere. Where?"* | `ak sessions search "<a few words>"` | the lost chat, found across 2,386 projects in about a minute, and picked back up the same day |
+| *"Which chat changed this file, and why?"* | `ak trace blame <file>` | every chat that changed it, each change, and the prompt that asked for it |
+| *"That felt slow. Where did the hour go?"* | `ak sessions show <chat>` | one turn of 141 steps and 22 minutes, built in the wrong direction: the real waste, found |
+| *"Five chats touched this folder. What's mine?"* | `ak trace blame <folder>` | 3 commits of this chat's own work; every other chat's changes left exactly as they were |
+| *"Is that chat still running, or waiting on me?"* | `ak sessions live` | the chat thought lost: still open, waiting on an answer |
+| *"What does my helper agent really get?"* | `ak xray claude -p "…"` (with the [gateway](#gateway--all-your-claude-accounts-behind-one-claude)) | a fix that quietly took a helper's Agent tool away, caught in a free dry run before anything ran |
+| *"Are my tests worth keeping?"* | `/agentic-engineering:fewer-faster-tests` | a test skipped on every run since a rename, so a whole plugin was never checked |
 
 ## Install
 
@@ -29,21 +46,28 @@ You need [uv](https://docs.astral.sh/uv/), git and [Claude Code](https://docs.cl
 (`claude` on your PATH). Setup opens a picker in your terminal: it checks your machine, you tick what
 you want, it shows every change it will make, then installs.
 
-## Why
+## Measured
 
-Claude can already answer "which chat changed this file?" by searching its own history files with grep
-and jq, but that takes many steps and minutes. The tracer indexes those files after every turn, so the
-same question becomes one command. Measured on claude-sonnet-5-5 over 7 GB of real history, average of 2 runs:
+The kit gives Claude three kinds of help:
+
+| | Claude alone | Claude with the kit |
+|---|---|---|
+| **Find** a chat, or the chat behind a file | possible, slowly: it digs through gigabytes of raw files with grep and jq | one command, from an index the tracer updates after every turn |
+| **See** the exact prompt Claude or a helper sends the model | not possible: chat files never keep the whole prompt as sent | `ak xray`, a dry run: nothing sent, nothing billed (needs the gateway, off by default) |
+| **Check** tests, skills, installs, the words of a rule | whatever it remembers to check | seven skills, each with the steps for one kind of check |
+
+The first one, raced on claude-sonnet-5-5 over 7 GB of real history, average of 2 runs:
 
 | "Which chat last changed `gateway/README.md`?" | time | steps | cost |
 |---|--:|--:|--:|
 | Claude alone | 4m31s | 17 | $0.28 |
 | Claude + tracer | **1m21s** | **5** | $0.12 |
 
-- Every answer cost cents, so the gain is time and steps, not money.
-- Over 12 runs on four questions, Claude with the tracer was 2.4× faster overall. One question was a tie.
-- When you already give Claude the session id, there is nothing to gain.
-- The tracer sees edits made with Claude's Edit and Write tools, not through a shell command. Here it
+- Same right answer, 3× faster. Over 12 runs on four questions: 2.4× faster overall.
+- The gain is in the finding. Once Claude has a chat's id, a quick fact about that one chat (its cost,
+  its model) is just as fast without the kit, and that was the one question that tied.
+- Each answer cost cents, so what you get back is minutes and steps, not money.
+- The tracer sees changes made with Claude's Edit and Write tools, not by a shell command. Here it
   named the right chat but missed that chat's last edit, which was made with a shell command.
 
 ## What you can pick
@@ -97,7 +121,8 @@ its banner says "API Usage Billing". Needs macOS, Linux or WSL, and Node 22.13 o
 - the `ak` command, as a uv tool in `~/.local/bin`; it runs from Claude Code's copy, so it updates with the kit
 - with agentic-engineering: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in your Claude Code `settings.json`,
   which `/new-plugin`, `/new-skill` and `/new-agent` need
-- only with the gateway: the claude shim on your PATH and a background service on `127.0.0.1:4747`
+- only with the gateway: the claude shim on your PATH and a background service on `127.0.0.1:4747`,
+  both run from Claude Code's copy of this repo (nothing is downloaded besides it)
 
 Every file it changes is backed up first.
 
@@ -130,13 +155,21 @@ last changed src/app.py?"*, or type `/tracer:blame src/app.py`.
 | | |
 |---|---|
 | [`plugins/ak/`](plugins/ak/) | the `ak` command and `ak setup` |
-| [`plugins/tracer/`](plugins/tracer/) | the session index and its skills; also its own repo, [teocns/cc-tracer](https://github.com/teocns/cc-tracer) |
+| [`plugins/tracer/`](plugins/tracer/) | the session index and its skills |
 | [`plugins/agentic-engineering/`](plugins/agentic-engineering/) | the skills, the agent, the hooks |
-| [`modules.json`](modules.json) | the gateway and the shim, pinned to v0.1.1 of their own repos, [teocns/cc-gateway](https://github.com/teocns/cc-gateway) and [teocns/cc-shim](https://github.com/teocns/cc-shim) |
+| [`gateway/`](gateway/) | the gateway service; `ak setup` runs it from Claude Code's copy of this repo |
+| [`shim/`](shim/) | the claude shim, installed the same way |
 | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) | the marketplace Claude Code reads |
 
 Tried end to end from GitHub on a fresh Linux machine. Not yet tried on Windows or on a fresh macOS account.
 
+## Use at your own risk
+
+This is an independent project, not affiliated with or endorsed by Anthropic. It is provided as is (see
+[LICENSE](LICENSE)). You are responsible for using it within your agreements: Anthropic's terms for your
+accounts (the gateway can switch between several), and any client's rules about tools that read your
+Claude Code history or hold your credentials. Everything it records stays on your machine.
+
 ## License
 
-[MIT](LICENSE) © 2026 Proxify.
+[MIT](LICENSE) © 2026 Constantin Teodorescu and Proxify.

@@ -227,9 +227,6 @@ cwd is not a signal. The default for automated sessions is one constant,
 /plugin marketplace add proxify-dev/agentic-kit     from the public kit (the marketplace is `agentic-kit`)
 /plugin install tracer@agentic-kit
 
-/plugin marketplace add teocns/cc-tracer            on its own (this folder is also the repo cc-tracer)
-/plugin install tracer@cc-tracer
-
 /plugin marketplace add ~/agentic-kit               or with the kit checkout (the marketplace is `ak`)
 /plugin install tracer@ak
 ```
@@ -275,8 +272,8 @@ enabled plugin's `bin/` on the Bash tool's PATH, so the verbs an agent types (`t
                              a user runs it with no npm install. Rebuild: `npm run build` there (esbuild through
                              its node_modules link, `npm run link:dev`); `app`'s `selftest:bundle-fresh` checks
                              the bytes. The app imports these sources too (its vault paths live here, once)
-   evals/tool-routing/       (in the kit only: its cases and runs are a person's sessions, so cc-tracer leaves
-                             it out, with the index skill's arena and the trace skill's eval)
+   evals/tool-routing/       (in this workspace only: its cases and runs are a person's sessions, so the public
+                             kit leaves it out, with the index skill's arena and the trace skill's eval)
                              do agents reach the right tool, in how many calls — the gate for a description
                              or output change (its README: arms, run, how to read a result). Every case
                              carries its story — STORY.md, the rule in plugins/EVALS.md

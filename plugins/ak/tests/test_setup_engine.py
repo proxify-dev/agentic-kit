@@ -75,15 +75,6 @@ def installed(box, **kw):
     return machine(box, **{**have, **kw})
 
 
-def gateway_on_disk(box):
-    """cc-gateway's launcher where its install.sh puts it: a fake that logs what it was asked."""
-    launcher = box["home"] / ".local" / "bin" / "cc-gateway"
-    launcher.parent.mkdir(parents=True, exist_ok=True)
-    launcher.write_text(FAKE.replace("NAME", "cc-gateway").replace("EXTRA", ":"))
-    launcher.chmod(0o755)
-    return str(launcher)
-
-
 def run_all(p):
     events = []
     ok = engine.apply(p, backup.Run.new(), lambda event, **d: events.append((event, d)))
@@ -149,7 +140,6 @@ def test_no_repo_url_skips_the_clone_and_what_needs_it(box, monkeypatch):
 
 
 def test_the_gateway_login_leaves_the_account_when_undone(box):
-    gateway_on_disk(box)
     login = engine.plan(installed(box, shim={"present": True}), ["gateway"]).steps[0]
     assert login.id == "gateway:login" and login.touches == [] and login.undo["kind"] == "none"
     assert "gateway account remove" in login.undo["note"]
@@ -264,60 +254,54 @@ def test_observer_and_tracer_get_their_environments_built_after_the_install(box)
     assert "embed" in p.skipped["observer.embed"]
 
 
-def test_shim_and_gateway_install_from_their_modules_at_the_pinned_version(box):
+def test_shim_and_gateway_install_from_the_kits_own_folders(box):
+    """No download: the shim installs itself from the kit's shim/, the gateway runs from the kit's gateway/."""
+    rel = str(source.release_dir())
+    node = str(box["bin"] / "node")
+    gateway = [node, "--experimental-strip-types", "--no-warnings", f"{rel}/gateway/src/cli.ts"]
+    as_ak = {"AK_GATEWAY_COMMAND": f"{CLI} gateway"}
     p = engine.plan(installed(box), ["gateway"])
-    assert [s.id for s in p.steps] == ["shim", "gateway:install", "gateway:login", "gateway:enable"]
-    shim, install, login, enable = p.steps
-    for step, cid in ((shim, "shim"), (install, "gateway")):
-        mod = catalog.get(cid).module
-        assert step.argv[-5:] == [mod.repo, f"v{mod.version}", mod.install, "--version", mod.version]
-        assert step.undo["argv"][-4:] == [mod.repo, f"v{mod.version}", mod.install, "--uninstall"]
-        assert step.preview.startswith(f"sh {mod.install} --version {mod.version}")
-    launcher = str(box["home"] / ".local" / "bin" / "cc-gateway")
-    assert login.interactive and login.argv == [launcher, "account", "login"]
-    assert enable.argv == [launcher, "enable"] and enable.undo["argv"] == [launcher, "disable"]
-    gateway_on_disk(box)  # installed already: no install step
+    assert [s.id for s in p.steps] == ["shim", "gateway:login", "gateway:enable"]
+    shim, login, enable = p.steps
+    assert shim.argv == [node, f"{rel}/shim/cc-shim.mjs", "install"] and shim.env == {"CC_SHIM_SRC": f"{rel}/shim"}
+    assert shim.undo["argv"] == [node, os.path.join(str(engine.data_dir()), "cc-shim", "cc-shim.mjs"), "uninstall"]
+    assert login.interactive and login.argv == [*gateway, "account", "login"] and login.env == as_ak
+    assert enable.argv == [*gateway, "enable"] and enable.env == as_ak
+    assert enable.undo["argv"] == [*gateway, "disable"] and enable.undo["env"] == as_ak
     assert [s.id for s in engine.plan(installed(box, gateway={"accounts": True}), ["gateway"]).steps] == ["shim", "gateway:enable"]
 
 
-GH = """#!/bin/sh
-case "$1" in
-  auth) exit "${FAKE_GH_AUTH:-0}" ;;
-  api) echo "gh $*" >> "$FAKE_LOG"; echo 'echo "installer $*" >> "$FAKE_LOG"' ;;
-esac
-"""
-CURL = """#!/bin/sh
-echo "curl $*" >> "$FAKE_LOG"
-while [ $# -gt 0 ]; do [ "$1" = -o ] && out=$2; shift; done
-echo 'echo "installer $*" >> "$FAKE_LOG"' > "$out"
-"""
-
-
-@pytest.mark.parametrize("gh_logged_in", [True, False])
-def test_a_module_installer_is_fetched_at_its_tag_through_gh_else_curl(box, monkeypatch, gh_logged_in):
-    for name, body in (("gh", GH), ("curl", CURL)):
-        (box["bin"] / name).write_text(body)
-        (box["bin"] / name).chmod(0o755)
-    monkeypatch.setenv("FAKE_GH_AUTH", "0" if gh_logged_in else "1")
-    mod = catalog.get("shim").module
+def test_the_shim_install_runs_from_the_clone_and_its_undo_uninstalls_the_copy(box):
+    rel = str(source.release_dir())
     ok, _ = run_all(engine.plan(installed(box), ["shim"]))
-    fetched, ran = box["log"].read_text().splitlines()  # the fakes here log the command alone
-    assert ok and ran == f"installer --version {mod.version}"
-    if gh_logged_in:
-        assert fetched.startswith("gh api") and fetched.endswith(f"repos/{mod.repo}/contents/{mod.install}?ref=v{mod.version}")
-    else:
-        assert fetched.startswith("curl") and f"https://raw.githubusercontent.com/{mod.repo}/v{mod.version}/{mod.install}" in fetched
+    assert ok and commands(box) == [f"node {rel}/shim/cc-shim.mjs install"]
+    assert all(r["ok"] for r in backup.undo())
+    assert commands(box)[-1] == f"node {os.path.join(str(engine.data_dir()), 'cc-shim', 'cc-shim.mjs')} uninstall"
+
+
+def test_an_older_runs_github_uninstall_is_done_on_this_machine(box):
+    """ak ≤ 4.4 recorded the shim's undo as teocns/cc-shim's install.sh --uninstall, fetched from GitHub: that repo
+    is retired, so undo does what that script did, here."""
+    fetch = 'set -eu; f=$(mktemp); curl -fsSL -o "$f" "https://raw.githubusercontent.com/$1/$2/$3"; shift 3; sh "$f" "$@"'
+    releases = box["home"] / ".local" / "share" / "cc-shim" / "releases"
+    (releases / "0.1.1").mkdir(parents=True)
+    (releases / "0.1.1" / "cc-shim.mjs").write_text("")
+    (releases / "current").symlink_to("0.1.1")
+    run = backup.Run.new()
+    run.record("shim", "install the claude shim", {"kind": "exec", "argv": [
+        "sh", "-c", fetch, "install", "teocns/cc-shim", "v0.1.1", "install.sh", "--uninstall"]}, "done")
+    assert all(r["ok"] for r in backup.undo())
+    assert commands(box) == [f"node {releases}/current/cc-shim.mjs uninstall"] and not releases.exists()
 
 
 OLD_SHIM = {"present": True, "legacy": True}
 
 
 def test_an_older_bash_shim_is_in_place_unless_the_person_picks_the_shim(box):
-    gateway_on_disk(box)
     p = engine.plan(installed(box, shim=OLD_SHIM, gateway={"accounts": True}), ["gateway"])
     assert p.skipped["shim"] == engine.IN_PLACE and [s.id for s in p.steps] == ["gateway:enable"]
     (step,) = engine.plan(installed(box, shim=OLD_SHIM), ["shim"]).steps
-    assert step.id == "shim" and "older bash" in step.title and step.argv[-2] == "--version" and "replaces the files" in step.preview
+    assert step.id == "shim" and "older bash" in step.title and step.argv[-1] == "install" and "replaces the files" in step.preview
 
 
 def test_verify_warns_about_an_older_shim_and_names_the_update(box):
@@ -327,7 +311,7 @@ def test_verify_warns_about_an_older_shim_and_names_the_update(box):
 
 def test_verify_without_dependencies_checks_only_what_it_is_given(box):
     m = installed(box, gateway={"on": True, "accounts": True})
-    assert [f["check"] for f in engine.verify(m, ["gateway"])] == ["shim", "gateway"]  # the modules need no release clone
+    assert [f["check"] for f in engine.verify(m, ["gateway"])] == ["release", "shim", "gateway"]  # installed from the clone
     assert [f["check"] for f in engine.verify(m, ["gateway"], with_deps=False)] == ["gateway"]
 
 
@@ -419,7 +403,6 @@ def test_child_output_reaches_emit_line_by_line(box):
 
 
 def test_an_interactive_step_goes_through_run_interactive_and_never_runs_unattended(box):
-    gateway_on_disk(box)
     p = engine.plan(installed(box, shim={"present": True}, bins=machine(box).bins), ["gateway"])
     asked = []
 
@@ -429,11 +412,10 @@ def test_an_interactive_step_goes_through_run_interactive_and_never_runs_unatten
 
     ok = engine.apply(p, backup.Run.new(), lambda *a, **k: None, run_interactive=hand_over)
     assert ok and asked == ["gateway:login"]
-    assert commands(box) == ["cc-gateway enable"]
+    assert commands(box) == [f"node --experimental-strip-types --no-warnings {source.release_dir()}/gateway/src/cli.ts enable"]
 
 
 def test_an_interactive_step_without_a_hand_over_runs_attached_to_the_terminal(box):
-    gateway_on_disk(box)
     p = engine.plan(installed(box, shim={"present": True}), ["gateway"])
     assert engine.apply(p, backup.Run.new(), lambda *a, **k: None)
     assert [c.split()[-1] for c in commands(box)] == ["login", "enable"]

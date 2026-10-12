@@ -1,0 +1,41 @@
+{
+  "_comment": "Example config used to exercise the policy plane against live traffic. Point at it with AK_GATEWAY_CONFIG rather than installing it, so nothing on the machine changes.",
+  "port": 4747,
+  "upstream": "chain",
+  "capture": "meta",
+  "policy": [
+    {
+      "rule": "house-rules",
+      "on": "PreRequest",
+      "kind": "append-system",
+      "level": "block",
+      "text": "Gateway note: this request passed through the harness wire.",
+      "match": { "origin": "probe" }
+    },
+    {
+      "rule": "no-opus-for-probes",
+      "on": "PreRequest",
+      "kind": "deny-model",
+      "level": "suggest",
+      "models": ["*opus*"],
+      "match": { "origin": "probe" }
+    },
+    {
+      "rule": "sonnet-is-off-limits",
+      "on": "PreRequest",
+      "kind": "deny-model",
+      "level": "block",
+      "models": ["*sonnet*"],
+      "match": { "agent": "gateway-probe" }
+    },
+    {
+      "rule": "probe-token-cap",
+      "on": "PreRequest",
+      "kind": "budget",
+      "level": "suggest",
+      "maxTokens": 1000,
+      "per": "agent",
+      "match": { "agent": "gateway-probe" }
+    }
+  ]
+}

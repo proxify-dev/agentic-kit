@@ -1,0 +1,26 @@
+{
+  "name": "cc-gateway",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "description": "The harness's wire: every model call from every client passes through it.",
+  "license": "MIT",
+  "bin": {
+    "cc-gateway": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types --no-warnings src/daemon.ts",
+    "cli": "node --experimental-strip-types --no-warnings src/cli.ts",
+    "test": "npm run test:wire && npm run test:engine",
+    "test:wire": "node --experimental-strip-types --no-warnings --test test/*.test.ts",
+    "test:engine": "node --test --test-timeout=120000 'test/engine/*.test.js'",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "~6"
+  },
+  "engines": {
+    "node": ">=22.7"
+  }
+}

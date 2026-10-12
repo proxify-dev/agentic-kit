@@ -431,15 +431,37 @@ def test_gateway_runs_from_the_checkout_you_stand_in(tmp_path, monkeypatch):
     assert _gateway_cli() == home / REPO_DIR / "gateway" / "src" / "cli.ts"
 
 
-def test_gateway_runs_from_the_release_setup_installed_when_there_is_no_checkout(tmp_path, monkeypatch):
-    """The public kit carries no gateway/ folder: `ak setup` installs cc-gateway under <data dir>/ak/cc-gateway.
-    `ak gateway` on a fresh machine said "no gateway/src/cli.ts at ~/agentic-kit" (seen in the e2e box)."""
+def test_gateway_and_shim_run_from_the_kit_ak_was_installed_from(tmp_path, monkeypatch):
+    """`ak setup` installs ak from Claude Code's clone of the public kit, which carries gateway/ and shim/: with no
+    checkout around, `ak gateway` and `ak shim` find them there. (`ak gateway` on a fresh machine once said "no
+    gateway/src/cli.ts at ~/agentic-kit", seen in the e2e box.)"""
+    from ak import cli
+    from ak.setup import source
+    clone = tmp_path / "clone"
+    (clone / "gateway" / "src").mkdir(parents=True)
+    (clone / "gateway" / "src" / "cli.ts").write_text("")
+    (clone / "shim").mkdir()
+    (clone / "shim" / "cc-shim.mjs").write_text("")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.delenv(env_name("CODE"), raising=False)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(source, "_installed_from", lambda: str(clone))
+    assert cli._gateway_cli() == clone / "gateway" / "src" / "cli.ts"
+    assert cli._shim_src() == clone / "shim"
+
+
+def test_gateway_runs_from_the_release_an_older_setup_installed(tmp_path, monkeypatch):
+    """An `ak setup` before 4.5 installed cc-gateway from GitHub under <data dir>/ak/cc-gateway: with no kit on disk,
+    `ak gateway` still runs that one."""
     from ak.cli import _gateway_cli
+    from ak.setup import source
     data = tmp_path / "data"
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_DATA_HOME", str(data))
     monkeypatch.delenv(env_name("CODE"), raising=False)
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(source, "_installed_from", lambda: None)
     with pytest.raises(SystemExit):
         _gateway_cli()
     release = data / "ak" / "cc-gateway" / "0.1.0" / "src"

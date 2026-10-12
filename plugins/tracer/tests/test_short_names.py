@@ -70,7 +70,7 @@ def test_short_name_runs_the_tracer_group(name):
 def _score():
     path = PLUGIN / "evals" / "tool-routing" / "score.py"
     if not path.is_file():
-        pytest.skip("the eval data stays on the owner's machine")  # cc-tracer and the public kit leave evals/ out
+        pytest.skip("the eval data stays on the owner's machine")  # the public kit leaves evals/ out
     spec = importlib.util.spec_from_file_location("score", path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)

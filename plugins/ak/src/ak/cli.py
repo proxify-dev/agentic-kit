@@ -191,10 +191,16 @@ SHIM_CONFD = SHIM_CFG / "conf.d"
 _SHIM_KINDS = (".mjs",) if is_windows() else (".sh", ".mjs")
 
 
+def _kit_roots():
+    """Where a kit with shim/ and gateway/ may sit: $AK_CODE, the checkout you stand in — a worktree runs its own,
+    the way `ak` runs its own plugin there — ~/agentic-kit, the kit ak was installed from (Claude Code's clone of
+    the public kit, after `ak setup`), then the release clone."""
+    from ak.setup import source  # lazy: only read when a shim or gateway verb runs
+    return (env("CODE"), _checkout_above(Path.cwd().resolve()), _home_code(), source._installed_from(), source.release_dir())
+
+
 def _shim_src():
-    from ak.setup import source  # lazy: the release clone is the last place to look
-    here = _checkout_above(Path.cwd().resolve())
-    for root in (env("CODE"), here, _home_code(), source.release_dir()):
+    for root in _kit_roots():
         if root and (Path(root) / "shim/cc-shim.mjs").is_file():
             return Path(root) / "shim"
     return None
@@ -357,16 +363,13 @@ def _shim_pin_src():
 # daemon (gateway/src/cli.ts) so the two cannot disagree about a port; this is
 # the front door, exec'd so `tail` and `probe` stream live.
 def _gateway_cli(entry="cli.ts"):
-    """$AK_CODE, else the checkout you stand in — a worktree runs its own
-    gateway, the way `ak` runs its own plugin there — else ~/agentic-kit, else the release clone,
-    else the cc-gateway release `ak setup` installed (the public kit carries no gateway/ folder)."""
-    from ak.setup import source  # lazy: the release clone is the last place to look
-    here = _checkout_above(Path.cwd().resolve())
-    for root in (env("CODE"), here, _home_code(), source.release_dir()):
+    """The gateway/ folder of the first kit _kit_roots() finds, else the cc-gateway release an `ak setup` before 4.5
+    installed from GitHub."""
+    for root in _kit_roots():
         if root and (Path(root) / "gateway/src" / entry).is_file():
             return Path(root) / "gateway/src" / entry
-    # where cc-gateway's install.sh unpacks a release: <data dir>/ak/cc-gateway/current ("ak" is the gateway's own
-    # fixed state folder name, not the brand)
+    # where that release was unpacked: <data dir>/ak/cc-gateway/current ("ak" is the gateway's own fixed state
+    # folder name, not the brand)
     installed = Path(data_dir()) / "ak" / "cc-gateway" / "current" / "src" / entry
     if installed.is_file():
         return installed

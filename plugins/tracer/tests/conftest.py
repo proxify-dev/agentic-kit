@@ -159,7 +159,7 @@ def help_as_the_command_installs_it():
     """The `tracer` command's main() installs the copied help before anything runs: plain help and usage
     errors for anyone not at a terminal. A CliRunner test calls the group and skips main(), so the session
     installs it once, the same way — without it rich-click draws a usage error as a coloured, wrapped box
-    wherever it sees GITHUB_ACTIONS or FORCE_COLOR, and cc-tracer's CI read a different error than a shell."""
+    wherever it sees GITHUB_ACTIONS or FORCE_COLOR, and a CI run read a different error than a shell."""
     from tracer import help as help_mod
     from tracer.groups import FuzzyGroup
     from tracer.verbs import command

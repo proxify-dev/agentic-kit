@@ -216,11 +216,12 @@ def test_a_module_whose_plugin_the_kit_carries_is_that_plugin():
     assert c.plugin == "tool-results" and c.module is None and c.private  # the workspace's own folder, not the module
 
 
-def test_the_launcher_modules_are_pinned_and_need_no_release_clone():
+def test_the_launcher_modules_are_folders_of_the_kit_and_need_its_clone():
+    """The shim and the gateway install from the kit's own shim/ and gateway/, so the clone comes first."""
     for cid in ("shim", "gateway"):
         c = catalog.get(cid)
-        assert c.module and c.module.install == "install.sh" and c.module.version[0].isdigit()
-        assert "release" not in catalog.with_deps([cid])
+        assert c.module == catalog.Module(cid)
+        assert "release" in catalog.with_deps([cid])
 
 
 def test_a_dependency_the_kit_does_not_carry_is_shown_not_selectable():

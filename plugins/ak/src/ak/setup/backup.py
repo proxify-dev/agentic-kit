@@ -270,8 +270,27 @@ def _undo_restore(run: Run, u: dict, dry: bool):
     return action, ok, detail
 
 
+# A run from ak ≤ 4.4 recorded its shim and gateway undo as `sh -c <fetch and run> install teocns/cc-<x> v0.1.1 install.sh
+# --uninstall`: that repo's install.sh, downloaded from GitHub. Those repos are retired; this is what its --uninstall did.
+# The release folders are the ones that install.sh unpacked into ("ak" is the gateway's own state folder, not the brand).
+OLD_UNINSTALL = {
+    "teocns/cc-shim": 'r="${XDG_DATA_HOME:-$HOME/.local/share}/cc-shim/releases"; '
+                      'if [ -f "$r/current/cc-shim.mjs" ]; then node "$r/current/cc-shim.mjs" uninstall || exit 1; fi; rm -rf "$r"',
+    "teocns/cc-gateway": 'd="${XDG_DATA_HOME:-$HOME/.local/share}/ak/cc-gateway"; l="${CC_GATEWAY_BIN_DIR:-$HOME/.local/bin}/cc-gateway"; '
+                         'if [ -f "$l" ] && grep -q "cc-gateway/current/src/cli.ts" "$l"; then rm -f "$l"; fi; rm -rf "$d"',
+}
+
+
+def _local_argv(argv: list[str]) -> list[str]:
+    """argv, or for an old run's GitHub-fetching uninstall (OLD_UNINSTALL) the same uninstall done on this machine."""
+    if len(argv) > 4 and argv[1] == "-c" and "raw.githubusercontent.com" in argv[2] and argv[-1] == "--uninstall" \
+            and argv[4] in OLD_UNINSTALL:
+        return [argv[0], "-c", OLD_UNINSTALL[argv[4]]]
+    return argv
+
+
 def _undo_exec(run: Run, u: dict, dry: bool):
-    argv = u["argv"]
+    argv = _local_argv(u["argv"])
     action = "run " + " ".join(argv)
     if dry:
         return action, True, u.get("note", "")
