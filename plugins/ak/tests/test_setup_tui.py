@@ -37,6 +37,8 @@ COMPONENTS = (
     Component("todo", "todo", "open items in TODO.md", "Plugins", depends_on=("settings.function-hooks",), default_on=False),
     Component("settings.function-hooks", "Function hooks", "a switch todo runs on", "Settings", default_on=False,
               comes_with="todo"),
+    Component("web", "web", "a tool that also runs on the switch", "Plugins", depends_on=("settings.function-hooks",),
+              default_on=False),
 )
 
 
@@ -183,6 +185,17 @@ async def a_setting_a_plugin_runs_on_comes_with_it_and_has_no_row(app, pilot):
     await until(pilot, lambda: "settings.function-hooks" not in pick.picked, "unpicking todo drops the switch too")
 
 
+async def a_setting_stays_while_another_pick_runs_on_it(app, pilot):
+    pick = await to_pick(pilot, app)
+    highlight(pick, "web")
+    await pilot.pause()
+    await pilot.press("space")
+    await until(pilot, lambda: "web" in pick.picked, "web is picked")
+    assert "settings.function-hooks" in pick.picked, "web runs on the switch: picked without todo, it keeps it"
+    await pilot.press("space")
+    await until(pilot, lambda: "settings.function-hooks" not in pick.picked, "nothing left runs on the switch")
+
+
 async def review_shows_the_settings_diff(app, pilot):
     pick = await to_pick(pilot, app)
     assert pick.chosen == ["ak"]
@@ -272,6 +285,10 @@ def test_dependencies_follow_the_pick():
 
 def test_a_plugins_setting_has_no_row():
     drive(a_setting_a_plugin_runs_on_comes_with_it_and_has_no_row)
+
+
+def test_a_setting_stays_while_another_pick_runs_on_it():
+    drive(a_setting_stays_while_another_pick_runs_on_it)
 
 
 def test_review_pane():

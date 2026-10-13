@@ -1,0 +1,13 @@
+{
+  "name": "web",
+  "description": "WebFetchRaw, a tool beside WebFetch: it fetches a URL and saves the page's own content to a file, with no model in between, and returns one line naming the file. WebFetch returns a small model's answer about the page. An HTML page is extracted to markdown, text or cleaned HTML by trafilatura; anything else (JSON, text, a PDF) is saved byte for byte. A Claude Mod (needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1) that runs a Python script through uv once per call. Shares nothing with the vault and needs no kit.",
+  "version": "0.1.1",
+  "visibility": "public",
+  "author": {
+    "name": "teocns"
+  },
+  "license": "MIT",
+  "setup": {"summary": "WebFetchRaw: a web page's own words, saved to a file", "needs": {"bins": ["uv"]},
+            "depends_on": ["settings.function-hooks"],
+            "gives": ["WebFetchRaw — a page's exact content in a file, where WebFetch gives a summary"]}
+}

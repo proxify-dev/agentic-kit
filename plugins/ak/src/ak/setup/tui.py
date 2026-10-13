@@ -629,7 +629,10 @@ class PickScreen(Step):
             want.difference_update(dependents)
             if dependents:
                 said.append(f"{', '.join(map(self._label_of, dependents))} needs {self._label_of(cid)} — unpicked too")
-        want -= {c.id for c in cat.COMPONENTS if getattr(c, "comes_with", None) and c.comes_with not in want}
+        # a row that comes with an unpicked one goes too, unless another pick still runs on it (web on the function hooks)
+        loose = {c.id for c in cat.COMPONENTS if getattr(c, "comes_with", None) and c.comes_with not in want}
+        held = {d for cid in want - loose for d in cat.with_deps([cid]) if d != cid}
+        want -= loose - held
         self.model = want
         self._said = Text("\n".join(said), style=MUTED)
         self._redraw()

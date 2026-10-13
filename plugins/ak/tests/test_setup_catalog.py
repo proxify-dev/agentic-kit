@@ -172,7 +172,7 @@ def exported_kit(tmp_path: Path) -> Path:
     (tmp_path / ".claude-plugin").mkdir()
     (tmp_path / ".claude-plugin" / "marketplace.json").write_text((REPO / "kit" / ".claude-plugin" / "marketplace.json").read_text())
     (tmp_path / "modules.json").write_text((REPO / "kit" / "modules.json").read_text())
-    for name in ("ak", "tracer", "agentic-engineering"):
+    for name in ("ak", "tracer", "agentic-engineering", "web"):
         (tmp_path / "plugins" / name / ".claude-plugin").mkdir(parents=True)
         (tmp_path / "plugins" / name / ".claude-plugin" / "plugin.json").write_text(
             (REPO / "plugins" / name / ".claude-plugin" / "plugin.json").read_text())
@@ -186,8 +186,8 @@ def test_the_public_kit_lists_its_public_plugins_and_the_modules(tmp_path):
     for c in rows:
         by_group.setdefault(c.group, []).append(c.id)
     assert by_group == {"Kit": ["release", "marketplace", "ak-tool", "ak-path"],
-                        "Plugins": ["ak", "agentic-engineering", "tracer"], "Launcher": ["shim", "gateway"],
-                        "Settings": ["settings.function-hooks"]}  # agentic-engineering's commands run on it
+                        "Plugins": ["ak", "agentic-engineering", "tracer", "web"], "Launcher": ["shim", "gateway"],
+                        "Settings": ["settings.function-hooks"]}  # agentic-engineering's commands and web's tool run on it
     assert not any(c.private for c in rows) and all(c.selectable for c in rows)
     assert next(c for c in rows if c.id == "agentic-engineering").default_on  # public: on by default, no note
     first = next(c for c in rows if c.id == "tracer").first_run  # its setup block's first_run: the history, indexed

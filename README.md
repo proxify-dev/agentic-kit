@@ -7,7 +7,7 @@
 For people who work in Claude Code all day: find any past chat, see what really happened in it,
 and check an agent's work before it ships.
 
-Find any chat&nbsp; ◦ &nbsp;See what Claude really sent&nbsp; ◦ &nbsp;Skills that check your work&nbsp; ◦ &nbsp;All your accounts behind one `claude`&nbsp; ◦ &nbsp;One install, one undo
+Find any chat&nbsp; ◦ &nbsp;See what Claude really sent&nbsp; ◦ &nbsp;Skills that check your work&nbsp; ◦ &nbsp;Web pages word for word&nbsp; ◦ &nbsp;All your accounts behind one `claude`&nbsp; ◦ &nbsp;One install, one undo
 
 [What it does](#what-it-does-for-you) • [Install](#install) • [Measured](#measured) • [What you can pick](#what-you-can-pick) • [What changes](#what-setup-changes-on-your-machine) • [Without setup](#without-setup)
 
@@ -35,6 +35,7 @@ guess. The kit turns it into answers. Each row below is a real question from rea
 | *"Is that chat still running, or waiting on me?"* | `ak sessions live` | the chat thought lost: still open, waiting on an answer |
 | *"What does my helper agent really get?"* | `ak xray claude -p "…"` (with the [gateway](#gateway--all-your-claude-accounts-behind-one-claude)) | a fix that quietly took a helper's Agent tool away, caught in a free dry run before anything ran |
 | *"Are my tests worth keeping?"* | `/agentic-engineering:fewer-faster-tests` | a test skipped on every run since a rename, so a whole plugin was never checked |
+| *"What exactly does this page say?"* | nothing: Claude calls WebFetchRaw | the page's own words in a file; Claude's WebFetch, asked for the same page verbatim, answered *"I can't reproduce the full page verbatim"* |
 
 ## Install
 
@@ -96,6 +97,13 @@ at the moment a rule applies: before it edits a CLAUDE.md, briefs a subagent, or
 /agentic-engineering:harness-engineering    load one of the skills yourself
 ```
 
+### web · web pages, word for word
+
+Claude's own WebFetch never gives it the page: a small model reads the page and Claude gets that model's answer,
+even when it asks for the exact text. web adds **WebFetchRaw**, a tool beside it: it saves the page itself to a
+file (the main content as markdown, or JSON, text and PDFs exactly as sent) and Claude reads that file. Claude picks it
+on its own when it needs exact words, code, numbers or links; WebFetch stays for questions about a page.
+
 ### gateway · all your Claude accounts behind one `claude`
 
 Off by default. Every model call goes through a small service on your machine; when one account runs
@@ -119,8 +127,8 @@ its banner says "API Usage Billing". Needs macOS, Linux or WSL, and Node 22.13 o
   its own copy and brings you each new version, the same way it updates its official plugins
 - the plugins you picked
 - the `ak` command, as a uv tool in `~/.local/bin`; it runs from Claude Code's copy, so it updates with the kit
-- with agentic-engineering: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in your Claude Code `settings.json`,
-  which `/new-plugin`, `/new-skill` and `/new-agent` need
+- with agentic-engineering or web: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in your Claude Code `settings.json`,
+  which `/new-plugin`, `/new-skill`, `/new-agent` and WebFetchRaw need
 - only with the gateway: the claude shim on your PATH and a background service on `127.0.0.1:4747`,
   both run from Claude Code's copy of this repo (nothing is downloaded besides it)
 
@@ -135,12 +143,13 @@ ak setup undo            # take the last run back
 ## Without setup
 
 <details>
-<summary>The tracer and agentic-engineering also install from inside Claude Code</summary>
+<summary>The tracer, agentic-engineering and web also install from inside Claude Code</summary>
 
 ```
 /plugin marketplace add proxify-dev/agentic-kit
 /plugin install tracer@agentic-kit                 needs uv
 /plugin install agentic-engineering@agentic-kit    /new-* also need CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1
+/plugin install web@agentic-kit                    needs uv and CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1
 ```
 
 For updates, turn on auto-update once: `/plugin` → Marketplaces → agentic-kit → Enable auto-update.
@@ -157,6 +166,7 @@ last changed src/app.py?"*, or type `/tracer:blame src/app.py`.
 | [`plugins/ak/`](plugins/ak/) | the `ak` command and `ak setup` |
 | [`plugins/tracer/`](plugins/tracer/) | the session index and its skills |
 | [`plugins/agentic-engineering/`](plugins/agentic-engineering/) | the skills, the agent, the hooks |
+| [`plugins/web/`](plugins/web/) | WebFetchRaw: a web page's own content, saved to a file |
 | [`gateway/`](gateway/) | the gateway service; `ak setup` runs it from Claude Code's copy of this repo |
 | [`shim/`](shim/) | the claude shim, installed the same way |
 | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) | the marketplace Claude Code reads |

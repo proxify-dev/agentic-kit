@@ -1,0 +1,20 @@
+[project]
+name = "web"
+version = "0.1.1"
+description = "WebFetchRaw: fetch a URL and save the page's own content to a file, with no model in between"
+requires-python = ">=3.10"
+# trafilatura: an HTML page's main content, as markdown, text or cleaned HTML
+dependencies = ["trafilatura>=2"]
+
+# The documented gate is `uv run pytest -q`; uv includes the dev group by default,
+# so declaring pytest here is what lets that literal command spawn it.
+[dependency-groups]
+dev = ["pytest>=8"]
+
+# no package to build: hooks/register.ts runs scripts/webfetch_raw.py in this project's environment
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["scripts"]

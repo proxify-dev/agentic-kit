@@ -109,9 +109,10 @@ def kit_rows(marketplace: str) -> tuple[Component, ...]:
 
 # Settings: edits to the user's Claude Code settings.json, each previewed as a diff; kept when a plugin it serves is here
 SETTINGS: tuple[tuple[Component, str], ...] = (
-    (Component("settings.function-hooks", "Function hooks", "Switches on Claude Code's function hooks, which /new-plugin, /new-skill and /new-agent (agentic-engineering) run on.",
+    (Component("settings.function-hooks", "Function hooks", "Switches on Claude Code's function hooks, which /new-plugin, /new-skill and /new-agent (agentic-engineering) and WebFetchRaw (web) run on.",
                "Settings", settings_key=FUNCTION_HOOKS, comes_with="agentic-engineering",
-               gives=("/new-plugin, /new-skill, /new-agent — agentic-engineering's commands, which run on function hooks",),
+               gives=("/new-plugin, /new-skill, /new-agent — agentic-engineering's commands, which run on function hooks",
+                      "WebFetchRaw — web's tool, which runs on function hooks"),
                changes="CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 in the env of your Claude Code settings.json"), "agentic-engineering"),
     (Component("settings.file-suggestion", "@[[ note picker", "Makes @ in the prompt complete vault notes as wikilinks.",
                "Settings", depends_on=("vault",), settings_key=("fileSuggestion",),

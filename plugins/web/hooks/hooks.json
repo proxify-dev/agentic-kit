@@ -1,0 +1,4 @@
+{
+  "description": "WebFetchRaw: register.ts (a Claude Mod, loaded only with CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1) declares the tool at session.start and answers its calls by running scripts/webfetch_raw.py once per call.",
+  "modules": ["./register.ts"]
+}
