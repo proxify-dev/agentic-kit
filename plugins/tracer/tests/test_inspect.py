@@ -1,6 +1,6 @@
 """Inspecting a session in as few calls as the question needs.
 
-Asked "how did 57e7a5bf perform with our ak tools", a probe session (e740f43a) spent 14
+Asked "how did a session perform with our ak tools", a probe session spent 14
 calls: dialogue and query for the same header, the drill, five step-opening calls because
 each step line said only "→ 913 B ok", and two Bash+jq runs on a saved file to learn
 whether get_observations' rows had a session id. The session view, a gist per step, flags

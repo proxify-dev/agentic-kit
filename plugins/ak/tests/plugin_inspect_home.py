@@ -7,7 +7,7 @@ The shapes are the ones Claude Code writes (read off real transcripts, 2026-09-2
     beta    the same SessionStart command; its text opens with a tag built at runtime
     settings.json   a hook pointing at a deleted file (the stale `plugins/ak/` case)
 
-The transcript is session 1a2f93b5's story in miniature: context at start, a prompt
+The transcript is one session in miniature: context at start, a prompt
 written twice, a Write blocked by the missing gate, a write-lint's stderr after an Edit,
 a message only the person sees.
 """
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-SID = "1a2f93b5-0000-4000-8000-000000000001"
+SID = "abcd1234-0000-4000-8000-000000000001"
 START = '"${CLAUDE_PLUGIN_ROOT}/hooks/py" "${CLAUDE_PLUGIN_ROOT}/hooks/start.py"'
 GATE = '"${CLAUDE_PLUGIN_ROOT}/hooks/py" "${CLAUDE_PLUGIN_ROOT}/hooks/gate.py"'
 LINT = '"${CLAUDE_PLUGIN_ROOT}/hooks/py" "${CLAUDE_PLUGIN_ROOT}/hooks/lint.py"'
@@ -73,6 +73,89 @@ def transcript() -> list[dict]:
         prompt(40, "thanks"),
         {"type": "assistant", "timestamp": "2026-09-27T11:00:41.000Z", "message": {"content": []}},
     ]
+
+
+# ── Claude Code 2.1.300+: the same story, with every model call saved ──────────────────────────────────
+# Each row carries the version that wrote it; hook text goes out as a `system` message (a saved body,
+# api-request-blob), PostToolUse text inside the tool result; an api-request names the bodies it sent.
+RECORD_SID = "7c3d0e11-0000-4000-8000-000000000002"
+V = "2.1.300"
+
+
+def stamped(row: dict, version: str = V, sid: str = RECORD_SID) -> dict:
+    return {**row, "sessionId": sid, "version": version}
+
+
+def attached(sec, event, parts, version=V, sid=RECORD_SID):
+    return {"parentUuid": None, "isSidechain": False,
+            "attachment": {"type": "hook_additional_context", "content": parts, "hookName": event,
+                           "toolUseID": event, "hookEvent": event},
+            "type": "attachment", "uuid": f"att-{sec}", "timestamp": f"2026-10-15T11:00:{sec:02d}.000Z",
+            "sessionId": sid, "version": version}
+
+
+def blob(h, role, content, sid=RECORD_SID):
+    return {"type": "api-request-blob", "sessionId": sid, "hash": h, "message": {"role": role, "content": content}}
+
+
+def request(sec, rid, tail, keep=0, version=V, sid=RECORD_SID):
+    return {"type": "api-request", "sessionId": sid, "id": rid, "timestamp": f"2026-10-15T11:00:{sec:02d}.500Z",
+            "version": version, "querySource": "repl_main_thread", "shapeHash": "5" * 64,
+            "params": {"model": "claude-opus-5-5"}, "keep": keep, "tail": tail, "cacheControl": [],
+            "requestDigest": "d" * 64}
+
+
+def record_transcript() -> list[dict]:
+    """A 2.1.300 session: two hooks at start and one text no hook printed, a lint after an Edit, and a
+    second lint after the last call (its text never reached a call on record)."""
+    alpha, beta, again = ("[alpha] hello there, one move each", "[beta] recent context, 2026-10-15",
+                          "[alpha] hello there, again")
+    return [
+        stamped(hook(1, "SessionStart", "SessionStart:startup", START, ctx("SessionStart", alpha), 200)),
+        stamped(hook(1, "SessionStart", "SessionStart:startup", START, ctx("SessionStart", beta), 300)),
+        attached(1, "SessionStart", [alpha, beta, again, "[gamma] nobody printed this"]),
+        stamped(prompt(10, "fix the redirect")),
+        {"type": "api-request-shape", "sessionId": RECORD_SID, "shapeHash": "5" * 64,
+         "timestamp": "2026-10-15T11:00:10.400Z", "version": V,
+         "shape": {"system": [{"type": "text", "text": "You are Claude Code."}], "tools": []}},
+        # gamma's text is not in what was sent
+        blob("h1", "system", [{"type": "text", "text": f"SessionStart hook additional context: {alpha}\n{beta}\n{again}"}]),
+        blob("h2", "user", "fix the redirect"),
+        request(10, "r1", ["h1", "h2"]),
+        stamped(hook(31, "PostToolUse", "PostToolUse:Edit", LINT, ctx("PostToolUse", "[alpha] lint: ok"))),
+        attached(31, "PostToolUse", ["[alpha] lint: ok"]),
+        blob("h3", "user", [{"type": "tool_result", "tool_use_id": "t1", "content": [
+            {"type": "text", "text": "edited"}, {"type": "text", "text": "PostToolUse:Edit hook additional context: [alpha] lint: ok"}]}]),
+        request(32, "r2", ["h3"], keep=2),
+        stamped(prompt(40, "thanks")),
+        stamped(hook(41, "PostToolUse", "PostToolUse:Edit", LINT, ctx("PostToolUse", "[alpha] lint: again"))),
+        attached(41, "PostToolUse", ["[alpha] lint: again"]),
+    ]
+
+
+def mixed_transcript() -> list[dict]:
+    """A session started on 2.1.299 and resumed on 2.1.300: each row is read by the version that wrote it."""
+    old = "[alpha] hello there, one move each"
+    return [
+        stamped(hook(1, "SessionStart", "SessionStart:startup", START, ctx("SessionStart", old)), "2.1.299"),
+        attached(1, "SessionStart", [old], version="2.1.299"),
+        stamped(prompt(10, "before the upgrade"), "2.1.299"),
+        stamped(prompt(20, "after it")),
+        stamped(hook(21, "UserPromptSubmit", "UserPromptSubmit", START, ctx("UserPromptSubmit", "[beta] recent context, 2026-10-15"))),
+        attached(21, "UserPromptSubmit", ["[beta] recent context, 2026-10-15"]),
+        # the first call after the upgrade re-sends the whole conversation, the old start text included
+        blob("o1", "system", [{"type": "text", "text": f"SessionStart hook additional context: {old}"}]),
+        blob("n1", "system", [{"type": "text", "text": "UserPromptSubmit hook additional context: [beta] recent context, 2026-10-15"}]),
+        request(21, "r1", ["o1", "n1"]),
+    ]
+
+
+def write(claude: Path, sid: str, rows: list[dict]) -> Path:
+    """A transcript as Claude Code writes it: compact JSON, one row a line."""
+    p = claude / "projects" / "-tmp-proj" / f"{sid}.jsonl"
+    p.write_text("\n".join(json.dumps(r, separators=(",", ":"), ensure_ascii=False) for r in rows) + "\n",
+                 encoding="utf-8")
+    return p
 
 
 @pytest.fixture

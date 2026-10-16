@@ -1,0 +1,4 @@
+{
+  "description": "A Claude Mod, loaded only with CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1: register.ts registers two session modes built by mode.ts, /orchestrate (orchestrate.ts) and /ask (ask.ts): the switch, what Claude is told at each switch and on each prompt while on, the footer chip; /ask also refuses Edit, Write and NotebookEdit while on.",
+  "modules": ["./register.ts"]
+}

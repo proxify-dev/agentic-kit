@@ -1,6 +1,6 @@
 """The drill as steps, and one step whole.
 
-The old drill printed ~59 "source messages" for 57e7a5bf, ~40 of them [attachment] /
+The old drill printed ~59 "source messages" for one session, ~40 of them [attachment] /
 [mode] / [last-prompt] noise, tool inputs cut at 150 chars, and no results at all — no
 size, no is_error, no timing, no path to the 130 KB output the Bash step saved. There was
 no way to open one call.

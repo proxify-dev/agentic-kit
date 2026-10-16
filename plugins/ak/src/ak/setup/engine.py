@@ -882,4 +882,10 @@ def verify(m: Machine, ids: list[str], with_deps: bool = True) -> list[dict]:
         found = _f(cid, "info", f"{c.label}: not installed here ({why})") if why else _verify_component(c, m)
         if found:
             out.append(found)
+    if m.new_row_types:
+        versions = ", ".join(sorted(set(m.new_row_types.values())))
+        out.append(_f("transcripts", "warn",
+                      f"Claude Code {versions} writes transcript rows the kit does not know yet: "
+                      f"{', '.join(m.new_row_types)} — the kit's transcript readers skip them",
+                      f"claude plugin marketplace update {catalog.MARKETPLACE}"))
     return out

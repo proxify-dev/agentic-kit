@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# find-node.sh — one node lookup, sourced by the POSIX shell doors `bin/traces` beside it and
-# the app's terminal door `app/core/bin/brain-mcp`, which reaches it here. The Node entries
-# (bin/traces.mjs, app/core/bin/brain-mcp.mjs) need none of it: whoever runs `node <entry>.mjs`
+# find-node.sh — one node lookup, sourced by the POSIX shell door `bin/traces` beside it. The Node entry
+# (bin/traces.mjs) needs none of it: whoever runs `node <entry>.mjs`
 # already picked the interpreter, and the entry checks its version.
 #
-# Both ship as committed single-file ESM bundles (dist/traces.mjs, the app's
-# dist/brain-mcp.mjs) that import `node:sqlite`, which is unflagged only from 22.13.
+# It ships as a committed single-file ESM bundle (dist/traces.mjs) that imports `node:sqlite`, which is unflagged only from 22.13.
 # The callers need the same answer and must never disagree: a launcher, which execs
 # node, and the SessionStart install hook, which only warns. So the lookup lives once, here.
 #

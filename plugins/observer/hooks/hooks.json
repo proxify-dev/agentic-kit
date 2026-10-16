@@ -1,0 +1,61 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session-register.py\""
+          },
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt-flag.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/file-context.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/capture-event.py\""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --no-project --python \">=3.10\" \"${CLAUDE_PLUGIN_ROOT}/hooks/session-end.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

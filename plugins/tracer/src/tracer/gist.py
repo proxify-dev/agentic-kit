@@ -3,7 +3,7 @@
 The drill printed "→ 913 B ok" per step and nothing of what the bytes said, so an agent
 inspecting a session opened five of six steps just to see each result, then ran Bash+jq
 on a saved file to learn whether get_observations' rows carried a session id — a question
-the result's keys answer (e740f43a). A gist is the first meaningful line of a result, or
+the result's keys answer. A gist is the first meaningful line of a result, or
 for JSON its shape: `{count: 30, results: [30 × {id,date,obs_type,title,project}]}`.
 
 Everything here is mechanical: no model, no guess about what a result means.

@@ -295,7 +295,7 @@ wheels = [
 
 [[package]]
 name = "tracer"
-version = "2.7.2"
+version = "2.9.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

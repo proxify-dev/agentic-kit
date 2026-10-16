@@ -393,14 +393,14 @@ def _row_kv(r: dict) -> list:
              epilog=(
                  "\b\nExamples:\n"
                  f"  {TRACE}                                          the newest calls, every session\n"
-                 f"  {TRACE} --session 6eced009 --limit 5             one session's last five\n"
+                 f"  {TRACE} --session abcd0003 --limit 5             one session's last five\n"
                  f"  {TRACE} --tool Bash --outcome error --since 1d   a day of failed Bash calls\n"
                  f"  {TRACE} --server ak --q recall                the kit tools' recall calls\n"
                  f"  {TRACE} get toolu_01XTyh6ey36W8a97N9co8AWD       one call: its input and output\n"
                  f"  {TRACE} stats                                    totals, and calls per tool"))
 @click.option("--tool", help="one tool's calls, by its name without the mcp__ prefix, e.g. Bash or recall")
 @click.option("--server", help="one server's calls: claude for the built-in tools, else the MCP server, e.g. vault")
-@click.option("--session", help="one session, by its id, its first characters or latest, e.g. 6eced009")
+@click.option("--session", help="one session, by its id, its first characters or latest, e.g. abcd0003")
 @click.option("--origin", type=click.Choice(["session", "agent", "automation", "bench"]), help=ORIGIN_HELP)
 @click.option("--outcome", type=click.Choice(list(OUTCOME_STYLE)), help=OUTCOME_HELP)
 @click.option("--since", type=WHEN, help="calls from this point on: 30m, 2h, 1d, 7d ago, or an ISO date/instant, e.g. 2026-09-20")

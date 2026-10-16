@@ -1,7 +1,7 @@
 """A hook's words for the model go in additionalContext or permissionDecisionReason, never in systemMessage alone.
 
 systemMessage reaches only the person; the model never reads it. The first hook built for a CLAUDE.md edit
-(~/code/app scripts/check-config-edit.sh, found 2026-09-27 in session 0d5ed015) put its rule
+(a project script that checked CLAUDE.md edits) put its rule
 for the model there, so the rule never landed. memory's session-start.py says the split in one line:
 "`additionalContext` is the plain index for Claude … `systemMessage` is what the person sees".
 
@@ -92,8 +92,13 @@ def emitters() -> list[str]:
 def test_the_scan_sees_the_hooks():
     # per plugin, not a count: the public kit carries three plugins, the workspace a dozen
     seen = {f.relative_to(ROOT / "plugins").parts[0] for f in hook_files()}
+    # only the commands a hooks.json runs: web's description names a .py its Claude Mod runs, not a hook
+    def commands(node) -> list[str]:
+        own = [node["command"]] if isinstance(node, dict) and isinstance(node.get("command"), str) else []
+        kids = node.values() if isinstance(node, dict) else node if isinstance(node, list) else []
+        return own + [c for kid in kids for c in commands(kid)]
     wired = {hj.parent.parent.name for hj in ROOT.glob("plugins/*/hooks/hooks.json")
-             if re.search(r"\.(?:py|sh)\b", hj.read_text(encoding="utf-8"))}
+             if any(re.search(r"\.(?:py|sh)\b", c) for c in commands(json.loads(hj.read_text(encoding="utf-8"))))}
     assert wired and wired <= seen, f"hooks.json runs files the scan does not see: {sorted(wired - seen)}; the glob or the tree moved"
     assert emitters(), "found no systemMessage in plugins/; the scan is reading the wrong files"
 

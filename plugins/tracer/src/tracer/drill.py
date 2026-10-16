@@ -105,7 +105,7 @@ class AmbiguousSession(DrillError):
 
 
 _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
-PREFIX_MIN = 8  # the id a listing prints: `06a45a57`
+PREFIX_MIN = 8  # the id a listing prints: `abcd0004`
 _PREFIX_RE = re.compile(r"^[0-9a-f]{%d}[0-9a-f-]{0,28}$" % PREFIX_MIN, re.I)
 LATEST = "latest"
 
@@ -157,14 +157,14 @@ def resolve_session(target: str) -> str:
         raise DrillError("no session on record for `latest`: the index is empty and no transcript is on disk")
     if not _PREFIX_RE.match(target):
         raise DrillError(f"not a session id: {target!r} — want a session UUID, its first {PREFIX_MIN} characters "
-                         f"(e.g. 06a45a57), latest, or a turn id <session>-NNN")
+                         f"(e.g. abcd0004), latest, or a turn id <session>-NNN")
     root = get_conversations_dir_for_hash("x").parent
     raise DrillError(f"no session starts with {target!r}: looked for {posix(root)}/*/{target}*.jsonl")
 
 
 def split_target(target: str) -> tuple[str, int | None]:
     """(session uuid, turn number or None). A turn id is <session>-<digits>; the session
-    part may be a prefix (`57e7a5bf-000`)."""
+    part may be a prefix (`abcd0002-000`)."""
     target = target.strip()
     if _UUID_RE.match(target):
         return target, None

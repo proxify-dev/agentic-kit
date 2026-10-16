@@ -12,8 +12,6 @@ agent a short block (300 to 630 characters) right then: an edit to CLAUDE.md, a 
 worker, a new skill, a hook, a test or an eval. Each block names one skill.
 The skill holds the depth and loads only when its moment comes.
 
-**Parked.** It is listed in the `ak` marketplace but not enabled; the person switches it on.
-
 ## The seven skills
 
 | skill | what it holds | named at |
@@ -164,7 +162,7 @@ Each block is one plain-text file in `prompts/`, printed whole by a hook. It arr
 |---|---|
 | `session.txt` | at every start (new, resume, clear, compact, fork) and in each worker (`hooks/session.py`) |
 | `instruction-files.txt` | before a Write or Edit of `CLAUDE.md`, `AGENTS.md`, `CLAUDE.local.md`, `.claude/rules/*` |
-| `agent-text.txt` | before an edit of an existing `SKILL.md`, a skill's `references/`, `agents/*.md`, `commands/*.md`, a plugin's `prompts/*`, `templates/harness/*.md` |
+| `agent-text.txt` | before an edit of an existing `SKILL.md`, a skill's `references/`, `agents/*.md`, `commands/*.md`, a plugin's `prompts/*` |
 | `skills.txt` | before writing a new `SKILL.md`, agent or command; an edit of `.claude-plugin/*.json` |
 | `hooks.txt` | before an edit of `hooks.json`, a hook script, `.claude/settings*.json` |
 | `evals.txt` | before an edit in a plugin's `tests/` or `evals/`; a `claude -p`, `claude plugin eval`, `env … claude -p` or `tmux` command |

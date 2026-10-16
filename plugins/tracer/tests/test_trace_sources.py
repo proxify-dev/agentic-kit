@@ -1,6 +1,6 @@
 """The trace prefetch's DELEGATED and OBSERVER sections.
 
-`ak trace trace 57e7a5bf` reported "background tasks: 1" for bxeyk8xjx — a foreground
+`ak trace trace <session>` reported "background tasks: 1" for bxeyk8xjx — a foreground
 Bash result Claude Code persisted because it was large, not a task. Its CLAUDE-MEM
 section read a legacy ~/.claude-mem database and said NOT AVAILABLE; the observer's
 store was never consulted.

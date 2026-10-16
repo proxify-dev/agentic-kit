@@ -10,7 +10,7 @@ does not; it lands beside the call's result. Each block is prompts/<moment>.<nam
   hooks/hooks.json · a hook script · .claude/settings*.json             hooks
   a new SKILL.md, agents/*.md, commands/*.md · .claude-plugin/*.json    skills
   an existing one of those · skills/*/references/* · a plugin's
-    prompts/* · templates/harness/*.md                                  agent-text
+    prompts/*                                                           agent-text
   Agent, Task, Workflow (not a Workflow resume)                         brief
 
 A hook script, agents/ and commands/ count only in Claude Code's own places (a `.claude/` folder, a
@@ -88,8 +88,6 @@ def surface(file_path: str) -> str | None:
     if any(p.parts[k] == "skills" and p.parts[k + 2] == "references" for k in range(len(p.parts) - 3)):
         return "agent-text"
     if parent.name == "prompts" and p.suffix in (".txt", ".md") and _claude_place(parent.parent):
-        return "agent-text"
-    if parent.name == "harness" and parent.parent.name == "templates" and p.suffix == ".md":
         return "agent-text"
     if parent.name == ".claude-plugin" and p.suffix == ".json":
         return "skills"

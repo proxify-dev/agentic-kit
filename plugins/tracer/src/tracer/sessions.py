@@ -3,7 +3,7 @@
 The other verbs want a topic (`ak sessions search`), a session (`ak sessions show`) or a file
 (`ak trace blame`). A question with none of those — a timeline, a sitrep, "where do we
 stand", "look at my prompts" — used to end in a script over the raw transcripts
-(2026-09-24, evals/tool-routing case `timeline`). This answers it from the index: one
+(an agent did exactly that). This answers it from the index: one
 line per session with what it began with and where it ended up, and a coverage band
 that says what the record does and does not reach.
 

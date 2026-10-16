@@ -149,7 +149,7 @@ _TEAMMATE = ("Another Claude session sent a message", "<teammate-message")
 def sender(text: str) -> str:
     """Who wrote a prompt-shaped user record: ``user``, ``task`` (a background task's
     completion notice) or ``teammate`` (another Claude session, an agent team's member).
-    All three open turns; only the first is someone typing. 44 turns of c9fdf42b held 17
+    All three open turns; only the first is someone typing. A session of 44 turns held 17
     of the other two, and an agent reading them as the user's words took a teammate's
     report for a request."""
     s = (text or "").lstrip()

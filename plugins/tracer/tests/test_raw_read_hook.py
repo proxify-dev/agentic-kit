@@ -73,13 +73,13 @@ def test_a_raw_read_of_the_trace_store_is_answered_with_brain_trace(home, tool, 
 
 
 @pytest.mark.parametrize("tool,inp,session", [
-    ("Bash", {"command": "ls ~/.claude/projects/-Users-x/548c8046-3d3f-4fea-832f-e50d3e20c35c/subagents/"}, "548c8046"),
-    ("Read", {"file_path": "/Users/x/.claude/projects/-Users-x/548c8046-3d3f-4fea-832f-e50d3e20c35c/subagents/agent-a7c19e5d.jsonl"},
-     "548c8046"),
+    ("Bash", {"command": "ls ~/.claude/projects/-Users-x/abcd0001-0000-4000-8000-0000000000aa/subagents/"}, "abcd0001"),
+    ("Read", {"file_path": "/Users/x/.claude/projects/-Users-x/abcd0001-0000-4000-8000-0000000000aa/subagents/agent-a0c10000.jsonl"},
+     "abcd0001"),
     ("Bash", {"command": "for f in ~/.claude/projects/-Users-x/*/subagents/agent-*.jsonl; do jq -s length $f; done"}, "<session>"),
 ])
 def test_a_raw_read_of_a_subagent_is_answered_with_the_agents_verb(home, tool, inp, session):
-    """2026-10-05, 548c8046: an agent summed subagents' tokens with jq and double-counted; the generic line
+    """An agent summed subagents' tokens with jq and double-counted; the generic line
     named `sessions show`, which it had already read."""
     ctx = run(home, tool, inp)
     assert f"`{command('sessions agents')} {session}`" in ctx

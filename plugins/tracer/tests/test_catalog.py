@@ -1,6 +1,6 @@
 """Plugin attribution from the machine's own plugin catalog.
 
-The parser credited plugins from a hard-coded list — {"search", "meta", "teocns", …} —
+The parser credited plugins from a hard-coded list — {"search", "meta", …} —
 that knew none of the old brain-* plugins  (brand: historical) and nothing a stranger installs. A plugin's MCP
 tool is `mcp__plugin_<P>_<K>__<tool>`, and the `_` between P and K cannot be split back
 from the string, so attribution is a lookup in what the machine has: installed plugins,

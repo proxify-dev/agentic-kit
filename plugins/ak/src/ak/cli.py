@@ -96,7 +96,7 @@ ROOT_EPILOG = f"""Examples:
   {CLI} sessions                           this project's sessions, oldest first
   {CLI} sessions replay 5e0c…              a past session's dialogue
   {CLI} trace blame src/x.py               which tool calls touched a file
-  {CLI} resolve ak-app                     a note name → its path (exit 2 when ambiguous)
+  {CLI} resolve my-app                     a note name → its path (exit 2 when ambiguous)
   {CLI} init                               a {HOME_DIR}/ scope for this folder
   {CLI} <verb> -h                          one verb: what it takes, its defaults, examples
 

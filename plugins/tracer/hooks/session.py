@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tracer session — SessionStart teaches the one move.
+"""tracer session — SessionStart teaches the one move; SubagentStart says the same verbs to every subagent.
 
 One line of additionalContext naming this plugin's door (the wikilinks pattern:
 each plugin says its own line, no plugin speaks for another): the CLI verbs and the
@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 from _brand import utf8_stdio
+from prompt_text import prompt
 
 SHORT_NAMES = Path(__file__).resolve().parent.parent / "skills" / "index" / "bin"
 
@@ -42,25 +43,8 @@ def put_short_names_first(env_file: str) -> None:
         pass
 
 
-def command(verb: str = "") -> str:
-    """This plugin's own command: bin/tracer, on the Bash tool's PATH while the plugin is enabled, with or
-    without the `ak` CLI (plugins/AGENTS.md §6). The hooks run on the standard library, so they spell it here."""
-    return f"tracer {verb}".strip()
-
-
-TEACH = (
-    "[tracer] Claude Code sessions from the shell, read from ~/.claude for you: "
-    f"`{command('sessions live')}` (every open session: what it does now) · "
-    f"`{command('sessions')}` (this project's, oldest first: where we stand) · "
-    f"`{command('sessions show')} <session>` (its turns and steps) · "
-    f"`{command('sessions agents')} <session>` (its subagents: calls, time, tokens) · "
-    f"`{command('sessions search')} <phrase>` (which sessions said it; --role user: where the user typed it) · "
-    f"`{command('sessions replay')} <session> --role user` (the user's prompts, whole) · "
-    f"`{command('sessions turns')} --tool X` (across sessions) · "
-    f"`{command('trace blame')} <file|folder>` (which sessions touched it) · "
-    f"`{command('trace')}` (every tool call: filter by tool/outcome/time; one whole by id). "
-    "A session: its id, its first 8 characters, or latest. Verbatim, never summarised."
-)
+VERBS = prompt("session-start.tracer")
+TEACH = VERBS + " " + prompt("session-start.reader")  # the session's line; a subagent gets VERBS: it cannot start agents
 
 
 def main():
@@ -69,10 +53,13 @@ def main():
         payload = json.load(sys.stdin)
     except Exception:
         return 0
-    if payload.get("hook_event_name") == "SessionStart":
+    event = payload.get("hook_event_name")
+    if event == "SessionStart":
         if os.environ.get("CLAUDE_ENV_FILE"):
             put_short_names_first(os.environ["CLAUDE_ENV_FILE"])
         sys.stdout.write(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": TEACH}}))
+    elif event == "SubagentStart":
+        sys.stdout.write(json.dumps({"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": VERBS}}))
     return 0
 
 

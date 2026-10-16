@@ -5,7 +5,7 @@
     tracer sessions agents <session> <agent>     one agent's steps, as `tracer trace turn` lists a turn's
     tracer sessions agents <session> <agent> --open 5    a step whole
 
-Why: on 2026-10-05 an agent asked where session 548c8046 spent its time (28 Agent calls, two
+Why: an agent asked where a session spent its time (28 Agent calls, two
 10-minute miners) read `tracer sessions show`, met one `transcript: subagents/agent-….jsonl`
 pointer per Agent step, and went to jq over the raw files. Its per-agent token sums were wrong:
 one model message spans several transcript records, each repeating the message's usage.
@@ -264,7 +264,7 @@ def pick(got: SessionAgents, ref: str) -> Agent:
     """The agent REF names: its id, a prefix of it, or `agent-<id>`. Ambiguous raises AmbiguousSession."""
     ref = ref.strip().removeprefix("agent-").removesuffix(".jsonl")
     if not ref:
-        raise DrillError("no agent named — give its id, e.g. a7c19e5d")
+        raise DrillError("no agent named — give its id, e.g. a0c10000")
     hits = [a for a in got.agents if a.agent_id.startswith(ref)]
     if len(hits) == 1:
         return hits[0]

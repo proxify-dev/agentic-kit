@@ -309,6 +309,18 @@ def test_verify_warns_about_an_older_shim_and_names_the_update(box):
     assert found["level"] == "warn" and "older bash" in found["what"] and found["fix"] == f"{CLI} setup --only shim"
 
 
+def test_verify_warns_once_about_transcript_rows_the_kit_does_not_know(box):
+    m = installed(box, new_row_types={"api-request-frame": "2.1.305", "api-other": "2.1.304"})
+    (found,) = [f for f in engine.verify(m, ["gateway"]) if f["check"] == "transcripts"]
+    assert found["level"] == "warn"
+    assert "Claude Code 2.1.304, 2.1.305" in found["what"] and "api-request-frame, api-other" in found["what"]
+    assert found["fix"] == f"claude plugin marketplace update {MARKETPLACE}"
+
+
+def test_verify_says_nothing_about_transcripts_when_every_row_type_is_known(box):
+    assert not [f for f in engine.verify(installed(box, new_row_types={}), ["gateway"]) if f["check"] == "transcripts"]
+
+
 def test_verify_without_dependencies_checks_only_what_it_is_given(box):
     m = installed(box, gateway={"on": True, "accounts": True})
     assert [f["check"] for f in engine.verify(m, ["gateway"])] == ["release", "shim", "gateway"]  # installed from the clone

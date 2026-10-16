@@ -1,6 +1,6 @@
 [project]
 name = "tracer"
-version = "2.7.2"
+version = "2.9.0"
 description = "Which session did what: a structural index over Claude Code's transcripts, read through a CLI"
 requires-python = ">=3.10"
 # jinja2: the trace skill's report template · rich-click, rich: the CLI and its output, through this

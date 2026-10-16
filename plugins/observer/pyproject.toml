@@ -1,0 +1,31 @@
+[project]
+name = "observer"
+version = "2.6.0"
+description = "What past sessions learned: the observer that writes observation rows at SessionEnd, and the `observer` CLI that recalls and curates them"
+requires-python = ">=3.10"
+# rich-click/rich: the CLI, which prints through the ak's output door when mounted and
+# through the vendored copy (_ui.py) standalone.
+# zvec + fastembed: the dense channel of the default search mode, `hybrid` — zvec holds the
+# vectors beside brain.db, fastembed computes them locally (bge-small, 384-d). Pinned: zvec's
+# API moved between 0.6 and 0.7. Neither installs on an Intel Mac (zvec 0.7 and onnxruntime 1.30
+# publish no macosx x86_64 wheel there, and uv has no sdist for zvec): the marker skips both, and
+# search answers without the dense channel (obs_index.py: None when a package is absent).
+dependencies = ["rich-click", "zvec==0.7.0; sys_platform != 'darwin' or platform_machine != 'x86_64'", "fastembed>=0.7; sys_platform != 'darwin' or platform_machine != 'x86_64'"]
+
+# The documented gate is `uv run pytest -q`; uv includes the dev group by default,
+# so declaring pytest here is what lets that literal command spawn it.
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/observer"]
+
+[project.scripts]
+observer = "observer.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

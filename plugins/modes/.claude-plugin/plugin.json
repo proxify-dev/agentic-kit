@@ -1,0 +1,17 @@
+{
+  "name": "modes",
+  "description": "How a session works with you and with its subagents. Two session modes, each [on|off|status], answered with no model call, Claude told once at each switch and reminded by one line on each prompt while on, a label in the prompt footer: /orchestrate hands parts to subagents on another model (haiku · sonnet · opus); /ask answers and changes nothing, refusing Edit, Write and NotebookEdit while on. /modes:interview asks you rounds of AskUserQuestion until the direction is clear. /modes:align stops work in progress: it plays back what was built, names where it drifted from what you asked, and asks before any more changes. A Claude Mod: needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1.",
+  "version": "0.7.0",
+  "visibility": "public",
+  "author": {
+    "name": "teocns"
+  },
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "setup": {"summary": "session modes: /ask changes nothing, /orchestrate hands work to subagents",
+            "needs": {"bins": ["claude>=2.1.298"]},
+            "depends_on": ["settings.function-hooks"],
+            "gives": ["/ask on|off — answers only; Edit and Write are refused while it is on",
+                      "/orchestrate on|off — parts of the work go to subagents on haiku, sonnet or opus",
+                      "/modes:interview and /modes:align — agree on the direction before and during the work"]}
+}

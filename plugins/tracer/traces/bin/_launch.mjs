@@ -1,5 +1,4 @@
-// The one launcher both Node entries share: `node plugins/tracer/traces/bin/traces.mjs` beside it and
-// the app's `node app/core/bin/brain-mcp.mjs`, which passes its own root. No shell, so it starts the same way on macOS,
+// The launcher of the Node entry: `node plugins/tracer/traces/bin/traces.mjs` beside it. No shell, so it starts the same way on macOS,
 // Linux and Windows; whoever runs `node` already chose the interpreter, so the old
 // find-node.sh lookup has nothing left to do here but check its version.
 //

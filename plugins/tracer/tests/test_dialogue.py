@@ -1,6 +1,6 @@
 """The dialogue says how a turn ended; a session's listing reads in turn order.
 
-57e7a5bf's dialogue printed "(tool-only — no final text)" for every turn — true, and
+A session's dialogue printed "(tool-only — no final text)" for every turn — true, and
 useless — and listed `[Request interrupted by user]`, `/export` and its stdout as three
 turns. convo_query for the same session listed newest-first while the dialogue listed
 oldest-first.

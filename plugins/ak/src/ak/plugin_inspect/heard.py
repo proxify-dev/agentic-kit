@@ -8,14 +8,27 @@ tool's error result, "PreToolUse:Write hook error: [<command>]: <stderr>".
 
 A hook that prints nothing is often not recorded at all, so silence is not proof it
 never ran.
+
+Since Claude Code 2.1.300 the transcript also saves every model call (transcript_rows,
+`request_record`). Then the context the hooks of one moment added is recorded once more, as one
+`hook_additional_context` row (its `content`, one text a hook), and goes out as a `system` message —
+a PostToolUse one inside the tool result — saved as an `api-request-blob` and named by the
+`api-request` that sent it. For a row written by 2.1.300 or later each such text is tied to its hook
+run and to the call that first carried it (`source="record"`, `call` = that api-request's number in
+the file); a text no hook run printed gets a row of its own; a text no call carried stays
+`source="hooks"`. Rows from older versions are read as they always were, so a session resumed across
+the upgrade is read row by row. A text counts its tokens once: every later call re-sends it, from
+the prompt cache.
 """
 from __future__ import annotations
 
 import json
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from ak import transcript_rows
 from ak._brand import claude_home, project_dir
 from ak.plugin_inspect.installed import Plugin
 
@@ -37,6 +50,8 @@ class Heard:
     text: str
     ms: int | None = None
     plugin: str = "?"
+    source: str = "hooks"  # hooks: read off the hook runs · record: also found in a saved model call
+    call: int | None = None  # the api-request, counted from 1 in its file, that first carried the text
 
     @property
     def tokens(self) -> int:
@@ -125,13 +140,75 @@ def _tool_blocks(d: dict):
             yield m.group(1), m.group(2).replace('\\"', '"'), m.group(3).strip()
 
 
+def _sent_text(message: dict) -> str:
+    """Every text in a saved message body, those inside tool results included."""
+    c = message.get("content") if isinstance(message, dict) else None
+    if isinstance(c, str):
+        return c
+    out = []
+    for b in c if isinstance(c, list) else []:
+        if not isinstance(b, dict):
+            continue
+        if isinstance(b.get("text"), str):
+            out.append(b["text"])
+        inner = b.get("content") if b.get("type") == "tool_result" else None
+        if isinstance(inner, str):
+            out.append(inner)
+        elif isinstance(inner, list):
+            out.extend(x["text"] for x in inner if isinstance(x, dict) and isinstance(x.get("text"), str))
+    return "\n".join(out)
+
+
+class _Calls:
+    """The saved calls of one transcript, read in order: which call first carried a hook's text.
+
+    A text is looked for in the bodies each call added (its `tail`), from the call just before its
+    `hook_additional_context` row on: after tools run side by side, Claude Code writes that row after
+    the call that sent it (188 of 1,034 texts over 300 real sessions, 2026-10-15)."""
+
+    def __init__(self):
+        self.bodies: dict[str, str] = {}  # api-request-blob hash → its text
+        self.pending: list[Heard] = []
+        self.n = 0
+        self.last = ""  # what the newest call added
+
+    def add(self, h: Heard) -> None:
+        if self.n and h.text.strip() and h.text.strip() in self.last:
+            h.source, h.call = "record", self.n
+        else:
+            self.pending.append(h)
+
+    def row(self, d: dict) -> None:
+        t = d.get("type")
+        if t == "api-request-blob":
+            self.bodies[str(d.get("hash"))] = _sent_text(d.get("message") or {})
+        elif t == "api-request":
+            self.n += 1
+            self.last = "\n".join(self.bodies.get(h, "") for h in d.get("tail") or [])
+            left = []
+            for h in self.pending:
+                if h.text.strip() in self.last:
+                    h.source, h.call = "record", self.n
+                else:
+                    left.append(h)
+            self.pending = left
+
+
 def read(path: Path) -> list[Heard]:
     """Every hook run in one transcript, in order, each with the prompt number it followed."""
     sid = path.stem
     rows: list[Heard] = []
     turn, prompts = 0, set()
+    calls = _Calls()
+    waiting: dict[str, list[Heard]] = defaultdict(list)  # context from 2.1.300+ hook runs, by event
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
+            if '"api-request' in line[:40]:  # the saved calls (2.1.300+): their own rows, never a hook's
+                try:
+                    calls.row(json.loads(line))
+                except ValueError:
+                    pass
+                continue
             # most lines are neither: skip the JSON parse for them
             is_hook = '"hook_' in line
             is_user = '"user"' in line and ('"tool_result"' not in line or "hook error:" in line)
@@ -153,14 +230,30 @@ def read(path: Path) -> list[Heard]:
                 rows.append(Heard(sid, turn, ts, hook, event, cmd,
                                   "block" if event == "PreToolUse" else "stderr", text))
             att = d.get("attachment")
-            if not isinstance(att, dict) or att.get("type") == "hook_additional_context":
+            if not isinstance(att, dict):
+                continue
+            recorded = transcript_rows.has("request_record", d)
+            event = att.get("hookEvent", "")
+            if att.get("type") == "hook_additional_context":
+                if recorded:  # before 2.1.300 it only repeats the hook runs' own text: skipped
+                    for part in att.get("content") or []:
+                        text = ANSI.sub("", str(part))
+                        h = next((w for w in waiting[event] if w.text.strip() == text.strip()), None)
+                        if h is not None:
+                            waiting[event].remove(h)
+                        else:  # no hook run on record printed it
+                            h = Heard(sid, turn, ts, att.get("hookName") or event, event, "", "context", text)
+                            rows.append(h)
+                        calls.add(h)
                 continue
             be = att.get("blockingError")
             cmd = att.get("command") or (be.get("command", "") if isinstance(be, dict) else "")
             for kind, text in classify(att):
-                rows.append(Heard(sid, turn, ts, att.get("hookName") or att.get("hookEvent", ""),
-                                  att.get("hookEvent", ""), (cmd or "").strip(), kind,
-                                  ANSI.sub("", text or ""), att.get("durationMs")))
+                h = Heard(sid, turn, ts, att.get("hookName") or event, event, (cmd or "").strip(), kind,
+                          ANSI.sub("", text or ""), att.get("durationMs"))
+                rows.append(h)
+                if recorded and kind == "context":
+                    waiting[event].append(h)
     return rows
 
 
@@ -200,24 +293,33 @@ class Owners:
             self._src[name] = "\n".join(parts)
         return self._src[name]
 
+    def _by_words(self, h: Heard, cands: set[str]) -> str | None:
+        """The one candidate whose source holds the text's opening words, else None."""
+        words = h.text.split()
+        # from the first word, then past it: a tag like `[{name}]` is built at runtime
+        for start, least in ((0, 1), (1, 2)):
+            for k in range(least, 6):
+                if start + k > len(words):
+                    break
+                lit = " ".join(words[start:start + k])
+                hits = {c for c in cands if lit in self._source(c)}
+                if len(hits) == 1:
+                    return hits.pop()
+                if not hits:
+                    break
+        return None
+
     def name(self, h: Heard) -> str:
+        if not h.command and h.kind == "context":
+            # context no hook run on record printed (2.1.300+): only its words can name it, among the plugins
+            # with a hook on its event; never a joined guess, a settings.json hook may have said it
+            cands = {n for (event, _), names in self.idx.items() if event == h.event for n in names}
+            return self._by_words(h, cands) or "?"
         cands = self.idx.get((h.event, h.command), set())
         if len(cands) == 1:
             return next(iter(cands))
         if len(cands) > 1:
-            words = h.text.split()
-            # from the first word, then past it: a tag like `[{name}]` is built at runtime
-            for start, least in ((0, 1), (1, 2)):
-                for k in range(least, 6):
-                    if start + k > len(words):
-                        break
-                    lit = " ".join(words[start:start + k])
-                    hits = {c for c in cands if lit in self._source(c)}
-                    if len(hits) == 1:
-                        return hits.pop()
-                    if not hits:
-                        break
-            return "|".join(sorted(cands))
+            return self._by_words(h, cands) or "|".join(sorted(cands))
         m = re.search(r"[/\\]plugins[/\\](?:cache[/\\][^/\\]+[/\\])?([\w.\-]+)[/\\]", h.command)
         if m:
             return m.group(1)

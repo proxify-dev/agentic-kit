@@ -140,8 +140,8 @@ def _entrypoint(entrypoint: str | None, include_automated: bool) -> str | None:
 
 @click.command(epilog=f"""\b
 Examples:
-  {command('sessions replay')} 5e0c1a2b                that session's dialogue
-  {command('sessions replay')} 5e0c1a2b --role user    only what the user typed there, every turn, whole
+  {command('sessions replay')} abcd1234                that session's dialogue
+  {command('sessions replay')} abcd1234 --role user    only what the user typed there, every turn, whole
   {command('sessions replay')} latest                  the newest session's dialogue
   {command('sessions replay')} "zvec lock"             sessions that mention it, to pick one""")
 @_arg("target", help="a session UUID, its first 8 characters or latest (its dialogue), or a phrase (the sessions that match it)")
@@ -252,7 +252,7 @@ def grep(phrase, limit, under, since, until, tool, role, outcome, errors, includ
 @click.command(epilog=f"""\b
 Examples:
   {command('sessions live')}                  every open session, newest activity first
-  {command('sessions show')} 97613c1a         then one of them, turn by turn""")
+  {command('sessions show')} abcd1234         then one of them, turn by turn""")
 @click.option("--json", "as_json", is_flag=True, help="the same sessions as one JSON document")
 def live(as_json):
     """Start here for what is running now: every open session, what it was asked, what it is doing.
@@ -607,7 +607,7 @@ Examples:
   {command('sessions')}                               this project's sessions, oldest first
   {command('sessions live')}                          what is running now
   {command('sessions show')} latest                   the newest session at a glance
-  {command('sessions replay')} 06a45a57 --role user   what the user typed there
+  {command('sessions replay')} abcd0004 --role user   what the user typed there
   {command('sessions turns')} --tool Bash --errors    turns across sessions that ran Bash and hit an error
   {command('sessions search')} "zvec lock"            which sessions said it""")
 @_sessions_options
@@ -657,14 +657,14 @@ sessions_group.add_command(_live, name="live")
 
 @sessions_group.command(name="show", epilog=f"""\b
 Examples:
-  {command('sessions show')} 06a45a57                 asked · ended · time · tokens · cost · its turns
+  {command('sessions show')} abcd0004                 asked · ended · time · tokens · cost · its turns
   {command('sessions show')} latest --turn 4          turn 004 of the newest session, step by step
-  {command('sessions show')} 06a45a57 --turn 4 --open 1-3   steps 1 to 3 whole
-  {command('sessions show')} 06a45a57 --stats         its totals: interactions, errors, tools
-  {command('sessions show')} 06a45a57 --as-skill      the /tracer:trace block the skill reads
+  {command('sessions show')} abcd0004 --turn 4 --open 1-3   steps 1 to 3 whole
+  {command('sessions show')} abcd0004 --stats         its totals: interactions, errors, tools
+  {command('sessions show')} abcd0004 --as-skill      the /tracer:trace block the skill reads
   {command('sessions show')} plugin split --as-skill  the block for the session that best matches""")
 @_arg("target", nargs=-1, required=True,
-      help="a session: its UUID, its first 8 characters (e.g. 06a45a57), or latest; "
+      help="a session: its UUID, its first 8 characters (e.g. abcd0004), or latest; "
            "with --as-skill also words that describe one, e.g. plugin split")
 @click.option("--turn", metavar="N", help="one turn's steps instead: its number, e.g. 004")
 @click.option("--open", "open_", metavar="STEPS", help="open steps whole: 5, 1-6, 1,4,5 or all")
@@ -675,7 +675,7 @@ def sessions_show(target, turn, open_, as_skill, stats, patterns):
     """Show a session at a glance: asked, ended, time, cost, turns.
 
     Small sessions show every step inline. [b]--turn[/] lists one turn's steps with what each
-    returned; [b]--open[/] opens steps whole. A turn id (06a45a57-004) works here too, and
+    returned; [b]--open[/] opens steps whole. A turn id (abcd0004-004) works here too, and
     is [b]tracer trace turn[/]'s own argument. [b]--stats[/] and [b]--patterns[/] read the index instead.
 
     [b]--as-skill[/] prints the /tracer:trace block, and takes what the skill takes: a session id,
@@ -717,13 +717,13 @@ def sessions_show(target, turn, open_, as_skill, stats, patterns):
 
 @sessions_group.command(name="agents", epilog=f"""\b
 Examples:
-  {command('sessions agents')} 06a45a57                         every subagent: what it was asked, calls, time, tokens
-  {command('sessions agents')} 06a45a57 a7c19e5d                one agent's steps, with what each returned
-  {command('sessions agents')} 06a45a57 a7c19e5d --steps 11-40  only these steps
-  {command('sessions agents')} 06a45a57 a7c19e5d --open 5       step 5 whole
+  {command('sessions agents')} abcd0004                         every subagent: what it was asked, calls, time, tokens
+  {command('sessions agents')} abcd0004 a0c10000                one agent's steps, with what each returned
+  {command('sessions agents')} abcd0004 a0c10000 --steps 11-40  only these steps
+  {command('sessions agents')} abcd0004 a0c10000 --open 5       step 5 whole
   {command('sessions agents')} latest --json                    the same rows as one JSON document""")
-@_arg("session", help="a session: its UUID, its first 8 characters (e.g. 06a45a57), or latest")
-@_arg("agent", required=False, help="one agent: its id or its first characters, as the list prints it, e.g. a7c19e5d")
+@_arg("session", help="a session: its UUID, its first 8 characters (e.g. abcd0004), or latest")
+@_arg("agent", required=False, help="one agent: its id or its first characters, as the list prints it, e.g. a0c10000")
 @click.option("--steps", help="with an agent: list just these steps: 11-40, 3,7")
 @click.option("--open", "open_", metavar="STEPS", help="with an agent: open steps whole: 5, 1-6, 1,4,5 or all")
 @click.option("--turn", type=click.IntRange(min=0), metavar="N",
@@ -743,7 +743,7 @@ def sessions_agents(session, agent, steps, open_, turn, as_json):
 
     ui.json_mode(as_json)
     if not agent and (steps or open_ or turn is not None):
-        raise click.UsageError("--steps, --open and --turn read one agent: give its id after the session, e.g. a7c19e5d")
+        raise click.UsageError("--steps, --open and --turn read one agent: give its id after the session, e.g. a0c10000")
     if steps and open_:
         raise click.UsageError("--steps lists steps and --open opens them whole; give one of them")
     try:
@@ -879,10 +879,10 @@ trace_group.help = (_calls.help or "") + (
 
 @trace_group.command(name="turn", epilog=f"""\b
 Examples:
-  {command('trace turn')} 06a45a57-004                 the turn's steps, with what each returned
-  {command('trace turn')} 06a45a57-004 --steps 11-40   only these steps
-  {command('trace turn')} 06a45a57-004 --open 1,4,5    those steps whole""")
-@_arg("turn_id", help="a turn: <session>-NNN, the session as its UUID, first 8 characters or latest, e.g. 06a45a57-004")
+  {command('trace turn')} abcd0004-004                 the turn's steps, with what each returned
+  {command('trace turn')} abcd0004-004 --steps 11-40   only these steps
+  {command('trace turn')} abcd0004-004 --open 1,4,5    those steps whole""")
+@_arg("turn_id", help="a turn: <session>-NNN, the session as its UUID, first 8 characters or latest, e.g. abcd0004-004")
 @click.option("--steps", help="list just these steps of the turn: 11-40, 3,7")
 @click.option("--open", "open_", metavar="STEPS", help="open steps whole: 5, 1-6, 1,4,5 or all")
 def trace_turn(turn_id, steps, open_):
@@ -908,7 +908,7 @@ trace_group.add_command(blame)
 Examples:
   {command('trace index')}                    this project's transcripts, then every new tool call
   {command('trace index')} --all              every project's transcripts
-  {command('trace index')} --session 06a45a57 one session's transcript, if new or changed""")
+  {command('trace index')} --session abcd0004 one session's transcript, if new or changed""")
 @click.option("--all", "index_all", is_flag=True, help="transcripts of every discovered project, not only this one")
 @click.option("--rebuild", is_flag=True, help="re-read every transcript into the session index")
 @click.option("--session", metavar="ID", help="only this session's transcript, if new or changed (UUID, 8 characters or latest)")

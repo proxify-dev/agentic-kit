@@ -85,6 +85,22 @@ ak sessions              # this project's sessions, oldest first
 ak trace blame <file>    # which sessions changed a file, and each change they made
 ```
 
+### observer · what past sessions learned
+
+When a session ends, Claude Haiku reads it once (a headless `claude -p` on your own login) and writes down
+what it found, decided, fixed or got wrong, as rows in `~/.ak/db/brain.db`. Nothing is put in Claude's
+context on its own: the next session starts with one line saying the rows exist, and Claude searches them
+before working something out again. When Claude reads a file past sessions worked on, it gets a one-line pointer.
+
+```sh
+ak observer search <words>    # what past sessions said about it, most relevant first
+ak observer get <id>          # one row whole: facts, files, the session it came from
+ak observer mute --here       # stop recording in this folder
+```
+
+Started from [Claude-Mem](https://github.com/thedotmack/claude-mem), without its MCP server or background
+worker; its derived parts stay under Apache-2.0 ([`plugins/observer/NOTICE`](plugins/observer/NOTICE)).
+
 ### agentic-engineering · skills for building with agents
 
 Seven skills (context engineering, harness engineering, skill development, agent development, evals,
@@ -95,6 +111,18 @@ at the moment a rule applies: before it edits a CLAUDE.md, briefs a subagent, or
 /new-plugin <name>                          your own plugin: a folder tracked with git, loaded in every project
 /new-skill · /new-agent                     a new skill or agent file, in your plugin by default
 /agentic-engineering:harness-engineering    load one of the skills yourself
+```
+
+### modes · how this session works with you
+
+Two switches for the session you are in, with a label in the prompt footer while on. Claude is told once when
+one changes, and gets one reminder line per prompt while it is on.
+
+```
+/ask on|off            answers only: Edit and Write are refused while on
+/orchestrate on|off    parts of the work go to subagents on haiku, sonnet or opus
+/modes:interview       rounds of questions until the direction is clear
+/modes:align           stop mid-task: what was built, where it drifted, then ask before going on
 ```
 
 ### web · web pages, word for word
@@ -127,8 +155,8 @@ its banner says "API Usage Billing". Needs macOS, Linux or WSL, and Node 22.13 o
   its own copy and brings you each new version, the same way it updates its official plugins
 - the plugins you picked
 - the `ak` command, as a uv tool in `~/.local/bin`; it runs from Claude Code's copy, so it updates with the kit
-- with agentic-engineering or web: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in your Claude Code `settings.json`,
-  which `/new-plugin`, `/new-skill`, `/new-agent` and WebFetchRaw need
+- with agentic-engineering, modes or web: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in your Claude Code `settings.json`,
+  which `/new-plugin`, `/new-skill`, `/new-agent`, the modes and WebFetchRaw need
 - only with the gateway: the claude shim on your PATH and a background service on `127.0.0.1:4747`,
   both run from Claude Code's copy of this repo (nothing is downloaded besides it)
 
@@ -143,11 +171,13 @@ ak setup undo            # take the last run back
 ## Without setup
 
 <details>
-<summary>The tracer, agentic-engineering and web also install from inside Claude Code</summary>
+<summary>The tracer, observer, modes, agentic-engineering and web also install from inside Claude Code</summary>
 
 ```
 /plugin marketplace add proxify-dev/agentic-kit
 /plugin install tracer@agentic-kit                 needs uv
+/plugin install observer@agentic-kit               needs uv
+/plugin install modes@agentic-kit                  needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1
 /plugin install agentic-engineering@agentic-kit    /new-* also need CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1
 /plugin install web@agentic-kit                    needs uv and CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1
 ```
@@ -165,6 +195,8 @@ last changed src/app.py?"*, or type `/tracer:blame src/app.py`.
 |---|---|
 | [`plugins/ak/`](plugins/ak/) | the `ak` command and `ak setup` |
 | [`plugins/tracer/`](plugins/tracer/) | the session index and its skills |
+| [`plugins/observer/`](plugins/observer/) | the SessionEnd observer, its store and `observer search` |
+| [`plugins/modes/`](plugins/modes/) | /ask, /orchestrate, /modes:interview, /modes:align |
 | [`plugins/agentic-engineering/`](plugins/agentic-engineering/) | the skills, the agent, the hooks |
 | [`plugins/web/`](plugins/web/) | WebFetchRaw: a web page's own content, saved to a file |
 | [`gateway/`](gateway/) | the gateway service; `ak setup` runs it from Claude Code's copy of this repo |

@@ -107,7 +107,7 @@ def test_the_table_says_what_this_machine_cannot_run(world):
     rows = {ln.split("\t")[0]: ln.split("\t")[2] for ln in invoke("--dry-run").output.splitlines() if ln.count("\t") == 2}
     assert rows["notify"].startswith("blocked: needs macOS")
     assert rows["tasks"] == "blocked: not in the marketplace"
-    assert rows["ak"] == "will install" and rows["todo"] == "blocked: not in the marketplace"
+    assert rows["ak"] == "will install" and "todo" not in rows  # parked in plugins/_archive/: not a row at all
 
 
 def test_a_component_in_place_is_marked_and_makes_no_step(world):
@@ -125,7 +125,6 @@ def test_json_is_one_document_with_every_part(world):
     by_id = {c["id"]: c for c in doc["components"]}
     assert by_id["memory"] == {"id": "memory", "group": "Plugins", "state": "install", "blocked": None, "selected": True,
                                "private": True}
-    assert by_id["todo"]["selected"] is False
     assert {"id", "title", "kind", "preview", "status"} == set(doc["steps"][0]) and doc["steps"][0]["status"] == "planned"
     assert doc["machine"]["bins"]["git"]["version"] == VERSIONS["git"]
     assert written(world["tmp"]) == []

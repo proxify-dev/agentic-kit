@@ -447,7 +447,7 @@ def format_dialogue(
 # ---------------------------------------------------------------------------
 # replay --role user: what the user typed, and nothing else
 # ---------------------------------------------------------------------------
-# Asked to write present's backstory (163e6deb), an agent needed the user's own words from
+# Asked to write a feature's backstory, an agent needed the user's own words from
 # the session that built it. The dialogue gave the newest 30 of 44 turns (the origin was in
 # the first 12), each prompt cut at 200 characters, 17 of them notices and teammate reports.
 # It went around the tracer to jq on the transcript and got the same noise, rawer.

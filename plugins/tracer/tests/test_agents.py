@@ -1,6 +1,6 @@
 """`tracer sessions agents`: a session's subagents, one row each, and one agent's steps.
 
-Written against 548c8046 (2026-10-05): 28 Agent calls, 25 transcripts under subagents/, four calls
+Written against a real session: 28 Agent calls, 25 transcripts under subagents/, four calls
 refused for a bad `model` before any agent ran, and an agent that summed tokens with jq over the raw
 files counted each model message once per transcript record. The session below is that shape, small:
 two agents started by Agent calls (one tied by its meta's toolUseId, one only by the agentId its
@@ -9,6 +9,7 @@ result names), one refused call, and a workflow's agent that answers through Str
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -20,8 +21,8 @@ from tracer import agents, cli
 from tracer.drill import AmbiguousSession, DrillError, format_turn, load_turn
 from tracer.verbs import command
 
-SID = "548c8046-0000-4000-8000-000000000001"
-MINER, BUILDER, WF = "a7c19e5d2b84f6c03", "a7cb0000000000001", "af1333318b030da41"
+SID = "abcd0001-0000-4000-8000-000000000001"
+MINER, BUILDER, WF = "a0c10000000000001", "a0c20000000000002", "af100000000000001"
 SHARED = "/tmp/proj/frames/f02.html"
 REFUSED = ('<tool_use_error>InputValidationError: [\n  {\n    "code": "invalid_value",\n    "values": ["sonnet", "opus"],\n'
            '    "path": ["model"],\n    "message": "Invalid option: expected one of \\"sonnet\\"|\\"opus\\""\n  }\n]</tool_use_error>')
@@ -94,7 +95,7 @@ def tree(tmp_path, monkeypatch):
          "model": "sonnet"}))
     write_jsonl(sub / f"agent-{BUILDER}.jsonl", builder(BUILDER))  # no toolUseId: tied by the agentId its result names
     (sub / f"agent-{BUILDER}.meta.json").write_text(json.dumps({"agentType": "general-purpose", "description": "Re-frame f02"}))
-    wf = sub / "workflows" / "wf_1d96ca69-72d"
+    wf = sub / "workflows" / "wf_00000000-000"
     write_jsonl(wf / f"agent-{WF}.jsonl", workflow_agent(WF))
     (wf / f"agent-{WF}.meta.json").write_text(json.dumps({"agentType": "workflow-subagent", "model": "sonnet"}))
     return slug
@@ -110,7 +111,7 @@ def test_every_subagent_is_a_row_tied_to_the_step_that_started_it(tree):
     assert list(rows) == [MINER, BUILDER, WF], "in the order they started"
     assert rows[MINER]["spawned_by"] == {"turn": 0, "step": 2}, "by the toolUseId its meta names"
     assert rows[BUILDER]["spawned_by"] == {"turn": 0, "step": 3}, "by the agentId the call's result names"
-    assert rows[WF]["spawned_by"] is None and rows[WF]["workflow"] == "wf_1d96ca69-72d"
+    assert rows[WF]["spawned_by"] is None and rows[WF]["workflow"] == "wf_00000000-000"
     assert rows[MINER]["calls"] == 3 and rows[MINER]["errors"] == 1 and rows[MINER]["ended"] == "reported"
     assert rows[WF]["ended"] == "reported", "a workflow's agent answers through StructuredOutput"
     assert rows[MINER]["model"] == "claude-test", "the model its messages name, not the meta's alias"
@@ -143,10 +144,10 @@ def test_the_rollup_prints_types_rows_what_started_nothing_and_the_next_command(
     assert out.startswith(f"{SID} · 3 subagents · ")
     assert "== by type, the most agent time first ==\ntype\tagents\tcalls\terrors\tagent time\tout\tslowest" in out
     assert re.search(rf"^{MINER[:8]}\t17:01:40\tcontent-miner\t000#2\t3\t1\t15s\t80\treported\tScout the demo footage$", out, re.M)
-    assert re.search(rf"^{WF[:8]}\t.*\twf_1d96ca69-72d\t", out, re.M), "a workflow's agent says which run started it"
+    assert re.search(rf"^{WF[:8]}\t.*\twf_00000000-000\t", out, re.M), "a workflow's agent says which run started it"
     assert "not started: 1 Agent call ran no agent — 000#1 'Mine essay pages': bad parameter — model:" in out
     assert f"changed by more than one agent: 1 — {SHARED} ({BUILDER[:8]}, {WF[:8]})" in out
-    assert f"hint: {command('sessions agents')} 548c8046 <id>" in out
+    assert f"hint: {command('sessions agents')} abcd0001 <id>" in out
 
 
 def test_json_is_the_same_rows(tree):
@@ -164,8 +165,8 @@ def test_one_agent_lists_its_steps_as_a_turn_is_listed(tree):
     assert lines[0] == f'{MINER} · content-miner · claude-test · "Scout the demo footage"'
     assert lines[1].startswith(f"session {SID} · started by turn 000 step 2 · 17:01:40 → 17:01:55 · 15s · 3 calls · ended: reported")
     assert "tokens: in 6 · cache read 2.0k · cache write 200 · out 80 (thinking 0) — once per model message" in r.output
-    assert f"brief: Mine the demo footage for seconds 7-20. — whole: {command('trace turn')} 548c8046-000 --open 2" in r.output
-    assert f"{command('sessions agents')} 548c8046 {MINER[:8]} --open 1-3 opens steps" in r.output
+    assert f"brief: Mine the demo footage for seconds 7-20. — whole: {command('trace turn')} abcd0001-000 --open 2" in r.output
+    assert f"{command('sessions agents')} abcd0001 {MINER[:8]} --open 1-3 opens steps" in r.output
     assert re.search(r"^#1 17:01:43 \(\+3s\) Read .*→ 6 B ok 1s", r.output, re.M)
     assert re.search(r"^#2 17:01:43 ∥ WebFetch", r.output, re.M), "two calls of one message"
     assert re.search(r"^#3 .* Bash parse cues → 11 B ERROR", r.output, re.M)
@@ -178,7 +179,7 @@ def test_steps_and_open(tree):
     assert "#3 " in r.output and "#1 " not in r.output
     r = invoke(SID[:8], MINER[:8], "--open", "3")
     assert r.exit_code == 0, r.output
-    assert r.output.startswith(f"548c8046 agent {MINER[:8]} step 3/3 · Bash · ")
+    assert r.output.startswith(f"abcd0001 agent {MINER[:8]} step 3/3 · Bash · ")
     assert "python3 - <<'E' 2>/dev/null || true" in r.output
     assert f"/subagents/agent-{MINER}.jsonl:" in r.output, "source: the agent's own transcript"
 
@@ -190,10 +191,10 @@ def test_one_agent_as_json(tree):
 
 
 @pytest.mark.parametrize("args,code,said", [
-    (("548c8046", "zzz"), 1, "no agent 'zzz' in 548c8046: it has 3 subagents"),
-    (("548c8046", "a7c"), 2, "'a7c' starts 2 agents"),
-    (("548c8046", "--open", "1"), 2, "--steps, --open and --turn read one agent"),
-    (("548c8046", MINER[:8], "--steps", "1", "--open", "1"), 2, "give one of them"),
+    (("abcd0001", "zzz"), 1, "no agent 'zzz' in abcd0001: it has 3 subagents"),
+    (("abcd0001", "a0c"), 2, "'a0c' starts 2 agents"),
+    (("abcd0001", "--open", "1"), 2, "--steps, --open and --turn read one agent"),
+    (("abcd0001", MINER[:8], "--steps", "1", "--open", "1"), 2, "give one of them"),
 ])
 def test_a_miss_says_what_it_looked_for(tree, args, code, said):
     r = invoke(*args)
@@ -202,24 +203,24 @@ def test_a_miss_says_what_it_looked_for(tree, args, code, said):
 
 
 def test_a_session_without_subagents_exits_1(tree):
-    sid = "57e7a5bf-0000-4000-8000-000000000009"
+    sid = "abcd0002-0000-4000-8000-000000000009"
     write_jsonl(tree / f"{sid}.jsonl", [user("hi", 1), asst([text("hello")], 2, "m1")])
     r = invoke(sid[:8])
     assert r.exit_code == 1
-    assert "warn: no subagents in 57e7a5bf" in r.output
+    assert "warn: no subagents in abcd0002" in r.output
 
 
 def test_the_turn_and_the_session_point_at_the_agents_verb(tree):
-    """Where the 548c8046 agent met only a transcript path and went to jq."""
+    """Where an agent met only a transcript path and went to jq."""
     out = format_turn(load_turn(f"{SID}-000"))
     step = next(ln for ln in out.splitlines() if ln.startswith("#2 "))
-    assert step.endswith(f"· transcript: subagents/agent-{MINER}.jsonl · its steps: {command('sessions agents')} 548c8046 {MINER[:8]}")
+    assert step.endswith(f"· transcript: subagents/agent-{MINER}.jsonl · its steps: {command('sessions agents')} abcd0001 {MINER[:8]}")
     from tracer.drill import format_session, load_session
 
-    sid = "57e7a5bf-0000-4000-8000-000000000002"  # big enough to list turns, not steps
+    sid = "abcd0002-0000-4000-8000-000000000002"  # big enough to list turns, not steps
     write_jsonl(tree / f"{sid}.jsonl", [r for n in range(4) for r in (user(f"q{n}", n * 10), asst([text("a")], n * 10 + 1, f"m{n}"))])
     (tree / sid / "subagents").mkdir(parents=True)
-    assert f"subagents: {command('sessions agents')} 57e7a5bf — one row each" in format_session(load_session(sid))
+    assert f"subagents: {command('sessions agents')} abcd0002 — one row each" in format_session(load_session(sid))
 
 
 def test_the_session_start_line_names_the_verb(monkeypatch):
@@ -233,6 +234,21 @@ def test_pick_reads_a_file_name_too(tree):
     got = agents.load(SID)
     assert agents.pick(got, f"agent-{MINER}.jsonl").agent_id == MINER
     with pytest.raises(AmbiguousSession):
-        agents.pick(got, "a7c")
+        agents.pick(got, "a0c")
     with pytest.raises(DrillError, match="no agent named"):
         agents.pick(got, "  ")
+
+
+def test_a_subagent_gets_the_verbs_but_not_the_delegate_line():
+    """A subagent gets no SessionStart line (five readers once read raw .jsonl): SubagentStart says the
+    verbs. Not 'delegate to tracer:reader': a subagent cannot start agents."""
+    import subprocess, sys
+    hook = Path(__file__).resolve().parents[1] / "hooks" / "session.py"
+    def run(event):
+        out = subprocess.run([sys.executable, str(hook)], input=json.dumps({"hook_event_name": event}),
+                             capture_output=True, text=True, env={**os.environ, "CLAUDE_ENV_FILE": ""}).stdout
+        return json.loads(out)["hookSpecificOutput"]
+    sub, start = run("SubagentStart"), run("SessionStart")
+    assert sub["hookEventName"] == "SubagentStart"
+    assert "tracer sessions search" in sub["additionalContext"] and "tracer:reader" not in sub["additionalContext"]
+    assert "tracer:reader" in start["additionalContext"]

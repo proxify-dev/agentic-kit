@@ -62,7 +62,7 @@ add up rows by hand when a verb gives the total already.
   `sessions turns --skill recall --errors` (add `--all` for every project)
 - **"Which tool calls failed just now?" / "what did that Bash command say?" / any
   per-call lookup across sessions** → `trace` — a different store (`traces.db`,
-  every tool call from every session), see `app/docs/traces-spec.md`
+  every tool call from every session), see `tracer trace`
 - **"How did session S go / perform / what went wrong?"** → `sessions show <session>` — START HERE
 - **"What did turn ABC-003 do, step by step?"** → `trace turn ABC-003`
 - **"Show me exactly what steps 1, 4 and 5 ran and returned"** → `trace turn ABC-003 --open 1,4,5` — one call
@@ -92,21 +92,21 @@ Use when the user asks "where did we debug X?", "find sessions where we discusse
 "retry" in all 412 projects: 138 session(s), 1214 hit(s) in conversation text · ranked by hits, then the latest
 not counted: 987 hit(s) in hook/metadata records (122 session(s) had only those) — --include-meta counts them
 hidden: 896 session(s) a program started that matched (sdk-cli 781, sdk-py 115) — --entrypoint all lists them
-left out: this session 0a8db1e3 — --exclude-session '' keeps it
+left out: this session aaaa0005 — --exclude-session '' keeps it
 
-1. 28825be1-… · "Webhook retry with backoff" · 2026-09-12 · 17 turns · 45m44s · 170 hit(s): tool-output 45, thinking 41, Bash 41, …
+1. aaaa0001-… · "Webhook retry with backoff" · 2026-09-12 · 17 turns · 45m44s · 170 hit(s): tool-output 45, thinking 41, Bash 41, …
    began: The webhook sender gives up after the first timeout. I want it to retry with backoff, but only on a 5xx and…
    turn 013 · 25 hit(s) (also turns 000, 001, 002, 003 +12) · asked: Ok but what happens when the queue is full and…
    user: …d be nice if each delivery showed its retry count in the dashboard, next to the status, if you see what I mean…
 
-a turn's steps: tracer trace turn 28825be1-…-013 · what the user asked there: tracer sessions replay 28825be1-… --role user · 137 more session(s): --limit 138
+a turn's steps: tracer trace turn aaaa0001-…-013 · what the user asked there: tracer sessions replay aaaa0001-… --role user · 137 more session(s): --limit 138
 ```
 
 ### sessions show / trace turn
-`sessions show f08edcd1` — the session view (a uuid prefix is enough):
+`sessions show aaaa0002` — the session view (a uuid prefix is enough):
 
 ```
-f08edcd1-… · "Webhook retry discussions" · 2026-09-22 17:04 UTC · ~/code/app · main · claude 2.1.280
+aaaa0002-… · "Webhook retry policy" · 2026-09-22 17:04 UTC · ~/code/app · main · claude 2.1.280
 asked: Which sessions talked about the webhook retry policy?
 ended: interrupted by the user after step 6 (Bash) — no answer
 1 turn · 6 steps · 51s in turns: model 23s · tools 28s (Claude Code's count; calls running in parallel add up)
@@ -121,8 +121,8 @@ legend: …
 #3 17:04:57 (+4s) notes.get_notes {"ids":[…]} → 31.6 KB ok <1s [large]
    ↳ {notes: [17 × {id,content}]}
 …
-#5 17:05:08 (+10s) Bash Find sessions where the user typed "retry" in a prompt → 130.4 KB ok 24s saved: k2m9qv7rd.txt [large] [raw]
-   ↳ 2026-07-20 | d40178dd | -Users-me-code-app | n=1 | | The sender retried forever…
+#5 17:05:08 (+10s) Bash Find sessions where the user typed "retry" in a prompt → 130.4 KB ok 24s saved: k0000000a.txt [large] [raw]
+   ↳ 2026-07-20 | aaaa0006 | -Users-me-code-app | n=1 | | The sender retried forever…
 ended: interrupted by the user after step 6 (Bash) at 17:05:38
   /export (local command) → Conversation copied to clipboard
 ```
@@ -155,12 +155,12 @@ matched paths:
 same file name, other path — a different file, not counted above:
   ~/code/app/tools/replay/sender.py  (checkout · 2 session(s), 2026-09-21 → 2026-09-21)
 
-a121fabd-… · 2026-09-22 16:50 · ~/code/app · worktree-retry-backoff · EDIT×8 · in worktree retry-backoff
+aaaa0003-… · 2026-09-22 16:50 · ~/code/app · worktree-retry-backoff · EDIT×8 · in worktree retry-backoff
   turn 004 asked: No, backoff has to be on by default, nobody is ever going to pass that flag
     #20 Edit L548 −2 +2 · `… or "fixed"` → `… or self.DEFAUL…`
-    open: tracer trace turn a121fabd-…-004 --open 15-22
+    open: tracer trace turn aaaa0003-…-004 --open 15-22
 
-316c8159-… · 2026-09-22 12:50 · … · EDIT×8 READ×3
+aaaa0004-… · 2026-09-22 12:50 · … · EDIT×8 READ×3
   via subagent sender-port — started at turn 037 #2 · ~/.claude/projects/…/subagents/agent-asender-port-….jsonl
     :346 Edit L532 −6 +14 · `def send_once(req, t):` → `def send(req, t=0):`
 ```
@@ -181,13 +181,13 @@ turn, newest first: its id, plugins, tools, agents, tokens, duration, `end=inter
 2 interactions matched (2026-09-16 to 2026-09-21, 0 shown with errors)
   from 15143 total indexed interactions
 
-[2026-09-21T08:15:10] id=2173d3bc-…-000 plugin=notes tools=[Bash(1),Read(2),Skill(2),…] ~52500tok dur=56s
+[2026-09-21T08:15:10] id=aaaa0007-…-000 plugin=notes tools=[Bash(1),Read(2),Skill(2),…] ~52500tok dur=56s
   > On some branch we sketched a retry queue for the webhook sender. The plan was to
 
-[2026-09-16T07:01:04] id=0147da61-…-000 plugin=notes tools=[Bash(7),Skill(1),…] ~61000tok dur=2m50s
+[2026-09-16T07:01:04] id=aaaa0008-…-000 plugin=notes tools=[Bash(7),Skill(1),…] ~61000tok dur=2m50s
   > Here's the situation. The sender often times out on the first call, and then it
 
-next: tracer trace turn 2173d3bc-…-000 for its steps · tracer sessions show 2173d3bc-… for its session
+next: tracer trace turn aaaa0007-…-000 for its steps · tracer sessions show aaaa0007-… for its session
 ```
 
 Every filter narrows the list, `--stats` and `--patterns` alike (`--patterns` reads the newest 500

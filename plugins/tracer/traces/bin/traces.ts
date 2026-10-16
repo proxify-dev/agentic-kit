@@ -237,6 +237,6 @@ async function main(argv: string[]): Promise<void> {
   }
 }
 
-/** The entry check is on argv, as in the app's brain-mcp.ts: the source and the bundle
+/** The entry check is on argv, the source and the bundle
  *  are both started by path and never imported. */
 if (/(^|[\\/])traces\.(ts|mjs)$/.test(process.argv[1] ?? "")) await main(process.argv.slice(2))

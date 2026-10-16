@@ -15,15 +15,12 @@ import { fileURLToPath } from "node:url"
  *   dist/traces.mjs   the tool-call index: the Stop hook's one-shot and the
  *                     reads of `ak tracer calls` / `ak trace` (bin/traces)
  *
- * The app's terminal door (brain-mcp) has its own build.mjs beside its source;
- * the two are one recipe and must stay so — `bundle-fresh` runs both.
- *
  * `external: ["node:*"]` is the other half: builtins stay imports, so
  * `node:sqlite` resolves against whatever node is actually running and the
  * version floor stays a runtime fact instead of something frozen at build time.
  *
  * `AK_BUNDLE_DIR=<dir>` writes every entry to `<dir>/.fresh-check-<name>.mjs`
- * instead and says nothing on stdout. That is how the app's `test/bundle-fresh.ts`
+ * instead and says nothing on stdout. That is how a bundle-freshness test
  * rebuilds and diffs — it runs THIS file rather than re-declaring the options,
  * because a freshness test that guessed at the settings would report drift
  * that was only a difference of opinion about the build.

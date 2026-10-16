@@ -1,7 +1,7 @@
 """Builders for synthetic transcripts: the record shapes Claude Code writes, small enough to read.
 
 `interrupted_session()` is the shape of the session these tests were written against
-(57e7a5bf, "Which of our sessions discussed the sandbox profile?"): parallel tool calls, a
+a session about a sandbox profile: parallel tool calls, a
 result persisted to tool-results/, an interrupt, then /export — and one real prompt after.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ PLUGIN = Path(__file__).resolve().parents[1]
 def _no_config_dir(monkeypatch):
     """A test that points HOME at a tmp dir must not read the real $CLAUDE_CONFIG_DIR."""
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
-UUID = "57e7a5bf-0000-4000-8000-000000000001"
+UUID = "abcd0002-0000-4000-8000-000000000001"
 
 
 def ts(sec: int) -> str:

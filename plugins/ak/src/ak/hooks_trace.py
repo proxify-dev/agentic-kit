@@ -35,8 +35,8 @@ from ._brand import claude_home, env, posix
 
 CLAUDE = claude_home()
 # One file per session, named by session_id — which IS the transcript UUID
-# (verified against a live SessionStart payload: session_id 79ab531f… and
-# transcript_path .../79ab531f….json). So a trace joins to a session by name,
+# (verified against a live SessionStart payload: session_id abcd1234… and
+# transcript_path .../abcd1234….json). So a trace joins to a session by name,
 # with nothing to look up.
 #
 # Honours the same override as hooks/hooktrace.py, so both halves can be pointed

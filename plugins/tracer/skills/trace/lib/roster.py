@@ -117,7 +117,7 @@ def find_session(target: str) -> tuple[str, Path, Path] | None:
     if m:
         return _by_glob(f"{m.group(0)}.jsonl")
 
-    # Bare hex prefix (e.g. `3de61f5f`) — resolve by filename prefix so users can
+    # Bare hex prefix (e.g. `abcd1234`) — resolve by filename prefix so users can
     # paste a short id. Ambiguous prefixes pick the most recently touched.
     if re.fullmatch(r"[0-9a-f]{6,}", target, re.I):
         hit = _by_glob(f"{target}*.jsonl")

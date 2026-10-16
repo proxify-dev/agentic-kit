@@ -1,0 +1,22 @@
+observer
+Copyright (c) 2026 Constantin Teodorescu and Proxify — MIT License (the kit's LICENSE)
+
+This plugin started as a copy of Claude-Mem v13.11.0 (https://github.com/thedotmack/claude-mem)
+and still contains parts derived from it. Those parts are under the Apache License, Version 2.0;
+a copy of that license is in LICENSE.claude-mem. Each derived file says so at its top:
+
+  hooks/store_common.py        the store's schema (tables, columns, indexes, FTS5 triggers)
+  hooks/session-start.py       the welcome digest's text and layout (render_plain, render_ansi)
+  hooks/memory_schema.py       the observation type names and glyphs
+  scripts/summarize-session.py the secret-redaction patterns (from Claude-Mem v13.40.0)
+
+All of them were modified: ported from TypeScript to Python and changed since.
+
+Claude-Mem's NOTICE:
+
+  Claude-Mem
+  Copyright 2026 Alex Newman
+
+  This product includes software developed for the Claude-Mem project.
+
+  Licensed under the Apache License, Version 2.0.

@@ -210,7 +210,7 @@ def test_on_probe_hears_every_probe_once_and_a_raising_callback_breaks_nothing(b
     heard = {}
     m = machine.detect(on_probe=lambda name, result: heard.setdefault(name, result))
     assert set(heard) == set(machine.binaries()) | {"service_manager", "release", "marketplaces", "plugins",
-                                                  "uv_tools", "shim", "gateway", "settings", "history"}
+                                                  "uv_tools", "shim", "gateway", "settings", "history", "new_row_types"}
     assert heard["plugins"] == m.plugins and heard["uv"].version == "0.7.20"
 
     def raises(name, result):
@@ -278,6 +278,25 @@ def test_history_is_the_size_of_the_transcripts_and_their_sessions(tmp_path, mon
     (project / "a" / "subagents" / "s.jsonl").write_text("x" * 5)  # a subagent: bytes, not a session
     (project / "a" / "tool-results.txt").write_text("x" * 99)       # not a transcript
     assert machine._history() == (35, 2)
+
+
+def _row(kind: str, version: str = "2.1.305") -> str:
+    return json.dumps({"type": kind, "version": version}, separators=(",", ":")) + "\n"
+
+
+def test_new_row_types_come_from_the_five_newest_main_sessions_only(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    assert machine._new_row_types() == {}, "Claude Code never ran: no projects folder"
+    project = tmp_path / "projects" / "-srv-app"
+    journal = project / "s1" / "subagents" / "workflows" / "wf_x"
+    journal.mkdir(parents=True)
+    (project / "old.jsonl").write_text(_row("too-old"))
+    os.utime(project / "old.jsonl", (1, 1))
+    for i in range(machine.ROW_SCAN_FILES):
+        (project / f"s{i}.jsonl").write_text(_row("user") + (_row("api-request-frame") if i == 2 else ""))
+        os.utime(project / f"s{i}.jsonl", (1000 + i, 1000 + i))
+    (journal / "journal.jsonl").write_text(_row("journal-only"))  # the newest file of all, but a subagent's
+    assert machine._new_row_types() == {"api-request-frame": "2.1.305"}
 
 
 def test_only_what_the_kit_needs_is_looked_for():

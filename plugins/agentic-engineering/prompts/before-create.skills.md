@@ -1,9 +1,9 @@
 ---
 why: >
   About 15 skills on this topic had 0 real loads: each waited for its description to match, was
-  slash-only, or sat in a plugin that was switched off (e9d21e27). A skill reaches an agent when a hook
+  slash-only, or sat in a plugin that was switched off. A skill reaches an agent when a hook
   or the start line names it at its moment, so the block first asks whether it is a skill at all.
-from: [0d5ed015, d8f3d6f7, c7ca4aab]
+from: []
 evals: [skill-gets-its-deliverer, skill-names-its-deliverer]
 ---
 [agentic-engineering: skills] you are making a skill, an agent, a command or a plugin listing:

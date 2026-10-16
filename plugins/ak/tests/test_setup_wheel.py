@@ -97,7 +97,7 @@ def test_setup_dry_run_json_parses_and_stderr_is_empty(venv, fakes, tmp_path):
     # no kit on disk: the public kit this ak carries (setup/kit.json), never a private plugin
     assert doc["kit"] == {"tree": None, "marketplace": "agentic-kit"}
     ids = {c["id"] for c in doc["components"]}
-    assert ids >= {"ak", "tracer", "shim", "gateway"} and not ids & {"vault", "memory", "observer", "tool-results"}
+    assert ids >= {"ak", "tracer", "observer", "modes", "shim", "gateway"} and not ids & {"vault", "memory", "tool-results"}
     assert doc["steps"][0]["title"].endswith(REPO_URL), doc["steps"][0]  # --repo reached the engine
     assert "no plugins folder" not in p.stderr and p.stderr.strip() == ""
     assert not (home / "kit" / "db" / "setup").exists()  # a dry run leaves no run folder

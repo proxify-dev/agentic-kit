@@ -14,7 +14,7 @@ ak status <id> --all                  list finished agents (default collapses)
 ak status <id> --json                 structured roster for piping
 ```
 
-Target resolves by full UUID, bare hex prefix (`3de61f5f`), or slug. No target
+Target resolves by full UUID, bare hex prefix (`abcd1234`), or slug. No target
 = error (explicit by design).
 
 ## What it reads

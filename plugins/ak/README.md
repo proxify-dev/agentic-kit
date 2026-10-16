@@ -248,16 +248,14 @@ What every OS needs, and where it stops short:
   "command not found") instead of doing nothing silently. A machine with no Python 3.10+ and no network cannot
   get one, and its hooks error (`plugins/HOOKS.md`, section 1).
 - **`node` >= 22.13** for the tool-call indexer the tracer's Stop hook launches and `ak trace` reads (the tracer's own
-  `traces/bin/traces.mjs`, over its committed bundle `traces/dist/traces.mjs`), for the shim and for
-  `app/core/bin/brain-mcp.mjs`. The hook and `ak trace` look for it on PATH, then where
+  `traces/bin/traces.mjs`, over its committed bundle `traces/dist/traces.mjs`), and for the shim. The hook and `ak trace` look for it on PATH, then where
   nvm, fnm, volta, asdf, Homebrew and the Windows installers put it (`plugins/tracer/hooks/convo-index-stop.py`,
   `plugins/tracer/src/tracer/calls.py`). The gateway's own floor is 22.7 (`gateway/package.json`). With no node the hook
   logs "skipped" and the session carries on; `ak trace` then has nothing new. Both look past PATH: nvm's newest, fnm,
   volta, asdf, Homebrew, `/usr/local`, `/usr/bin`, and on Windows Program Files, nvm-windows and volta.
 - **Where `ak trace`'s engine comes from.** `$AK_CODE/plugins/tracer/traces/`, else the tracer plugin's own
   `traces/` — the one shipped copy: the bundle is committed in the plugin, so a tracer installed alone reads and writes
-  the index. `npm run build` in `plugins/tracer/traces/` refreshes it and the app's `selftest:bundle-fresh` fails when
-  it lags. On macOS/Linux the bash door `traces/bin/traces` runs it (it also finds a node when PATH's is too old);
+  the index. `npm run build` in `plugins/tracer/traces/` refreshes it. On macOS/Linux the bash door `traces/bin/traces` runs it (it also finds a node when PATH's is too old);
   on Windows `node traces/bin/traces.mjs`.
 - **`tmux`** for `ak tasks` and the eval runners: POSIX or WSL only. On native Windows both say so and stop.
 - **Intel Mac and the observer's dense search.** `zvec==0.7.0` and `fastembed` carry platform markers in
@@ -318,8 +316,17 @@ path from the front of an error (`/opt/…/Python: can't open file …`); `--raw
 | what is installed, on or off | `<claude>/plugins/installed_plugins.json`, `settings.json` `enabledPlugins` (user, then the project's) |
 | what each plugin is wired to do | its `hooks/hooks.json` (and `plugin.json` `hooks`), `skills/*/SKILL.md`, `agents/*.md`, `commands/*.md`, `.mcp.json` |
 | what it said | the session transcripts, `<claude>/projects/*/*.jsonl`: Claude Code writes every hook run as an `attachment` record (`hook_success` with command, stdout and `durationMs`; `hook_blocking_error`; `hook_non_blocking_error`; `hook_cancelled`). A PreToolUse block comes back as the tool's error result, `PreToolUse:Write hook error: [<command>]: <stderr>` |
+| which model call carried it (Claude Code 2.1.300+) | the same transcript: since 2.1.300 it also saves every model call (`api-request` rows, with the message bodies sent as `api-request-blob`). The context of one moment's hooks is recorded once more as `hook_additional_context`, and goes out as a `system` message, a PostToolUse one inside the tool result. Each text is tied to its hook run and to the first call that carried it |
 
 `<claude>` is `CLAUDE_CONFIG_DIR`, else `~/.claude`. Nothing is run and nothing is written.
+
+A row is read by the Claude Code version that wrote it (its own `version`, `src/ak/transcript_rows.py`): a session
+resumed after the upgrade is read the old way up to it and the new way after. `log --json` gives each line
+`source` (`hooks`: read off the hook run; `record`: also found in a saved call) and `call` (that call's number in the
+file, from 1), and a terminal shows `call N` under the box. Over 300 real sessions (2026-10-15) 96.9% of hook text
+was found in a call; the rest is in no saved body (a body Claude Code did not save, or text it never sent), and stays
+`hooks`. Context no hook run on record printed gets a line of its own, named by its words among the plugins with a
+hook on that event, else `?`.
 
 ### What a line is
 
@@ -332,7 +339,8 @@ path from the front of an error (`/opt/…/Python: can't open file …`); `--raw
 | `error` | no one: the hook failed, Claude Code carried on |
 | `silent` | no one (`log --all` shows them) |
 
-Tokens are characters ÷ 4, counted only for what reaches the model.
+Tokens are characters ÷ 4, counted only for what reaches the model, and once: every later call re-sends a text,
+from the prompt cache.
 
 ### Whose line was it
 
@@ -359,7 +367,8 @@ script is missing (`broken hook in <plugin>`). That check reads files only.
 
 A plugin that cannot import ak carries a copy of what it needs, stamped and checked by `scripts/copies.py`
 (`where ak` lists them): `src/ak/ui.py` the one output door and `src/ak/groups.py` the command groups (observer,
-tracer: plugins/AGENTS.md §6), `src/ak/session_origin.py` the person-or-program rule, `src/ak/move/lineage.py`,
+tracer: plugins/AGENTS.md §6), `src/ak/session_origin.py` the person-or-program rule, `src/ak/transcript_rows.py`
+which transcript rows are chat and which Claude Code version wrote one (the observer's hooks), `src/ak/move/lineage.py`,
 `hooks/akpy.py` the vault's and memory's hook launcher. `bin/ak` and its Windows twin `bin/ak.cmd` are themselves
 copies of `scripts/seam/launcher`: a launcher runs the console script it is named for, so every plugin's `bin/<name>`
 is the same file.
@@ -368,3 +377,9 @@ is the same file.
 
 `uv run pytest -q`: the output contract (`test_cli_output.py`), the mount contract, moves, trace, `ak plugin`
 against a fake Claude Code home (`test_plugin_inspect.py`), the brand seam, the install hook against a fake `uv`.
+
+After a Claude Code update, `AK_TEST_REAL_TRANSCRIPTS=1 uv run pytest -q tests/test_transcript_rows_real.py` checks the
+rules against this machine's own transcripts: every line's type read right, no row type the kit does not know, and
+at least 95% of hook text tied to the call that carried it. A failure there is a change in what Claude Code writes
+that a reader must follow (a `FEATURES` entry or a `KNOWN_ROW_TYPES` name in `transcript_rows.py`, and a branch in
+the reader).

@@ -1,5 +1,5 @@
 {
-  "why": "One call's label, as both readers derive it: src/tracer/step_label.py (sessions show, trace turn, live) and traces/src/traces-blobs.ts stepLabel (the index's summary.label, ak trace). tests/test_step_label.py and app's selftest:traces read this file, so the two rules cannot drift.",
+  "why": "One call's label, as both readers derive it: src/tracer/step_label.py (sessions show, trace turn, live) and traces/src/traces-blobs.ts stepLabel (the index's summary.label, ak trace). tests/test_step_label.py and the traces index's tests read this file, so the two rules cannot drift.",
   "cases": [
     {"tool": "Bash", "input": {"command": "git rebase -q docs/api", "description": "Stack the export branch on top of the docs commit"},
      "label": "Stack the export branch on top of the docs commit"},

@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ak._brand import CLI, GATEWAY_ACCOUNTS, claude_home, config_dir, data_dir, is_macos, is_windows, which_exe
+from ak import transcript_rows
 from ak.setup import source
 from ak.setup.claude_cli import outside_a_session
 
@@ -61,6 +62,7 @@ class Machine:
     settings: dict = field(default_factory=dict)   # user settings.json, parsed ({} when absent)
     uv_tool_exes: dict[str, list[str]] = field(default_factory=dict)  # uv tool -> the executables it puts on PATH
     history: tuple[int, int] | None = None     # Claude Code's transcripts (<claude home>/projects): (bytes, sessions)
+    new_row_types: dict[str, str] = field(default_factory=dict)  # row type the kit does not know -> the Claude Code version that wrote it
     unknown: frozenset[str] = frozenset()      # probes that failed: their field says "nothing", not "nothing there"
 
     def bin(self, name: str) -> Bin:
@@ -68,6 +70,7 @@ class Machine:
 
 
 PROBE_TIMEOUT = 5
+ROW_SCAN_FILES = 5  # how many of the newest transcripts are read for row types the kit does not know
 CLAUDE_PROBE_FACTOR = 4  # claude's JSON listings start a whole runtime: a cold start outlasts the others
 SETUP_BINS = ("uv", "git", "claude")  # what setup itself runs: the clone, the marketplace, the ak tool
 # How a binary is asked for its version. None: it has none to give — it is only looked for.
@@ -234,6 +237,20 @@ def _history() -> tuple[int, int] | None:
     return size, sessions
 
 
+def _new_row_types() -> dict[str, str]:
+    """Row types the kit's transcript readers do not know (transcript_rows.KNOWN_ROW_TYPES), with the Claude Code
+    version that wrote each, from the ROW_SCAN_FILES newest main sessions: <project>/<id>.jsonl, one level, so
+    subagent transcripts and workflow journals are out. {} when there is no projects folder."""
+    root = Path(claude_home()) / "projects"
+    if not root.is_dir():
+        return {}
+    newest = sorted(root.glob("*/*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)[:ROW_SCAN_FILES]
+    found: dict[str, str] = {}
+    for f in newest:
+        found.update(transcript_rows.unknown_types(f))
+    return found
+
+
 def _settings() -> dict:
     """The user's settings.json; {} when there is none. A file that is there but unreadable raises: unknown, not empty."""
     try:
@@ -270,7 +287,7 @@ def detect(on_probe: Callable[[str, object], None] | None = None) -> Machine:
     """Probe this machine. Never writes, never fetches; each probe times out (~5s) to a 'not found'.
 
     on_probe(name, result) is called as each probe finishes, from the thread that ran it: name is the
-    binary's name, or service_manager, release, marketplaces, plugins, uv_tools, shim, gateway, settings, history.
+    binary's name, or service_manager, release, marketplaces, plugins, uv_tools, shim, gateway, settings, history, new_row_types.
     A callback that raises is ignored. A probe that raises or times out on a tool that is there lands in
     Machine.unknown: its field is then the default, and must not be read as "nothing is installed"."""
     unknown: list[str] = []
@@ -298,6 +315,7 @@ def detect(on_probe: Callable[[str, object], None] | None = None) -> Machine:
         gateway = pool.submit(probe, "gateway", {}, _gateway)
         settings = pool.submit(probe, "settings", {}, _settings)
         history = pool.submit(probe, "history", None, _history)
+        new_row_types = pool.submit(probe, "new_row_types", {}, _new_row_types)
         machine = Machine(
             os=os_name,
             arch=_or("", platform.machine),
@@ -317,5 +335,6 @@ def detect(on_probe: Callable[[str, object], None] | None = None) -> Machine:
             gateway=gateway.result(),
             settings=settings.result(),
             history=history.result(),
+            new_row_types=new_row_types.result(),
         )
         return dataclasses.replace(machine, unknown=frozenset(unknown))

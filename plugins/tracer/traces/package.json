@@ -11,7 +11,7 @@
     "build": "node build.mjs",
     "link:dev": "ln -sfn ../../../app/node_modules node_modules"
   },
-  "link:dev-why": "MONOREPO PERIOD ONLY. The sources import nothing but node:*; the one package here is esbuild, for the build. node_modules is a relative SYMLINK to app/node_modules (gitignored, recreated by `npm run link:dev`) rather than a second install, so the app and this bundle build with the same esbuild and bundle-fresh compares like with like.",
+  "link:dev-why": "MONOREPO PERIOD ONLY. The sources import nothing but node:*; the one package here is esbuild, for the build. node_modules is a relative SYMLINK to a sibling checkout's node_modules (gitignored, recreated by `npm run link:dev`) rather than a second install, so every bundle in the checkout builds with the same esbuild and a freshness check compares like with like.",
   "devDependencies": {
     "esbuild": "^0.28.2"
   }

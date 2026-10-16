@@ -144,16 +144,18 @@ def test_legacy_env_aliases_still_work(vault):
 @pytest.mark.parametrize("argv", [
     ("resolve", "alpha"), ("vault", "links", "alpha"), ("vault", "backlinks", "alpha"), ("vault", "links", "--all"),
     ("vault", "refs"), ("vault", "templates", "ls"), ("vault", "templates", "show", "project"),
+    ("vault", "answer"), ("vault", "answer", "verify"), ("vault", "answer", "--help"),
     ("observer", "status"), ("observer",), ("setup", "status"), ("setup", "--dry-run"), ("workspaces",),
     ("--help",), ("vault", "place", "--help"), ("resolve", "--help"), ("search", "alpha"), ("search", "--help"),
     ("sessions", "live"), ("sessions",), ("sessions", "--help"), ("observer", "timeline", "1"), ("observer", "get", "1"),
     ("sessions", "turns", "--limit", "2"), ("sessions", "turns", "--stats"), ("sessions", "turns", "--help"),
     ("sessions", "agents", "--help"),
     ("memory",), ("memory", "search", "alpha"), ("memory", "shape"), ("memory", "wrap"), ("memory", "tidy"),
-    ("memory", "--help"), ("memory", "new", "--help"), ("memory", "adopt", "--help"), ("observer", "patterns"),
+    ("memory", "organize"), ("memory", "--help"), ("memory", "new", "--help"), ("memory", "adopt", "--help"), ("observer", "patterns"),
     ("memory", "harvest"), ("memory", "fields"), ("observer", "fold", "--help"),
-    ("observer", "forget", "--query", "alpha", "--reason", "a test"),
+    ("observer", "forget", "--query", "alpha", "--reason", "a test"), ("observer", "shadow", "report"),
     ("memory", "demo", "--help"), ("memory", "demo", "start", "--help"),
+    ("memory", "setup", "facts", "--no-observer"), ("memory", "setup", "--help"), ("memory", "setup", "save-proposal", "--help"),
     ("trace",), ("trace", "stats"), ("trace", "--help"),
     ("plugin",), ("plugin", "ls"), ("plugin", "log", "--help"), ("plugin", "inspect", "--help"),
     ("moves",), ("moves", "ls"), ("moves", "--help"), ("ws", "move", "--help"), ("doctor",), ("home",),
@@ -205,10 +207,12 @@ def test_links_report_dangling_and_resolved(vault):
 @pytest.mark.parametrize("argv", [
     ("resolve", "alpha"), ("vault", "links", "alpha"), ("vault", "backlinks", "alpha"), ("vault", "links", "--all"),
     ("vault", "refs"), ("vault", "templates", "ls"), ("vault", "templates", "show", "project"),
+    ("vault", "answer", "ls"), ("vault", "answer", "verify"),
     ("observer", "status"), ("setup", "status"), ("setup", "--dry-run"), ("workspaces", "ls"), ("search", "alpha"),
     ("sessions", "live"), ("sessions",), ("observer", "timeline", "1"), ("observer", "get", "1"),
     ("trace",), ("trace", "stats"), ("memory", "fields"), ("plugin", "ls"), ("moves", "ls"), ("doctor",),
-    ("observer", "forget", "--query", "alpha", "--reason", "a test"),
+    ("memory", "setup", "facts", "--no-observer"),
+    ("observer", "forget", "--query", "alpha", "--reason", "a test"), ("observer", "shadow", "report"),
 ])
 def test_json_is_one_document(vault, argv):
     r = run(vault, *argv, "--json")
@@ -278,7 +282,7 @@ def test_bare_brain_ends_with_the_status_band(vault):
 def test_plain_help_explains_arguments_and_shows_defaults(vault):
     r = run(vault, "resolve", "--help", env=PLAIN)
     assert "Arguments:\n  NAME  a note's name or [[wikilink]] stem" in r.stdout, r.stdout
-    assert f"Examples:\n  {CLI} resolve ak-app" in r.stdout
+    assert f"Examples:\n  {CLI} resolve my-app" in r.stdout
     r = run(vault, "workspaces", "scan", "--help", env=PLAIN)
     assert "ROOT (optional)" in r.stdout and "[default: 4]" in r.stdout, r.stdout
 
@@ -517,8 +521,10 @@ def test_help_first_lines_are_short_and_not_truncated(vault):
 
 
 @pytest.mark.parametrize("argv", [("memory",), ("memory", "search", "alpha"), ("memory", "shape"),
-                                  ("memory", "wrap"), ("memory", "tidy"), ("memory", "harvest"), ("observer", "patterns")])
+                                  ("memory", "wrap"), ("memory", "tidy"), ("memory", "harvest"), ("memory", "organize"),
+                                  ("memory", "experimental"), ("observer", "patterns")])
 def test_memory_read_verbs_emit_one_json_document(vault, argv):
-    r = run(vault, *argv, "--json")
+    # shape, wrap and harvest are memory's experimental features (memory.experimental), off until switched on
+    r = run(vault, *argv, "--json", env={env_name("MEMORY_EXPERIMENTAL"): "all"})
     assert r.returncode in (0, 1), r.stderr
     json.loads(r.stdout)

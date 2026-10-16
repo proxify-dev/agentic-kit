@@ -10,7 +10,7 @@ ROW = {
     "id": "toolu_01AAAAaaaaBBBBbbbbCCCCcccc", "kind": "tool", "parent": None,
     "ts": "2026-09-24T10:14:00.000Z", "durMs": 1234, "server": "claude", "tool": "Bash",
     "origin": "session",
-    "identity": {"session": "6eced009-7527-4775-892d-53ee98721e9f", "prompt": None,
+    "identity": {"session": "abcd0003-7527-4000-8000-000000000003", "prompt": None,
                  "cwd": "/Users/x/ak", "agent": None, "run": None, "item": None},
     "outcome": "ok",
     "summary": {"input": "{command:uv run pytest -q " + "x" * 200, "output": "19 passed",

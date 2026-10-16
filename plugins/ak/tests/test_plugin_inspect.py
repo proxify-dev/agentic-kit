@@ -11,7 +11,8 @@ from ak import ui
 from ak._brand import cmd
 from ak.plugin_inspect import cli as cli_mod
 from ak.plugin_inspect import heard, installed, report
-from plugin_inspect_home import SID, home  # noqa: F401 — home is the fixture
+from plugin_inspect_home import (RECORD_SID, SID, home, mixed_transcript,  # noqa: F401 — home is the fixture
+                                 record_transcript, write)
 
 
 def _heard():
@@ -74,6 +75,70 @@ def test_plain_stdout_reaches_the_model_only_at_session_start_and_prompt(home):
     assert heard.classify({**run, "hookEvent": "PostToolUse"}) == [("silent", "plain words")]
     deny = json.dumps({"hookSpecificOutput": {"permissionDecision": "deny", "permissionDecisionReason": "no"}})
     assert heard.classify({"type": "hook_success", "hookEvent": "PreToolUse", "stdout": deny}) == [("deny", "no")]
+
+
+# ── heard, Claude Code 2.1.300+: which saved call carried each text ─────────────────────────────────────
+def _heard_in(home, rows, sid=RECORD_SID):
+    write(home, sid, rows)
+    return heard.Owners(installed.plugins(), installed.history_index()).name_all(heard.read(heard.find(sid[:8])))
+
+
+def test_a_text_is_tied_to_the_saved_call_that_carried_it(home):
+    rows = _heard_in(home, record_transcript())
+    assert [(r.turn, r.hook, r.kind, r.plugin, r.source, r.call) for r in rows] == [
+        (0, "SessionStart:startup", "context", "alpha", "record", 1),
+        (0, "SessionStart:startup", "context", "beta", "record", 1),
+        (0, "SessionStart", "context", "alpha", "record", 1),  # no hook printed it: its words name alpha
+        (0, "SessionStart", "context", "?", "hooks", None),    # no hook, no words of anyone's, never sent
+        (1, "PostToolUse:Edit", "context", "alpha", "record", 2),  # it rode inside the tool result
+        (2, "PostToolUse:Edit", "context", "alpha", "hooks", None),  # after the last call on record
+    ]
+    assert rows[0].ms == 200 and rows[0].command  # the hook's own run, not a second row for the same text
+
+
+def test_a_text_written_down_after_the_call_that_sent_it_is_still_tied_to_it(home):
+    """Two tools run side by side: Claude Code sends both results in one call, then writes the hooks' text."""
+    from plugin_inspect_home import LINT, attached, blob, ctx, hook, prompt, request, stamped
+    a, b = "[alpha] lint: first file ok", "[alpha] lint: second file ok"
+    rows = _heard_in(home, [
+        stamped(prompt(10, "edit both")),
+        stamped(hook(20, "PostToolUse", "PostToolUse:Edit", LINT, ctx("PostToolUse", a))),
+        stamped(hook(20, "PostToolUse", "PostToolUse:Edit", LINT, ctx("PostToolUse", b))),
+        blob("t1", "user", [{"type": "tool_result", "tool_use_id": "e1", "content": f"edited\n{a}"},
+                            {"type": "tool_result", "tool_use_id": "e2", "content": f"edited\n{b}"}]),
+        request(21, "r1", ["t1"]),
+        attached(22, "PostToolUse", [a]),
+        attached(22, "PostToolUse", [b]),
+    ])
+    assert [(r.text, r.source, r.call) for r in rows] == [(a, "record", 1), (b, "record", 1)]
+
+
+def test_a_text_costs_its_tokens_once_however_many_calls_resend_it(home):
+    rows = _heard_in(home, record_transcript())
+    assert rows[0].tokens == len("[alpha] hello there, one move each") // 4
+    assert sum(r.text == "[alpha] hello there, one move each" for r in rows) == 1
+
+
+def test_a_session_resumed_across_the_upgrade_reads_each_row_by_its_own_version(home):
+    rows = _heard_in(home, mixed_transcript())
+    assert [(r.turn, r.hook, r.source, r.call) for r in rows] == [
+        (0, "SessionStart:startup", "hooks", None),  # 2.1.299: read as it always was
+        (2, "UserPromptSubmit", "record", 1),
+    ]
+
+
+def test_before_2_1_300_nothing_changes(home):
+    """The default transcript has no version on any row: every text comes from the hook runs, as before."""
+    assert {(r.source, r.call) for r in _heard()} == {("hooks", None)}
+
+
+def test_log_json_says_where_each_text_was_seen_and_the_plain_columns_stay(home):
+    write(home, RECORD_SID, record_transcript())
+    r = run("log", "-s", RECORD_SID[:8])  # plain first: --json stays on for the rest of the process
+    header = next(line for line in r.output.splitlines() if line.startswith("turn\t"))
+    assert header.split("\t") == ["turn", "time", "hook", "plugin", "kind", "seen by", "~tok", "text"]
+    doc = json.loads(run("log", "-s", RECORD_SID[:8], "--json").output)
+    assert [(r["source"], r["call"]) for r in doc["rows"]][:2] == [("record", 1), ("record", 1)]
 
 
 # ── report: the two views as data ────────────────────────────────────────────
@@ -229,6 +294,15 @@ def test_a_person_gets_each_text_whole_in_a_box_and_the_silent_hooks_on_one_list
     boxes = [c for c in rich.calls if c[0] == "panel"]
     assert LONG in [b[1] for b in boxes]
     assert any("alpha" in b[2]["title"] and "block" in b[2]["subtitle"] for b in boxes)
+
+
+def test_a_person_sees_which_call_carried_a_text(home, monkeypatch):
+    write(home, RECORD_SID, record_transcript())
+    rich = _Rich()
+    monkeypatch.setattr(cli_mod, "out", rich)
+    assert run("log", "-s", RECORD_SID[:8]).exit_code == 0
+    subtitles = [c[2]["subtitle"] for c in rich.calls if c[0] == "panel"]
+    assert any("call 1" in s for s in subtitles) and any("call 2" in s for s in subtitles)
 
 
 def test_brain_status_names_the_broken_hook(home):

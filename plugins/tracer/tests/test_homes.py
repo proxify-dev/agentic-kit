@@ -28,7 +28,7 @@ from tracer.db import get_write_connection
 
 PLUGIN = Path(__file__).resolve().parent.parent
 CORE_SRC = PLUGIN.parent / CLI / "src"  # the host plugin is named for its CLI
-SID = "06a45a57-32b2-40ec-b5fd-0f8cca4c5cbc"
+SID = "abcd0004-0000-4000-8000-000000000004"
 OLD = "11111111-0000-4000-8000-000000000000"
 
 
@@ -68,12 +68,12 @@ def test_every_old_tracer_verb_is_still_there(verb):
 
 
 @pytest.mark.parametrize("argv, handed", [
-    (["replay", "06a45a57"], ["dialogue", "--session", SID, "--all-projects"]),
+    (["replay", "abcd0004"], ["dialogue", "--session", SID, "--all-projects"]),
     (["replay", "zvec lock"], ["search", "zvec lock", "--all-projects"]),
     (["blame", "src/x.py"], ["trace", "src/x.py", "--all-projects", "--limit", "20"]),
     (["log"], ["projects"]),
     (["grep", "wedge"], ["search", "wedge", "--all-projects", "--limit", "10"]),
-    (["inspect", "06a45a57-004", "--open", "1-3"], ["query", "--drill", "06a45a57-004", "--step", "1-3"]),
+    (["inspect", "abcd0004-004", "--open", "1-3"], ["query", "--drill", "abcd0004-004", "--step", "1-3"]),
     (["index", "--all"], ["index", "--all"]),
 ])
 def test_old_spellings_hand_the_engine_what_they_always_did(engine, argv, handed):
@@ -85,7 +85,7 @@ def test_old_spellings_hand_the_engine_what_they_always_did(engine, argv, handed
 # ── one resolver: a UUID, 8 characters, latest ──────────────────────────────────────────────
 def test_show_takes_an_8_character_prefix(engine):
     """`tracer show <prefix>` handed the prefix to an exact-match filter and said "No interactions matched"."""
-    assert _run("show", "06a45a57").exit_code == 0
+    assert _run("show", "abcd0004").exit_code == 0
     assert engine[-1] == ["query", "--all-projects", "--limit", "20", "--session", SID]
 
 
@@ -99,14 +99,14 @@ def test_a_miss_says_what_it_looked_for(engine):
 def test_one_floor_of_8_characters_everywhere(engine):
     with pytest.raises(drill.DrillError, match="its first 8 characters"):
         drill.resolve_session("3283f8")
-    assert drill.resolve_session("06a45a57") == SID
-    assert drill.split_target("06a45a57-004") == (SID, 4)
+    assert drill.resolve_session("abcd0004") == SID
+    assert drill.split_target("abcd0004-004") == (SID, 4)
 
 
 def test_an_ambiguous_prefix_lists_the_sessions(monkeypatch):
     monkeypatch.setattr(drill, "match_session_ids", lambda p: [SID, SID[:9] + "ffff" + SID[13:]])
     with pytest.raises(drill.AmbiguousSession, match="ambiguous"):
-        drill.resolve_session("06a45a57")
+        drill.resolve_session("abcd0004")
 
 
 def test_latest_is_the_newest_session_in_the_index(engine, tmp_path):
@@ -303,12 +303,12 @@ got = []
 m._prefetch = lambda target, *a: got.append(target)
 drill.match_session_ids = lambda p: [%r] if %r.startswith(p) else []
 run = lambda *a: CliRunner().invoke(m.sessions_group, ["show", *a])
-assert run("06a45a57", "--as-skill").exit_code == 0 and got[-1] == (%r,)
+assert run("abcd0004", "--as-skill").exit_code == 0 and got[-1] == (%r,)
 assert run("plugin", "split", "--as-skill").exit_code == 0 and got[-1] == ("plugin", "split")
 assert run("plugin split", "--as-skill").exit_code == 0 and got[-1] == ("plugin split",)
 r = run("plugin", "split")
 assert r.exit_code == 2 and "show takes one session id, not 2 words" in r.output, r.output
-assert run("06a45a57", "--as-skill", "--turn", "1").exit_code == 2
+assert run("abcd0004", "--as-skill", "--turn", "1").exit_code == 2
 print("ok")
 """ % (str(PLUGIN / "src"), SID, SID, SID)
     r = subprocess.run([sys.executable, "-c", snippet], capture_output=True, text=True, env=_env(tmp_path, "tracer"))

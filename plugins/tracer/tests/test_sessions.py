@@ -1,7 +1,6 @@
 """`ak sessions` (old spelling `ak tracer sessions`) — every session one project holds, oldest first (sessions.py).
 
-Written against the 2026-09-24 miss (evals/tool-routing case `timeline`): asked for "a timeline of
-what we've been doing in this folder", an agent scripted over the raw transcripts because no tool
+Written against a miss: asked for a timeline of the work in a folder, an agent scripted over the raw transcripts because no tool
 answered a question with no topic, session or file in it. The project here has the same shape as
 ~/agentic-kit: it moved from a dotted name, has worktrees inside it, and a sibling whose dir name starts
 the same way but is not inside it.
@@ -131,7 +130,7 @@ def test_prompts_read_as_typed():
     for noise in ("/plugin", "/exit", "/resume]", "Compacted", "This session is being continued from a previous conversation …",
                   "b1x9m2k7q toolu_01ABC /private/tmp/claude-501/x.output completed"):
         assert is_noise(clean(noise)), noise
-    assert not is_noise("/tracer:trace 57e7a5bf why did it stop?")
+    assert not is_noise("/tracer:trace abcd0002 why did it stop?")
 
 
 def test_root_resolves_a_path_a_dir_name_and_this_project(home, monkeypatch):

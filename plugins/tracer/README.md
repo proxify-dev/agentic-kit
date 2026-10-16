@@ -62,8 +62,7 @@ arm matched the MCP arms on every routing case before the `convo_*` tools were r
 
 `tracer trace` answers a different shape of question than `tracer sessions search`: search finds SESSIONS/turns
 that mention something (a text scan); `tracer trace` lists individual CALLS across sessions and opens
-one whole by id (a structured index over `traces.db`, the app's per-tool-call store — the contract
-is `app/docs/traces-spec.md`). This plugin ships both halves: the engine (`traces/`, below) and
+one whole by id (a structured index over `traces.db`, the per-tool-call store). This plugin ships both halves: the engine (`traces/`, below) and
 the verb, `tracer trace` (its released spelling `tracer calls` still runs). The store is kept current by
 this plugin's own `Stop` hook (below).
 
@@ -251,7 +250,12 @@ enabled plugin's `bin/` on the Bash tool's PATH, so the verbs an agent types (`t
                              SessionStart → session.py (one line naming the verbs above, `tracer trace` included;
                              and skills/index/bin first on the Bash tool's PATH through CLAUDE_ENV_FILE: `sessions`
                              and `trace`, the short names the skills write, each `bin/tracer <group> "$@"`. A plugin's
-                             bin/ is appended after /usr/bin, whose macOS `trace` would win otherwise)
+                             bin/ is appended after /usr/bin, whose macOS `trace` would win otherwise), then one
+                             sentence offering the `tracer:reader` agent for a delegated search
+                             SubagentStart → session.py (the same verbs line, without the agent sentence: a subagent
+                             gets no SessionStart line and cannot start agents)
+   agents/reader.md          tracer:reader — searches past sessions with `tracer` and returns quotes (session ·
+                             turn · user · assistant · why); model: haiku in its frontmatter, so no call picks Opus
                              PostToolUse (Bash·Read·Grep·Glob) → raw_read.py: a direct read of what the verbs read
                              (~/.claude/projects outside a saved tool-results/ file, ~/.claude/sessions, or the
                              trace store — brain-traces/, the kit's db/traces, traces.db) is answered with the verbs;
@@ -270,11 +274,8 @@ enabled plugin's `bin/` on the Bash tool's PATH, so the verbs an agent types (`t
    traces/                   the tool-call index (TypeScript, node ≥ 22.13, `node:sqlite`): src/traces*.ts,
                              bin/traces (launcher) + bin/traces.ts, dist/traces.mjs — ONE committed bundle, so
                              a user runs it with no npm install. Rebuild: `npm run build` there (esbuild through
-                             its node_modules link, `npm run link:dev`); `app`'s `selftest:bundle-fresh` checks
-                             the bytes. The app imports these sources too (its vault paths live here, once)
-   evals/tool-routing/       (in this workspace only: its cases and runs are a person's sessions, so the public
-                             kit leaves it out, with the index skill's arena and the trace skill's eval)
-                             do agents reach the right tool, in how many calls — the gate for a description
+                             its node_modules link, `npm run link:dev`)
+   evals/tool-routing/       do agents reach the right tool, in how many calls — the gate for a description
                              or output change (its README: arms, run, how to read a result). Every case
                              carries its story — STORY.md, the rule in plugins/EVALS.md
 ```

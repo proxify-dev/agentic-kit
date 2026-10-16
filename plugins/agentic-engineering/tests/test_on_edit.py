@@ -42,7 +42,6 @@ SURFACES = [
     (".claude/skills/sweep/references/deep/more.md", "agent-text"),
     ("plugins/demo/prompts/start.md", "agent-text"),
     ("plugins/demo/prompts/start.txt", "agent-text"),
-    ("plugins/memory/templates/harness/brain-harness.md", "agent-text"),
     ("plugins/demo/tests/test_gate.py", "evals"),
     ("plugins/demo/tests/fixtures/case.json", "evals"),
     ("plugins/demo/evals/merge-waits/prompt.md", "evals"),
@@ -98,7 +97,7 @@ def test_any_other_file_gets_nothing(world, home, rel):
 
 @pytest.mark.parametrize("tool", ["Agent", "Task", "Workflow"])
 def test_a_brief_handed_to_another_agent_gets_the_brief_block(world, home, tool):
-    """0d5ed015: a workflow brief handed builders a note template, and they copied it into every prompt."""
+    """A workflow brief handed builders a note template, and they copied it into every prompt."""
     payload = {"session_id": "edit-0000", "hook_event_name": "PreToolUse", "cwd": str(world), "tool_name": tool,
                "tool_input": {"prompt": "build it"}, "transcript_path": ""}
     r = run("on_edit.py", payload, home)
@@ -172,17 +171,17 @@ def test_a_workflow_worker_is_told_by_its_own_transcript(world, home, tmp_path):
     (seen 2026-09-27); a check that looked only in subagents/ repeated the block on every edit."""
     first = run("on_edit.py", edit(world, "CLAUDE.md"), home)
     parent = write_transcript(tmp_path / "p" / "sess.jsonl", [PROMPT])
-    write_transcript(tmp_path / "p" / "sess" / "subagents" / "workflows" / "wf_1" / "agent-a6169.jsonl",
-                     hook_said("PreToolUse", "Edit", first["stdout"], first["ctx"], agent="a6169"))
-    again = run("on_edit.py", edit(world, "CLAUDE.md", parent, agent_id="a6169"), home)
+    write_transcript(tmp_path / "p" / "sess" / "subagents" / "workflows" / "wf_1" / "agent-a3f1.jsonl",
+                     hook_said("PreToolUse", "Edit", first["stdout"], first["ctx"], agent="a3f1"))
+    again = run("on_edit.py", edit(world, "CLAUDE.md", parent, agent_id="a3f1"), home)
     assert again["rc"] == 0 and again["stdout"] == "", "the worker was told already"
-    other = run("on_edit.py", edit(world, "CLAUDE.md", parent, agent_id="b7270"), home)
+    other = run("on_edit.py", edit(world, "CLAUDE.md", parent, agent_id="b2e4"), home)
     assert other["ctx"] == load("instruction-files"), "another worker was not"
 
 
 def test_a_programs_session_gets_nothing_unless_an_eval_counts_it_a_persons(world, home, tmp_path):
     """claude -p, CI: silent on an edit (plugins/HOOKS.md §3; whether a rule about the file at hand should
-    reach scripted sessions is the person's open question, 0d5ed015). `claude plugin eval` passes only
+    reach scripted sessions is undecided). `claude plugin eval` passes only
     EVAL_* variables, so each case sets the capture variable's EVAL_ twin to 1 and gets what a person's
     session gets."""
     t = write_transcript(tmp_path / "t" / "s.jsonl", [PROMPT])
@@ -223,7 +222,7 @@ def test_a_new_workflow_run_gets_the_brief_block(world, home, ti):
 def test_a_workflow_resume_gets_nothing(world, home):
     """A resume replays briefs already handed over (tool_input carries resumeFromRunId)."""
     payload = {"session_id": "edit-0000", "hook_event_name": "PreToolUse", "cwd": str(world), "tool_name": "Workflow",
-               "tool_input": {"scriptPath": "/x/wf.js", "resumeFromRunId": "wf_b9cae32a-a0e"}, "transcript_path": ""}
+               "tool_input": {"scriptPath": "/x/wf.js", "resumeFromRunId": "wf_test-run-1"}, "transcript_path": ""}
     r = run("on_edit.py", payload, home)
     assert r["rc"] == 0 and r["stdout"] == ""
 

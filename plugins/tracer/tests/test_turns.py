@@ -1,6 +1,6 @@
 """What opens a turn, and what rides inside one.
 
-Session 57e7a5bf was one question, interrupted, then /export. The index made it four
+A session was one question, interrupted, then /export. The index made it four
 interactions: the question, "[Request interrupted by user]", "/export" and "Conversation
 copied to clipboard" — three turns nobody asked, each printed as "(tool-only — no final
 text)". An interrupt and a local command belong to the turn they follow.
@@ -126,7 +126,7 @@ def test_a_task_notification_prompt_reads_as_its_summary():
 
 
 def test_an_old_writer_cannot_pass_its_rows_off_as_current(session_tree, tmp_path):
-    """The released Stop hook (parser 1) re-indexed 57e7a5bf after its mtime moved: four
+    """The released Stop hook (parser 1) re-indexed a session after its mtime moved: four
     rows back, ending empty — and the manifest still said parser_version 2, because its
     upsert never names that column. needs_indexing() then called it current forever.
     Played here with the old writer's own statements, verbatim in their column lists."""

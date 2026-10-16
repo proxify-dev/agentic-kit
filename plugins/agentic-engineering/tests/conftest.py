@@ -77,11 +77,11 @@ def deny_record(tool: str, reason: str, agent: str = "") -> str:
     (2.1.278-2.1.283, a main session's and a workflow worker's)."""
     text = f"PreToolUse:{tool} hook error: {reason}"
     extra = {"agentId": agent} if agent else {}
-    return _line({"parentUuid": "af83eada", "isSidechain": bool(agent), "promptId": "e22e0d21", **extra,
+    return _line({"parentUuid": "aaaa0001", "isSidechain": bool(agent), "promptId": "bbbb0002", **extra,
                   "type": "user", "message": {"role": "user", "content": [
                       {"type": "tool_result", "content": text, "is_error": True, "tool_use_id": "toolu_01MZk"}]},
-                  "uuid": "daafd72d", "timestamp": "2026-09-27T23:06:56.596Z", "toolUseResult": "Error: " + text,
-                  "toolDenialKind": "permission-rule", "sourceToolAssistantUUID": "af83eada", "session_id": "s",
+                  "uuid": "cccc0003", "timestamp": "2026-09-27T23:06:56.596Z", "toolUseResult": "Error: " + text,
+                  "toolDenialKind": "permission-rule", "sourceToolAssistantUUID": "aaaa0001", "session_id": "s",
                   "userType": "external", "entrypoint": "cli", "cwd": "/r", "sessionId": "s", "version": "2.1.283",
                   "gitBranch": "main"})
 

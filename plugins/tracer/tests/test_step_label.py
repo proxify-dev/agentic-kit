@@ -1,6 +1,6 @@
 """A call's label: the model's description first, the raw command marked "$", else what it touched.
 
-step_label_cases.json is shared with the traces index (app's selftest:traces reads it too), so
+step_label_cases.json is shared with the traces index (the traces index's own tests read it too), so
 the line `ak sessions show` draws and the `what` column `ak trace` lists cannot drift apart.
 """
 from __future__ import annotations

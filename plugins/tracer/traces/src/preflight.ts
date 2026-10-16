@@ -2,7 +2,7 @@
  * What has to be true before anything else in this process reads a module.
  *
  * Side-effecting on import, on purpose, and imported FIRST by
- * `bin/brain-mcp.ts` — because both things it does are only correct before
+ * `bin/traces.ts` — because both things it does are only correct before
  * other modules are evaluated:
  *
  *   the node floor   `memdb.ts` imports `node:sqlite`, which is unflagged only
@@ -21,7 +21,7 @@
  * In the BUNDLE the same two things are in esbuild's banner (build.mjs), which
  * is the only place that provably runs before every inlined dependency. The
  * duplication is deliberate: the banner covers the shipped artefact whatever
- * order esbuild chooses, this module covers `node bin/brain-mcp.ts` run from
+ * order esbuild chooses, this module covers `node bin/traces.ts` run from
  * source. Both are idempotent — the env var gets the same value twice and the
  * version check exits rather than falling through.
  */

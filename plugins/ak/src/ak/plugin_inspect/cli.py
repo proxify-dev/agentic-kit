@@ -261,7 +261,7 @@ def _hook_rich(h: dict, n: int) -> None:
 
 
 # ── log ──────────────────────────────────────────────────────────────────────
-@cli.command(epilog=f"\b\nExamples:\n  {cmd('plugin log')}\n  {cmd('plugin log tracer -s 1a2f93b5 --raw')}")
+@cli.command(epilog=f"\b\nExamples:\n  {cmd('plugin log')}\n  {cmd('plugin log tracer -s abcd1234 --raw')}")
 @_arg("name", required=False, help="only this plugin's lines, or part of its name (default: every plugin)")
 @click.option("-s", "--session", help="a session id or its first 8 characters (default: this project's newest)")
 @click.option("--raw", "--full", "raw", is_flag=True,
@@ -307,7 +307,8 @@ def log(name, session, raw, show_all, as_json):
             if r.turn != turn:
                 turn = r.turn
                 out.text(f"\n[b]{'session start' if not turn else f'turn {turn}'}[/] [dim]{r.ts[11:19]}[/]")
-            facts = " · ".join(x for x in (f"{r.kind} → {who}", f"~{r.tokens} tok" if r.tokens else "", r.ts[11:19]) if x)
+            facts = " · ".join(x for x in (f"{r.kind} → {who}", f"~{r.tokens} tok" if r.tokens else "",
+                                           f"call {r.call}" if r.call else "", r.ts[11:19]) if x)
             title = f"[b]{_esc(r.plugin)}[/] · {r.hook}"
             if text:
                 out.panel(text, title=title, subtitle=f"[dim]{facts}[/]", border=BORDER.get(r.kind, "dim"))

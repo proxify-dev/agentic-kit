@@ -74,7 +74,7 @@ def test_bare_trace_lists_through_the_engine_with_refresh(engine):
     lines = r.stdout.splitlines()
     assert lines[0].split("\t") == ["time", "session", "tool", "outcome", "took", "what", "came back", "id"]
     row = lines[1].split("\t")
-    assert row[1:5] == ["6eced009", "claude.Bash", "ok", "1.2s"] and row[7] == ROW["id"]
+    assert row[1:5] == ["abcd0003", "claude.Bash", "ok", "1.2s"] and row[7] == ROW["id"]
     assert row[5:7] == ["Run the tracer tests", "19 passed"]  # the label, not the input JSON
     old = lines[2].split("\t")  # a row the index has not re-read: no label, its input line
     assert old[5] == "query: [b]not markup[/b]"  # text we did not write is not read as markup
@@ -82,10 +82,10 @@ def test_bare_trace_lists_through_the_engine_with_refresh(engine):
 
 
 def test_filters_reach_the_engine_in_its_spelling(engine):
-    r = run(engine, "--tool", "Bash", "--server", "claude", "--session", "6eced009", "--origin", "session",
+    r = run(engine, "--tool", "Bash", "--server", "claude", "--session", "abcd0003", "--origin", "session",
             "--outcome", "error", "--q", "pytest", "--limit", "5", "--cursor", "c1")
     assert r.returncode == 0, r.stderr
-    assert calls(engine)[0] == ["list", "--tool", "Bash", "--server", "claude", "--session", "6eced009",
+    assert calls(engine)[0] == ["list", "--tool", "Bash", "--server", "claude", "--session", "abcd0003",
                                 "--origin", "session", "--outcome", "error", "--q", "pytest",
                                 "--limit", "5", "--cursor", "c1", "--refresh"]
 
@@ -137,7 +137,7 @@ def test_an_empty_page_says_so(engine):
 
 
 def test_an_ambiguous_session_prefix_lists_the_candidates_and_exits_2(engine):
-    cands = ["6eced009-7527-4775-892d-53ee98721e9f", "6eced009-0000-4775-892d-53ee98721e9f"]
+    cands = ["abcd0003-7527-4000-8000-000000000003", "abcd0003-0000-4000-8000-000000000003"]
     (engine / "list.json").write_text(json.dumps({"candidates": cands}))
     (engine / "list.exit").write_text("2")
     r = run(engine, "--session", "3826")
@@ -186,7 +186,7 @@ def test_get_shows_the_row_and_both_payloads_capped(engine):
     assert r.returncode == 0, r.stderr
     out = r.stdout
     assert out.startswith("== claude.Bash ==\nid: toolu_01AAAA")
-    assert "outcome: ok" in out and "session: 6eced009-7527-4775-892d-53ee98721e9f" in out
+    assert "outcome: ok" in out and "session: abcd0003-7527-4000-8000-000000000003" in out
     assert "== input · 40 B ==\ncommand: uv run pytest -q\ndescription: tests\n" in out
     output = out[out.index("== output"):]
     body = output.split("\n", 1)[1].split("\n-- ")[0]

@@ -53,10 +53,10 @@ def test_editing_a_real_transcript_path_is_not_flagged_edit_is_not_a_raw_tool():
 # --- real raw reads, one per surface + one per path form --------------------------------
 
 @pytest.mark.parametrize("command", [
-    "cat ~/.claude/projects/-Users-x-ak/57e7a5bf.jsonl",
-    "head -50 ~/.claude/projects/-Users-x-ak/57e7a5bf/tool-results/toolu_01.Bash.txt",
-    "sed -n '1,20p' $HOME/.claude/projects/-Users-x-ak/57e7a5bf.jsonl",
-    "jq '.message' ${HOME}/.claude/projects/-Users-x-ak/57e7a5bf.jsonl",
+    "cat ~/.claude/projects/-Users-x-ak/abcd0002.jsonl",
+    "head -50 ~/.claude/projects/-Users-x-ak/abcd0002/tool-results/toolu_01.Bash.txt",
+    "sed -n '1,20p' $HOME/.claude/projects/-Users-x-ak/abcd0002.jsonl",
+    "jq '.message' ${HOME}/.claude/projects/-Users-x-ak/abcd0002.jsonl",
     f"sqlite3 /Users/x/{HOME_DIR}/db/brain.db 'select count(*) from observations'",
     f"sqlite3 ~/{HOME_DIR}/db/traces/traces.db 'select outcome, count(*) from spans group by 1'",
 ])
@@ -65,7 +65,7 @@ def test_real_raw_reads_by_bash(command):
 
 
 def test_raw_read_by_read_tool():
-    assert "raw" in _flags("Read", file_path="/Users/x/.claude/projects/-Users-x-ak/57e7a5bf.jsonl")
+    assert "raw" in _flags("Read", file_path="/Users/x/.claude/projects/-Users-x-ak/abcd0002.jsonl")
 
 
 def test_raw_read_by_grep_tool():
