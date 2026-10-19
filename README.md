@@ -24,9 +24,21 @@ Find any chat&nbsp; ◦ &nbsp;See what Claude really sent&nbsp; ◦ &nbsp;Skills
 
 Every chat you have with Claude Code is saved on your machine, often gigabytes of it. Without help,
 that history is a pile of raw files: a chat you lost stays lost, and an hour that went wrong stays a
-guess. The kit turns it into answers. Each row below is a real question from real work, answered by the kit:
+guess. The kit turns it into answers.
 
-| You ask | You run | What came back |
+**You don't type the commands on this page. Claude does.** At the start of every session the kit tells
+Claude which commands it has; you ask in your own words, and Claude runs them in its Bash tool:
+
+```
+you      "Which chat last changed gateway/README.md?"
+Claude   runs  ak trace blame gateway/README.md
+you      get   the chat, the change, and the prompt that asked for it
+```
+
+The commands are shown so you can see where each answer comes from, and you can run them yourself
+if you like. Each row below is a real question from real work, answered this way:
+
+| You ask Claude | Claude runs | What came back |
 |---|---|---|
 | *"I know we did this somewhere. Where?"* | `ak sessions search "<a few words>"` | the lost chat, found across 2,386 projects in about a minute, and picked back up the same day |
 | *"Which chat changed this file, and why?"* | `ak trace blame <file>` | every chat that changed it, each change, and the prompt that asked for it |
@@ -34,8 +46,8 @@ guess. The kit turns it into answers. Each row below is a real question from rea
 | *"Five chats touched this folder. What's mine?"* | `ak trace blame <folder>` | 3 commits of this chat's own work; every other chat's changes left exactly as they were |
 | *"Is that chat still running, or waiting on me?"* | `ak sessions live` | the chat thought lost: still open, waiting on an answer |
 | *"What does my helper agent really get?"* | `ak xray claude -p "…"` (with the [gateway](#gateway--all-your-claude-accounts-behind-one-claude)) | a fix that quietly took a helper's Agent tool away, caught in a free dry run before anything ran |
-| *"Are my tests worth keeping?"* | `/agentic-engineering:fewer-faster-tests` | a test skipped on every run since a rename, so a whole plugin was never checked |
-| *"What exactly does this page say?"* | nothing: Claude calls WebFetchRaw | the page's own words in a file; Claude's WebFetch, asked for the same page verbatim, answered *"I can't reproduce the full page verbatim"* |
+| *"Are my tests worth keeping?"* | the fewer-faster-tests skill (or you type `/agentic-engineering:fewer-faster-tests`) | a test skipped on every run since a rename, so a whole plugin was never checked |
+| *"What exactly does this page say?"* | WebFetchRaw, a tool it picks on its own | the page's own words in a file; Claude's WebFetch, asked for the same page verbatim, answered *"I can't reproduce the full page verbatim"* |
 
 ## Install
 
@@ -46,6 +58,8 @@ uvx --from "git+https://github.com/proxify-dev/agentic-kit#subdirectory=plugins/
 You need [uv](https://docs.astral.sh/uv/), git and [Claude Code](https://docs.claude.com/en/docs/claude-code)
 (`claude` on your PATH). Setup opens a picker in your terminal: it checks your machine, you tick what
 you want, it shows every change it will make, then installs.
+
+Setup is the one thing you run yourself. After it, there is nothing new to learn: start `claude` and ask.
 
 ## Measured
 
@@ -75,15 +89,21 @@ The first one, raced on claude-sonnet-5-5 over 7 GB of real history, average of 
 
 Setup always installs **ak**, the `ak` command the other pieces plug into. Type `ak` to see every verb you have.
 
+Below, **Claude runs** marks commands Claude runs for you when you ask; **you type** marks the few things
+only you start: slash commands, setup, and `claude` itself.
+
 ### tracer · your past sessions, searchable
 
 Which session touched a file, and what each one did, read from Claude Code's own history files with no
-AI summary in between. Inside Claude Code, `/tracer:trace <phrase>` recaps a past session.
+AI summary in between. Ask *"which chat changed src/app.py?"* or *"what did we do in yesterday's session?"*,
+and **Claude runs**:
 
 ```sh
 ak sessions              # this project's sessions, oldest first
 ak trace blame <file>    # which sessions changed a file, and each change they made
 ```
+
+Or **you type** `/tracer:trace <phrase>` to have Claude recap a past session.
 
 ### observer · what past sessions learned
 
@@ -91,6 +111,7 @@ When a session ends, Claude Haiku reads it once (a headless `claude -p` on your 
 what it found, decided, fixed or got wrong, as rows in `~/.ak/db/brain.db`. Nothing is put in Claude's
 context on its own: the next session starts with one line saying the rows exist, and Claude searches them
 before working something out again. When Claude reads a file past sessions worked on, it gets a one-line pointer.
+**Claude runs** these on its own; ask *"stop recording here"* and it runs the last one:
 
 ```sh
 ak observer search <words>    # what past sessions said about it, most relevant first
@@ -106,6 +127,7 @@ worker; its derived parts stay under Apache-2.0 ([`plugins/observer/NOTICE`](plu
 Seven skills (context engineering, harness engineering, skill development, agent development, evals,
 sandboxing, fewer faster tests), an agentic-engineer agent, and a hook that gives Claude a short reminder
 at the moment a rule applies: before it edits a CLAUDE.md, briefs a subagent, or writes a skill or a hook.
+Claude loads a skill on its own when the work calls for it. **You type**:
 
 ```
 /new-plugin <name>                          your own plugin: a folder tracked with git, loaded in every project
@@ -116,7 +138,7 @@ at the moment a rule applies: before it edits a CLAUDE.md, briefs a subagent, or
 ### modes · how this session works with you
 
 Two switches for the session you are in, with a label in the prompt footer while on. Claude is told once when
-one changes, and gets one reminder line per prompt while it is on.
+one changes, and gets one reminder line per prompt while it is on. **You type**:
 
 ```
 /ask on|off            answers only: Edit and Write are refused while on
@@ -135,13 +157,18 @@ on its own when it needs exact words, code, numbers or links; WebFetch stays for
 ### gateway · all your Claude accounts behind one `claude`
 
 Off by default. Every model call goes through a small service on your machine; when one account runs
-out, the next one answers.
+out, the next one answers. **You type**, in a terminal:
 
 ```sh
-ak xray claude -p "hi"   # the exact prompt Claude would send: system prompt, tools, messages
 claude --account <name>  # start on the account you name
 ak gateway               # your accounts, and what went through the gateway
 ak sysprompt             # your own instructions, added to every claude you start
+```
+
+Ask *"what does my helper agent really get?"* and **Claude runs**:
+
+```sh
+ak xray claude -p "hi"   # the exact prompt Claude would send: system prompt, tools, messages
 ```
 
 `ak xray` is a dry run: the gateway answers the call itself, so the prompt is not sent and nothing is billed.
@@ -160,7 +187,7 @@ its banner says "API Usage Billing". Needs macOS, Linux or WSL, and Node 22.13 o
 - only with the gateway: the claude shim on your PATH and a background service on `127.0.0.1:4747`,
   both run from Claude Code's copy of this repo (nothing is downloaded besides it)
 
-Every file it changes is backed up first.
+Every file it changes is backed up first. **You type**:
 
 ```sh
 ak setup --dry-run       # the plan and every change; writes nothing
