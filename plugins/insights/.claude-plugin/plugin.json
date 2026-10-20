@@ -1,0 +1,10 @@
+{
+  "name": "insights",
+  "description": "How you really work with Claude Code, rebuilt from the files it keeps on your machine: sessions and helpers, what the agent knows before it starts, how you hand work over, check it and correct it, what you built for yourself. /insights:my-agentic-setup writes a private page for you, and only on your yes a masked report you can choose to share. Reads only; sends nothing. python3 stdlib, needs no other plugin.",
+  "version": "0.1.0",
+  "visibility": "public",
+  "author": {
+    "name": "teocns"
+  },
+  "license": "MIT"
+}

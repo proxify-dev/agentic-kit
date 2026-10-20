@@ -47,7 +47,12 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv(env_name("PATH"), str(vault))
     monkeypatch.setenv(env_name("STORE"), str(tmp_path / "store"))
     monkeypatch.setenv("CLAUDE_MEM_DB", str(cm))
-    return {"vault": vault, "cm": cm, "store": tmp_path / "store" / "brain.db"}
+    # Claude Code's settings decide whether prompts are copied (the tracer's switch): an empty
+    # config dir and no project dir, so the machine running the suite decides nothing
+    (tmp_path / "claude").mkdir()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    return {"vault": vault, "cm": cm, "store": tmp_path / "store" / "brain.db", "claude": tmp_path / "claude"}
 
 
 def test_init_copies_claude_mem_and_lifts_floors(env):
@@ -183,6 +188,47 @@ def test_summarizer_store_sink_lands_one_session(env, tmp_path):
     assert conn.execute("SELECT COUNT(*) FROM observations WHERE memory_session_id=?", (UUID,)).fetchone()[0] == 2
     assert conn.execute("SELECT COUNT(*) FROM sdk_sessions WHERE content_session_id=?", (UUID,)).fetchone()[0] == 1
     conn.close()
+
+
+def _enable(settings: Path, plugins: dict) -> None:
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_text(json.dumps({"enabledPlugins": plugins}), encoding="utf-8")
+
+
+@pytest.mark.parametrize("where", ["user", "project"])
+def test_summarizer_skips_the_prompts_copy_while_the_tracer_is_on(env, tmp_path, where):
+    """The tracer reads the prompts from the transcripts, so the store keeps no copy. The session
+    row still says what it was asked and how many prompts it had: the observer's own uses."""
+    sc.init()
+    cwd = tmp_path / "repo"
+    cwd.mkdir()
+    _enable(env["claude"] / "settings.json" if where == "user" else cwd / ".claude" / "settings.local.json",
+            {"tracer@ak": True})
+    transcript = tmp_path / f"{UUID}.jsonl"
+    _transcript(transcript, str(cwd))
+    prepared = tmp_path / "out.json"
+    prepared.write_text(json.dumps(OUTPUT))
+    e = {env_name("PATH"): str(env["vault"]), env_name("STORE"): str(env["store"].parent), "CLAUDE_MEM_DB": str(env["cm"])}
+    r = _run(["--session", UUID, "--transcript", str(transcript), "--from-json", str(prepared)], e)
+    assert "2 observation(s), 0 prompt(s), 1 summary → store" in r.stdout, r.stderr
+    conn = sc.connect(readonly=True)
+    assert conn.execute("SELECT COUNT(*) FROM user_prompts WHERE content_session_id=?", (UUID,)).fetchone()[0] == 0
+    s = conn.execute("SELECT user_prompt, prompt_counter FROM sdk_sessions WHERE content_session_id=?", (UUID,)).fetchone()
+    assert (s["user_prompt"], s["prompt_counter"]) == ("please fix the login bug", 2)
+    conn.close()
+
+
+def test_prompts_on_keeps_the_copy_with_the_tracer_on(env, tmp_path):
+    sc.init()
+    _enable(env["claude"] / "settings.json", {"tracer@ak": True})
+    (env["store"].parent / "capture.json").write_text(json.dumps({"prompts": "on"}), encoding="utf-8")
+    transcript = tmp_path / f"{UUID}.jsonl"
+    _transcript(transcript, str(tmp_path / "repo"))
+    prepared = tmp_path / "out.json"
+    prepared.write_text(json.dumps(OUTPUT))
+    e = {env_name("PATH"): str(env["vault"]), env_name("STORE"): str(env["store"].parent), "CLAUDE_MEM_DB": str(env["cm"])}
+    r = _run(["--session", UUID, "--transcript", str(transcript), "--from-json", str(prepared)], e)
+    assert "2 observation(s), 2 prompt(s), 1 summary → store" in r.stdout, r.stderr
 
 
 def test_summarizer_reuses_a_session_row_claude_mem_wrote(env, tmp_path):

@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _brand import env, env_name  # noqa: E402
+from _brand import claude_home, env, env_name  # noqa: E402
 from vault_root import brain_root, cache_dir, db_dir, home_root  # noqa: E402
 from transcript_rows import is_chat_row  # noqa: E402
 
@@ -184,6 +184,54 @@ def capture_state(cwd: str | None = None) -> tuple:
 
 def capture_enabled(cwd: str | None = None) -> bool:
     return capture_state(cwd)[0]
+
+
+# ── the prompts copy (capture.json "prompts": "on" | "off"; absent = by the tracer) ──
+# The person's prompts are in Claude Code's own transcripts, and the tracer plugin reads them
+# there (`tracer sessions search --role user`). The store's user_prompts table is a copy that came
+# with claude-mem's schema, and the observer never reads it back: its agent reads the transcript,
+# and the session row keeps the first prompt (`asked`) and the count (prompt_counter). So while the
+# tracer is on, the copy is not written. Other readers of the copy: the brain app (a session's
+# prompt count, its prompt search) and memory's E4 alias rarity (surface._history).
+
+def plugin_enabled(name: str, cwd: str | None = None) -> bool:
+    """True when the last of Claude Code's settings files that names plugin NAME (under any marketplace)
+    enables it: the user's, then <project>/.claude/settings.json, then settings.local.json. The project is
+    CWD, else $CLAUDE_PROJECT_DIR. Mirrors plugins/vault/src/vault/enabled.py `enabled`."""
+    project = cwd or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    on = False
+    for path in (Path(claude_home()) / "settings.json",  # honours $CLAUDE_CONFIG_DIR
+                 Path(project) / ".claude" / "settings.json",  # portable: ok — the project's own .claude/
+                 Path(project) / ".claude" / "settings.local.json"):  # portable: ok — the project's own .claude/
+        try:
+            plugins = (json.loads(path.read_text(encoding="utf-8")) or {}).get("enabledPlugins") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        named = [v for k, v in plugins.items() if isinstance(k, str) and k.split("@", 1)[0] == name]
+        if named:
+            on = any(v is True for v in named)
+    return on
+
+
+def prompts_state(cfg: dict, cwd: str | None = None) -> tuple:
+    """(write the prompts copy: bool, reason: str). CFG is capture.json as loaded, {} when absent."""
+    setting = cfg.get("prompts")
+    if setting == "on":
+        return True, f"set by `{command('prompts on')}`"
+    if setting == "off":
+        return False, f"set by `{command('prompts off')}`"
+    if plugin_enabled("tracer", cwd):
+        return False, f"the tracer is on and reads them from the transcripts; `{command('prompts on')}` keeps a copy"
+    return True, "the tracer is off here"
+
+
+def store_prompts(cwd: str | None = None) -> bool:
+    """Write this session's prompts into user_prompts? Read at session end by the summarizer."""
+    try:
+        cfg = json.loads(capture_config_path(cwd).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cfg = {}
+    return prompts_state(cfg if isinstance(cfg, dict) else {}, cwd)[0]
 
 
 def safe_id(session_id: str) -> str:

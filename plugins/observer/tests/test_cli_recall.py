@@ -90,7 +90,7 @@ def test_brain_search_gives_ak_search_the_rows_search_lists(store):
 
 
 def test_the_verbs_that_write_carry_the_mark_inside_ak():
-    """Mounted in `ak` (ak importable), fold, forget, mute, unmute and the store's writers are marked ✎; the readers are
+    """Mounted in `ak` (ak importable), fold, forget, mute, prompts, unmute and the store's writers are marked ✎; the readers are
     not. This venv carries no ak, so the probe puts ak's source on the path, as `ak` does."""
     import os
     import subprocess
@@ -99,4 +99,4 @@ def test_the_verbs_that_write_carry_the_mark_inside_ak():
     env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(PLUGIN.parent / "ak" / "src"), str(PLUGIN / "src")])}
     r = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, env=env)
     assert r.returncode == 0, r.stderr
-    assert r.stdout.strip() == "['fold', 'forget', 'mute', 'unmute'] ['backfill', 'embed', 'init', 'sync']"
+    assert r.stdout.strip() == "['fold', 'forget', 'mute', 'prompts', 'unmute'] ['backfill', 'embed', 'init', 'sync']"

@@ -1,6 +1,6 @@
 {
   "name": "observer",
-  "description": "What past sessions learned. An observer runs at SessionEnd (the plugin agent agents/observer.md, run headless) and writes observations as rows in the vault's store (~/.ak/db/brain.db); the next session opens on a 'since you were last here' digest; `observer search → timeline → get` recalls them in three layers and `patterns · fold · forget` curate them; a Read hook says when a file has prior observations. CLI: `observer status|mute|unmute|show|try|store|types|search|timeline|get|patterns|fold|forget|shadow`, also mounted as `observer …` when ak is installed. Shares only the vault's data paths with the other kit plugins.",
+  "description": "What past sessions learned. An observer runs at SessionEnd (the plugin agent agents/observer.md, run headless) and writes observations as rows in the vault's store (~/.ak/db/brain.db); the next session opens on a 'since you were last here' digest; `observer search → timeline → get` recalls them in three layers and `patterns · fold · forget` curate them; a Read hook says when a file has prior observations. CLI: `observer status|mute|unmute|prompts|show|try|store|types|search|timeline|get|patterns|fold|forget|shadow`, also mounted as `observer …` when ak is installed. Shares only the vault's data paths with the other kit plugins.",
   "version": "2.6.0",
   "visibility": "public",
   "setup": {

@@ -49,7 +49,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PLUGIN_ROOT / "hooks"))
 from capture_common import (  # noqa: E402
     WRITE_TOOLS, load_events, observations_dir, slugify, clear_scratch, vault_root,
-    project_label as cwd_label,
+    project_label as cwd_label, store_prompts,
 )
 import store_common as store  # noqa: E402
 import observer_agent  # noqa: E402
@@ -845,7 +845,8 @@ def write_rows(observations: list, summary: dict | None, meta: dict, session_id:
                transcript: str, model: str, dry_run: bool, priors: list | None = None) -> dict:
     """One transaction: the session row (reused when claude-mem already wrote
     one for this uuid, so both sides' observations hang off one session), the
-    prompts not yet stored, the observations not yet stored, one summary."""
+    prompts not yet stored (none while the tracer is on: capture_common.prompts_state),
+    the observations not yet stored, one summary."""
     label = project_label(meta)
     bound = meta.get("project") or bound_project(meta.get("cwd") or "")
     tmeta = session_meta_from_transcript(transcript) if transcript else {}
@@ -892,9 +893,10 @@ def write_rows(observations: list, summary: dict | None, meta: dict, session_id:
             sdb_id = int(cur.lastrowid)
             counts["session"] = 1
 
+        keep_prompts = store_prompts(meta.get("cwd") or None)
         have = {int(r[0]) for r in conn.execute(
             "SELECT prompt_number FROM user_prompts WHERE content_session_id=?", (session_id,))}
-        for p in prompts:
+        for p in prompts if keep_prompts else []:
             if p["n"] in have:
                 continue
             at = p["ts"] or now

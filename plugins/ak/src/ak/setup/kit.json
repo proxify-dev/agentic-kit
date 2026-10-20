@@ -4,6 +4,7 @@
   "listed": [
     "ak",
     "agentic-engineering",
+    "insights",
     "modes",
     "observer",
     "tracer",
@@ -43,6 +44,12 @@
       }
     },
     {
+      "name": "insights",
+      "description": "How you really work with Claude Code, rebuilt from the files it keeps on your machine: sessions and helpers, what the agent knows before it starts, how you hand work over, check it and correct it, what you built for yourself. /insights:my-agentic-setup writes a private page for you, and only on your yes a masked report you can choose to share. Reads only; sends nothing. python3 stdlib, needs no other plugin.",
+      "version": "0.1.0",
+      "visibility": "public"
+    },
+    {
       "name": "modes",
       "description": "How a session works with you and with its subagents. Two session modes, each [on|off|status], answered with no model call, Claude told once at each switch and reminded by one line on each prompt while on, a label in the prompt footer: /orchestrate hands parts to subagents on another model (haiku · sonnet · opus); /ask answers and changes nothing, refusing Edit, Write and NotebookEdit while on. /modes:interview asks you rounds of AskUserQuestion until the direction is clear. /modes:align stops work in progress: it plays back what was built, names where it drifted from what you asked, and asks before any more changes. A Claude Mod: needs CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1.",
       "version": "0.7.0",
@@ -66,7 +73,7 @@
     },
     {
       "name": "observer",
-      "description": "What past sessions learned. An observer runs at SessionEnd (the plugin agent agents/observer.md, run headless) and writes observations as rows in the vault's store (~/.ak/db/brain.db); the next session opens on a 'since you were last here' digest; `observer search → timeline → get` recalls them in three layers and `patterns · fold · forget` curate them; a Read hook says when a file has prior observations. CLI: `observer status|mute|unmute|show|try|store|types|search|timeline|get|patterns|fold|forget|shadow`, also mounted as `observer …` when ak is installed. Shares only the vault's data paths with the other kit plugins.",
+      "description": "What past sessions learned. An observer runs at SessionEnd (the plugin agent agents/observer.md, run headless) and writes observations as rows in the vault's store (~/.ak/db/brain.db); the next session opens on a 'since you were last here' digest; `observer search → timeline → get` recalls them in three layers and `patterns · fold · forget` curate them; a Read hook says when a file has prior observations. CLI: `observer status|mute|unmute|prompts|show|try|store|types|search|timeline|get|patterns|fold|forget|shadow`, also mounted as `observer …` when ak is installed. Shares only the vault's data paths with the other kit plugins.",
       "version": "2.6.0",
       "visibility": "public",
       "setup": {

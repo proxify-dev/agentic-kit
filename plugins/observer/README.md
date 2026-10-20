@@ -124,15 +124,26 @@ what keeps recurring into proposed project notes.
                              kit's one launcher, scripts/seam/launcher)
    scripts/cli.py            the mount shim — `ak observer …` when the `ak` CLI is installed; its `brain_search`
                              gives `ak search` the rows `observer search` lists (union, no embedder); inside
-                             `ak`, mute · unmute · fold · forget · store init · sync · backfill · embed carry ✎ (they write)
+                             `ak`, mute · unmute · prompts · fold · forget · store init · sync · backfill · embed carry ✎ (they write)
 ```
 
 ## The dial
 
 ```
    observer mute [--here]     the writer, vault-wide or for one folder — ~/.ak/db/capture.json
-   observer status            exit 0 recording here, 1 not, and why
+   observer prompts auto      copy a session's prompts into the store only while the tracer is off
+                              (on · off pin it; same file, key "prompts")
+   observer status            exit 0 recording here, 1 not, and why; whether prompts are copied
 ```
+
+**Prompts are copied only without the tracer.** The store's `user_prompts` table came with
+claude-mem's schema; the observer never reads it back — its agent reads the transcript, and the
+session row keeps the first prompt (`asked`) and the count. The tracer reads the same prompts from
+Claude Code's transcripts (`tracer sessions search --role user`), so while the tracer plugin is
+enabled (Claude Code's settings, any marketplace) the summarizer skips the copy
+(`capture_common.prompts_state`). Rows already stored stay. Two other readers of the copy see no
+new rows while it is skipped: the brain app (a session's prompt count, its prompt search) and
+memory's E4 alias rarity (experimental, off by default).
 
 **Only people's sessions are recorded.** Claude Code hands every hook `CLAUDE_CODE_ENTRYPOINT`:
 `cli` (a terminal), `claude-desktop` and `sdk-ts` (a desktop chat app) are people and are

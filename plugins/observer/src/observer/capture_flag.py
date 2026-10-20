@@ -14,7 +14,12 @@ hooks/capture_common.py — deliberately. Change the semantics here, change them
 there; the format stays trivial so the two halves cannot drift far.
 
     <kit>/db/capture.json   (the kit's — one switch file for every scope)
-    {"enabled": true, "disabled_paths": ["/abs/dir", ...], "updated": "<iso>"}
+    {"enabled": true, "disabled_paths": ["/abs/dir", ...], "prompts": "on" | "off", "updated": "<iso>"}
+
+`prompts` is a second, smaller dial: whether the summarizer copies the session's prompts into the
+store's user_prompts table. Absent, the copy is skipped while the tracer plugin is on (it reads
+the prompts from Claude Code's transcripts). The rule is capture_common.prompts_state, imported,
+not mirrored.
 
 Resolution — first match wins:
     1. AK_CAPTURE_DISABLE in env → off (the summarizer's own recursion guard)
@@ -116,6 +121,31 @@ def state(cwd: str | None = None, root: Path | None = None) -> tuple[bool, str]:
         if isinstance(entry, str) and cwd and _within(cwd, entry):
             return False, f"off — muted for {entry} (`{command('unmute --here')}`)"
     return True, "on"
+
+
+from capture_common import prompts_state as _prompts_rule  # noqa: E402  (hooks/: the one rule, not mirrored)
+
+PROMPTS_SETTINGS = ("on", "off", "auto")
+
+
+def prompts(cwd: str | None = None, root: Path | None = None) -> tuple[bool, str, str]:
+    """(prompts copied into the store, reason, setting: on · off · auto). Auto: not while the tracer is on."""
+    try:
+        cfg = load(root)
+    except Exception:
+        cfg = {}
+    stored, reason = _prompts_rule(cfg, cwd)
+    return stored, reason, {"on": "on", "off": "off"}.get(str(cfg.get("prompts")), "auto")
+
+
+def set_prompts(setting: str, root: Path | None = None) -> Path:
+    """on · off pin the prompts copy; auto drops the key, so the tracer decides."""
+    cfg = load(root)
+    if setting == "auto":
+        cfg.pop("prompts", None)
+    else:
+        cfg["prompts"] = setting
+    return save(cfg, root)
 
 
 def set_global(enabled: bool, root: Path | None = None) -> Path:

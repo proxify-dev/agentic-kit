@@ -100,12 +100,15 @@ def _capture_facts(root, cwd):
 def _observer_render(root, cwd, title):
     """One board for the lobe: writer dial · agent · store. Returns writer on?"""
     w_on, why, cfg_path, glob, denied, broken = _capture_facts(root, cwd)
+    p_on, p_why, p_setting = capture_flag.prompts(cwd, root)
     if ui.is_json():
         ui.emit({"writer": {"enabled": w_on, "reason": why, "global": glob == "on",
-                            "disabled_paths": denied, "config": str(cfg_path), "config_broken": broken}})
+                            "disabled_paths": denied, "config": str(cfg_path), "config_broken": broken},
+                 "prompts": {"stored": p_on, "reason": p_why, "setting": p_setting}})
         return w_on
     rows = [("writer", ("[green]on[/]" if w_on else "[red]off[/]") + f" [dim]({_fmt(why)})[/]"
              + (f"  [dim]({command('mute|unmute --here')})[/]" if ui.is_rich() else "")),
+            ("prompts", ("copied" if p_on else "not copied") + f" [dim]({escape(p_why)})[/]"),
             ("here", _fmt(cwd))]
     if denied:
         rows.append(("muted in", "\n".join(_fmt(p) for p in denied)))
@@ -171,6 +174,27 @@ def observer_unmute(here, path):
     else:
         capture_flag.set_global(True, root=root)
     _observer_render(root, os.getcwd(), "observer · unmute")
+
+
+@writes
+@observer.command("prompts", epilog=_examples([
+    ("prompts auto", "copied only while the tracer is off (the default)"),
+    ("prompts on", "always copy them into the store"),
+    ("prompts off", "never copy them"),
+], 4))
+@click.argument("setting", type=click.Choice(capture_flag.PROMPTS_SETTINGS),
+                help="on · off · auto, e.g. auto")
+def observer_prompts(setting):
+    """Copy session prompts into the store: on, off or auto.
+
+    The store's user_prompts table is a copy of what Claude Code's transcripts already hold.
+    The observer never reads it back; the brain app and memory's E4 alias rarity do. Auto
+    skips the copy while the tracer plugin is on, which reads the prompts from the
+    transcripts (`tracer sessions search --role user`). Rows already stored stay.
+    """
+    root = _switch_dir()
+    capture_flag.set_prompts(setting, root=root)
+    _observer_render(root, os.getcwd(), "observer · prompts")
 
 
 @observer.command("search", aliases=["s"], epilog=_examples([

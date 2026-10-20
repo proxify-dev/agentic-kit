@@ -10,7 +10,8 @@ rows here, labelled by project, so one search spans every project and a split va
 splits the log.
 
 The vault is what a person decided to keep; the store is what the machine
-remembers. Sessions, prompts, observations and summaries land HERE as rows —
+remembers. Sessions, prompts (only while the tracer is off: capture_common.prompts_state),
+observations and summaries land HERE as rows —
 never as notes — because they are events: they happened, they do not change,
 and there are tens of thousands of them. A folder of markdown was the wrong
 substrate for that (543 notes, zero inbound links, and a walk the app could
