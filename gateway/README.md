@@ -70,7 +70,7 @@ ak gateway run -- claude     # a claude that goes through it
 - 🔁 **Rotation that knows quota.** It reads each account's 5-hour and weekly limits and fails over on rate limits, server errors and expired tokens.
 - 📌 **Pin when it matters.** `ak gateway run --account work -- claude` keeps one session on one account.
 - 🔍 **See the real prompt.** `ak gateway xray claude -p "hi"` shows the exact system prompt, tools and messages, and sends nothing.
-- 📊 **Watch it live.** `ak gateway tui` shows quota bars per account and every request in flight.
+- 📊 **Watch it live.** `ak gateway tui` shows quota bars per account and every request in flight; Tab shows every session, and Enter one session's agents as a tree — subagents, forks, model, tokens, running or done.
 - 🔒 **Local only.** It listens on localhost and refuses web pages. Tokens live in one owner-only file.
 - 📦 **Nothing to install.** Zero dependencies, Node ≥ 22.7, runs as a service on macOS, Linux and Windows.
 

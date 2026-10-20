@@ -784,7 +784,7 @@ async function main(): Promise<number> {
       process.stderr.write(trial ? `no trial running — \`${gw("try")}\` starts one\n` : `gateway is not running — \`${gw("enable")}\`\n`)
       return 1
     }
-    return runTui(cfg)
+    return runTui(cfg, { view: ours.includes("--sessions") ? "sessions" : "accounts" })
   }
 
   if (cmd === "tail") {
@@ -939,7 +939,7 @@ async function main(): Promise<number> {
       "  account import [--from PATH]       take Claude Code's own login",
       "  account enable|disable|remove X · account priority X N",
       "  account choose        pick one on the terminal, print its name (a bare `claude --account`)",
-      "  tui                   live screen: accounts, bars, traffic — q leaves, the gateway keeps running",
+      "  tui [--sessions]      live screen: accounts, bars, traffic · Tab: every session and its agents — q leaves, the gateway keeps running",
       "  tail [--n 20]         the last requests",
       "  tail --session [ID]   one session's requests, subagents included — this session's when run from claude",
       "  run [--account NAME] -- claude …   one program through the gateway, no cc-shim needed; refuses when it is off",

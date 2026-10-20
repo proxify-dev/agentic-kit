@@ -17,6 +17,7 @@ tracer's `wire.py` reads these as data; a change here is a change there.
 | `identity.session` | Claude Code's session id; subagent calls carry the parent's |
 | `dryRun` | `true`: the request carried `x-brain-dry-run` (`ak xray`) — answered by the gateway, never forwarded; `usage` is null, `account` null, and `blobs.body` is kept at every capture level |
 | `hints.requestClass` | `main` · `subagent` · `compaction` · `auxiliary`; absent on rows before hints |
+| `hints.agentId` · `.parentAgentId` | the subagent making the call, and the agent that started it (null when the main thread did); both null on a main-thread call. Absent before 2026-10-20 |
 | `blobs.system` · `.tools` · `.body` | content hashes. `body` is stored at `full`, and at `gaps` when `recorded` is false; a body can be gone once `blobDays` (7) pass — read it as optional |
 | `blobs.settings` · `.safeguards` · `.tail` | settings = every top-level request key but model, system, tools, messages, metadata, safeguards; safeguards = the permission context sent in plan/auto mode; tail = a side call's newest message (`gaps`). Absent before 2026-09-25 |
 | `recorded` | `gaps` only: a transcript held the session when the call arrived. `false`: the body is the one copy |

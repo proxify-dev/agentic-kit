@@ -19,7 +19,7 @@
 | | `try [--login] [--name N] [--port P] [--bin B] [-- claude args]` | one claude through a throwaway gateway on the next port |
 | | `xray [--full] [--part system\|tools\|messages] [--json] [-o NAME] [--vs NAME] claude …` | the exact prompt a launch would send, dry-run ([xray.md](xray.md)) |
 | | `probe [--model M] [--prompt P] [--bin B]` | one real headless `claude -p` through the gateway |
-| **watch** | `tui` | live screen; every key is one control-API call ([control-api.md](control-api.md#the-tui)) |
+| **watch** | `tui [--sessions]` | live screen; every key is one control-API call; Tab: the sessions views, `--sessions` opens on them ([control-api.md](control-api.md#the-sessions-views)) |
 | | `tail [--n N]` | the last requests from the trace |
 | | `tail --session [ID]` | one session's requests, subagents included (this session's when run from claude) |
 | **operate** | `restart [--now]` | run this copy's code, handed over with no gap |

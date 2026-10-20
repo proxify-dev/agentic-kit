@@ -25,6 +25,7 @@ import type { ProbeStatus } from "./engine/prober.js"
 import * as pool from "./pool.ts"
 import type { AccountView } from "./quota.ts"
 import type { RouteMode, RouteTable } from "./routes.ts"
+import type { AgentView, SessionDetail, SessionsList } from "./sessions.ts"
 import type { UpstreamAccount, UpstreamStatus } from "./upstream-status.ts"
 import { envName } from "./brand.ts"
 import { command as gw } from "./command.ts"
@@ -377,6 +378,189 @@ export function recentBlock(rows: TraceRowView[], n: number): string[] {
   return lines
 }
 
+// ---- sessions: every session through the gateway, and one session's agents as a tree
+
+const blue = (s: string) => fg(34, s)
+
+/** claude-opus-5-5 → "opus 5.5", in its family's colour. */
+export function modelLabel(m: string | null | undefined): string {
+  if (!m) return dim("-")
+  const x = /claude-([a-z]+)-(\d+)-(\d+)/.exec(m)
+  const name = x ? `${x[1]} ${x[2]}.${x[3]}` : m.replace(/^claude-/, "")
+  const fam = x?.[1] ?? ""
+  return fam === "opus" ? magenta(name) : fam === "sonnet" ? blue(name) : fam === "haiku" ? green(name) : fam === "fable" ? yellow(name) : name
+}
+
+/** A session's or an agent's state, as a mark and a word. */
+const STATE: Record<string, string> = {
+  working: green("● working"),
+  calling: green("● calling"),
+  tools: yellow("● tools"),
+  waiting: cyan("● your turn"),
+  done: dim("✓ done"),
+  idle: dim("· idle"),
+}
+
+/** An agent's kind, coloured so the same kind reads the same everywhere. */
+function kindLabel(a: { kind: string; type: string | null }): string {
+  const k = a.kind === "main" ? "main" : (a.type ?? a.kind)
+  if (k === "main") return bold(k)
+  if (k === "Explore" || k === "custom") return cyan(k)
+  if (k === "fork") return magenta(k)
+  if (k === "teammate" || k.startsWith("workflow")) return yellow(k)
+  if (k === "Plan") return blue(k)
+  return k
+}
+
+/** Dim a whole row: its own colours would cut the dim short at their first reset. */
+const faded = (s: string) => dim(s.replace(/\x1b\[[0-9;]*m/g, ""))
+const tokensOf = (t: { input: number; output: number; cacheRead: number; cacheCreation: number }) => t.input + t.output + t.cacheRead + t.cacheCreation
+const agoOf = (iso: string, now: number) => formatAgo(now - Date.parse(iso))
+
+/** The rows that fit `rows` lines, scrolled so `sel` is among them. */
+function windowAround<T>(list: T[], sel: number, rows: number): { items: T[]; from: number } {
+  if (list.length <= rows) return { items: list, from: 0 }
+  const from = clamp(sel - Math.floor(rows / 2), 0, list.length - rows)
+  return { items: list.slice(from, from + rows), from }
+}
+
+/**
+ * View one: every session in the window, working first — its state, title,
+ * main model, its subagents by type, how full the main context is, every token
+ * of every agent, calls, last activity. One-shot `claude -p` jobs are counted
+ * in the title line and listed only when `all`.
+ */
+export function sessionsBlock(data: SessionsList, opts: { width: number; rows: number; selected: number; all: boolean; now?: number }): string[] {
+  const now = opts.now ?? Date.parse(data.now)
+  const c = data.counts
+  const W = opts.width
+  const parts = [
+    c.working ? green(`${c.working} working`) : dim("0 working"),
+    c.waiting ? cyan(`${c.waiting} your turn`) : dim("0 your turn"),
+    c.subagentsWorking ? green(`${c.subagentsWorking} subagent${c.subagentsWorking === 1 ? "" : "s"} running`) : dim("0 subagents running"),
+    `${c.inFlight} in flight`,
+  ]
+  const hidden = c.oneShots ? dim(opts.all ? `o hides the ${c.oneShots} one-shot jobs` : `${c.oneShots} one-shot jobs hidden — o shows them`) : ""
+  const lines = [` ${bold("Sessions")}  ${parts.join(dim(" · "))}${hidden ? `   ${hidden}` : ""}`]
+  if (data.sessions.length === 0) return [...lines, "", `   ${dim(`no session went through this gateway in the last ${data.windowHours} hours`)}`]
+
+  const agentsW = W >= 150 ? 34 : 24
+  const fixed = 2 + 12 + 11 + agentsW + 8 + 8 + 6 + 8
+  const sessW = Math.max(20, W - fixed - 2)
+  lines.push(dim(`  ${rpad("state", 12)}${rpad("session", sessW)}${rpad("model", 11)}${rpad("agents", agentsW)}${lpad("context", 8)}${lpad("tokens", 8)}${lpad("calls", 6)}${lpad("last", 8)}`))
+  // Around the rows: this title, the column header, the scroll line.
+  const { items, from } = windowAround(data.sessions, opts.selected, Math.max(1, opts.rows - 3))
+  items.forEach((s, i) => {
+    const sel = from + i === opts.selected
+    const name = s.title ?? s.project ?? "session"
+    const where = [s.title ? s.project : null, s.id.slice(0, 8), s.origin !== "cli" ? s.origin : null].filter(Boolean).join(" ")
+    const types = Object.entries(s.agents.byType).sort((x, y) => y[1] - x[1])
+    const agents = types.length
+      ? [s.agents.working ? green(`${s.agents.working} running`) : null, ...types.map(([t, n]) => `${kindLabel({ kind: "subagent", type: t })} ${n}`)].filter(Boolean).join(dim(" · "))
+      : dim("main only")
+    const row =
+      `${sel ? cyan(">") : " "} ${rpad(STATE[s.state] ?? s.state, 12)}${fit(rpad(`${name}  ${dim(where)}`, sessW - 1), sessW - 1)} ` +
+      `${rpad(modelLabel(s.model), 11)}${fit(rpad(agents, agentsW - 1), agentsW - 1)} ` +
+      `${lpad(compact(s.context), 8)}${lpad(compact(tokensOf(s.tokens)), 8)}${lpad(String(s.calls), 6)}${lpad(agoOf(s.last, now), 8)}`
+    lines.push(!sel && s.state === "idle" ? faded(row) : row)
+  })
+  if (data.sessions.length > items.length) lines.push(`   ${dim(`${opts.selected + 1} of ${data.sessions.length} · ↑↓ scrolls`)}`)
+  return lines
+}
+
+const prefixOf = (r: { prefix: string } | undefined) => r?.prefix.length ?? 0
+
+/** The agents in tree order — each parent before its children — with the lines that draw the branches. */
+export function treeRows(agents: AgentView[]): { agent: AgentView; prefix: string }[] {
+  const ids = new Set(agents.map((a) => a.id))
+  const kids = new Map<string | null, AgentView[]>()
+  for (const a of agents) {
+    const p = a.parent && ids.has(a.parent) && a.parent !== a.id ? a.parent : null
+    kids.set(p, [...(kids.get(p) ?? []), a])
+  }
+  const out: { agent: AgentView; prefix: string }[] = []
+  const seen = new Set<string>()
+  const walk = (parent: string | null, lead: string, top: boolean) => {
+    const list = (kids.get(parent) ?? []).filter((a) => !seen.has(a.id))
+    list.forEach((a, i) => {
+      seen.add(a.id)
+      const last = i === list.length - 1
+      out.push({ agent: a, prefix: top ? "" : `${lead}${last ? "└─ " : "├─ "}` })
+      walk(a.id, top ? "" : `${lead}${last ? "   " : "│  "}`, false)
+    })
+  }
+  walk(null, "", true)
+  // A parent loop leaves agents unreached: shown at the top level, never lost.
+  for (const a of agents) if (!seen.has(a.id)) out.push({ agent: a, prefix: "" })
+  return out
+}
+
+/**
+ * View two: one session — its title and totals, then its agents as a tree:
+ * kind and task, model, state, context, output, calls, and how long it has run
+ * or since its last call. The selected agent's whole numbers sit under the tree.
+ */
+export function sessionTreeBlock(d: SessionDetail, opts: { width: number; rows: number; selected: number; now?: number }): string[] {
+  const now = opts.now ?? Date.parse(d.now)
+  const s = d.session
+  const W = opts.width
+  const where = [s.project, s.id.slice(0, 8), ...s.accounts].filter(Boolean).join(dim(" · "))
+  const totals = [
+    `${s.agents.total} subagent${s.agents.total === 1 ? "" : "s"}`,
+    s.agents.working ? green(`${s.agents.working} running`) : null,
+    `${compact(tokensOf(s.tokens))} tokens`,
+    `${s.calls} calls`,
+    s.sideCalls ? dim(`${s.sideCalls} side`) : null,
+    formatSpan(Date.parse(s.last) - Date.parse(s.first)),
+  ].filter(Boolean)
+  const lines = [
+    ` ${bold(s.title ?? s.project ?? "session")}   ${STATE[s.state] ?? s.state}`,
+    ` ${dim(where)}   ${totals.join(dim(" · "))}`,
+    "",
+  ]
+  const fixed = 2 + 11 + 12 + 8 + 7 + 6 + 9
+  const agentW = Math.max(24, W - fixed - 2)
+  lines.push(dim(`  ${rpad("agent", agentW)}${rpad("model", 11)}${rpad("state", 12)}${lpad("context", 8)}${lpad("out", 7)}${lpad("calls", 6)}${lpad("time", 9)}`))
+  const tree = treeRows(d.agents)
+  const sel = clamp(opts.selected, 0, Math.max(0, tree.length - 1))
+  // Around the rows: 4 lines above (title, where, blank, column header), up to 5 below (scroll line, the picked agent's 4).
+  const { items, from } = windowAround(tree, sel, Math.max(1, opts.rows - 9))
+  items.forEach(({ agent: a, prefix }, i) => {
+    const isSel = from + i === sel
+    const task = a.kind === "main" ? "" : a.merged ? dim("earlier calls, not told apart") : a.description ?? dim("no task on disk")
+    const live = a.state === "calling" || a.state === "tools"
+    const time = live ? `for ${formatSpan(now - Date.parse(a.first))}` : agoOf(a.last, now)
+    const row =
+      `${isSel ? cyan(">") : " "} ${fit(rpad(`${dim(prefix)}${kindLabel(a)}  ${task}`, agentW - 1), agentW - 1)} ` +
+      `${rpad(modelLabel(a.model), 11)}${rpad(STATE[a.state] ?? a.state, 12)}` +
+      `${lpad(compact(a.context), 8)}${lpad(compact(a.tokens.output), 7)}${lpad(String(a.calls), 6)}${lpad(time, 9)}`
+    lines.push(!isSel && (a.state === "done" || a.state === "idle") ? faded(row) : row)
+  })
+  if (tree.length > items.length) lines.push(`   ${dim(`${sel + 1} of ${tree.length} · ↑↓ scrolls`)}`)
+
+  const a = tree[sel]?.agent
+  if (a) {
+    const models = Object.entries(a.models).map(([m, n]) => `${modelLabel(m)} ×${n}`).join(dim(" · "))
+    const t = a.tokens
+    lines.push("")
+    lines.push(
+      ` ${bold("─")} ${kindLabel(a)}${a.kind === "main" || a.merged ? "" : dim(` ${a.id}`)}` +
+        (a.parent && a.parent !== "main" ? dim(` · started by ${a.parent}`) : "") +
+        dim(` · first call ${agoOf(a.first, now)} · last ${agoOf(a.last, now)}`),
+    )
+    lines.push(
+      `   ${models || dim("no turns yet")}   ${dim("in")} ${compact(t.input)} ${dim("· cache read")} ${compact(t.cacheRead)} ` +
+        `${dim("· cache write")} ${compact(t.cacheCreation)} ${dim("· out")} ${compact(t.output)}` +
+        (a.lastTools.length ? `   ${dim("last tools")} ${a.lastTools.join(", ")}` : "") +
+        (a.lastStop ? dim(` · stop ${a.lastStop}`) : "") +
+        (a.errors ? `  ${red(`${a.errors} error${a.errors === 1 ? "" : "s"}`)}` : ""),
+    )
+    // The tree row cuts a long task short; its whole line is here.
+    if (a.description && a.description.length > agentW - prefixOf(tree[sel]) - 12) lines.push(`   ${a.description}`)
+  }
+  return lines
+}
+
 type Stats = {
   requests: number
   inFlight: number
@@ -390,9 +574,11 @@ type Accounts = { accounts: AccountView[]; observedAt: number | null; live: Upst
 type Row = Record<string, unknown>
 
 type Mode = "normal" | "select" | "settings" | "input" | "confirm"
+/** accounts: the pool and the traffic · sessions: every session · session: one session's agents. */
+export type View = "accounts" | "sessions" | "session"
 type SelectAction = "switch" | "toggle" | "priority" | "remove"
 
-export async function runTui(cfg: Config): Promise<number> {
+export async function runTui(cfg: Config, opts: { view?: View } = {}): Promise<number> {
   const base = `http://${cfg.host}:${cfg.port}`
   const out = process.stdout
   const inp = process.stdin
@@ -451,16 +637,48 @@ export async function runTui(cfg: Config): Promise<number> {
   }
   let running = true
 
+  // ---- the sessions views: which one, what is picked — by id, so a refresh that reorders keeps it
+  let view: View = opts.view ?? "accounts"
+  let sessions: SessionsList | null = null
+  let detail: SessionDetail | null = null
+  let showAll = false
+  let pickedSession: string | null = null
+  let openSession: string | null = null
+  let pickedAgent: string | null = null
+  /** The running daemon answered the sessions endpoint with an error: it predates it. */
+  let sessionsMissing = false
+  const sessIdx = () => Math.max(0, sessions?.sessions.findIndex((x) => x.id === pickedSession) ?? 0)
+  const agentRows = () => (detail ? treeRows(detail.agents) : [])
+  const agentIdx = () => Math.max(0, agentRows().findIndex((r) => r.agent.id === pickedAgent))
+
   const refresh = async () => {
-    const [s, a, t] = await Promise.all([
+    const H = out.rows || 30
+    const [s, a, t, list, one] = await Promise.all([
       get<Stats>(`${base}/_gateway/status`),
-      get<Accounts>(`${base}/_gateway/accounts`),
-      get<{ rows: Row[] }>(`${base}/_gateway/trace?n=40`),
+      view === "accounts" ? get<Accounts>(`${base}/_gateway/accounts`) : null,
+      view === "accounts" ? get<{ rows: Row[] }>(`${base}/_gateway/trace?n=40`) : null,
+      // Titles are looked up for the rows asked for: what fits, and a screen more to scroll into.
+      view === "sessions" ? get<SessionsList>(`${base}/_gateway/sessions?n=${Math.max(40, 2 * H)}${showAll ? "&all=1" : ""}`) : null,
+      view === "session" && openSession ? get<SessionDetail>(`${base}/_gateway/sessions/${encodeURIComponent(openSession)}`) : null,
     ])
     if (s) stats = s
     if (a) accounts = a
     if (t) rows = t.rows
-    if (!s && !a) note(red(`gateway not answering on :${cfg.port}`))
+    // A daemon from before the sessions views answers their paths with its "no gateway route" 404.
+    const unrouted = (r: unknown) => String((r as { error?: unknown }).error ?? "").startsWith("no gateway route")
+    if (list) {
+      sessionsMissing = unrouted(list)
+      if (Array.isArray(list.sessions)) {
+        sessions = list
+        if (!list.sessions.some((x) => x.id === pickedSession)) pickedSession = list.sessions[0]?.id ?? null
+      }
+    }
+    if (one) {
+      sessionsMissing = unrouted(one)
+      detail = Array.isArray(one.agents) ? one : null
+      if (detail && !detail.agents.some((x) => x.id === pickedAgent)) pickedAgent = detail.agents[0]?.id ?? null
+    }
+    if (!s) note(red(`gateway not answering on :${cfg.port}`))
   }
 
   // ---- actions: one per key, each one endpoint
@@ -632,9 +850,28 @@ export async function runTui(cfg: Config): Promise<number> {
       return paint(lines)
     }
 
+    if (view !== "accounts") {
+      const rowsLeft = H - lines.length - 2 - Math.min(log.length, 2)
+      if (sessionsMissing) push(`   ${yellow(`the running gateway has no sessions view yet — \`${gw("restart")}\` runs this checkout's code`)}`)
+      else if (view === "sessions" && sessions)
+        for (const l of sessionsBlock(sessions, { width: W, rows: rowsLeft, selected: sessIdx(), all: showAll })) push(l)
+      else if (view === "session" && detail) for (const l of sessionTreeBlock(detail, { width: W, rows: rowsLeft, selected: agentIdx() })) push(l)
+      else if (view === "session") push(`   ${dim(`no session ${openSession ?? ""} in the last day`)}`)
+      else push(`   ${dim("reading sessions…")}`)
+      for (const l of log.slice(-2)) push(`   ${l}`)
+      while (lines.length < H - 2) lines.push("")
+      push(` ${dim("─".repeat(W - 2))}`)
+      push(
+        view === "sessions"
+          ? `  ${bold("↑↓")} pick  ${bold("Enter")} its agents  ${bold("o")} one-shot jobs  ${bold("Tab")} accounts  ${bold("q")} quit`
+          : `  ${bold("↑↓")} pick an agent  ${bold("Esc")} back to sessions  ${bold("Tab")} accounts  ${bold("q")} quit`,
+      )
+      return paint(lines)
+    }
+
     // -- accounts
-    const view: AccountsData = { accounts: accounts?.accounts ?? [], live: accounts?.live ?? null, probe: accounts?.probe ?? null, routes: accounts?.routes }
-    for (const l of accountsBlock(view, { width: W, selected: mode === "select" || mode === "confirm" ? selIdx : null })) push(l)
+    const acctView: AccountsData = { accounts: accounts?.accounts ?? [], live: accounts?.live ?? null, probe: accounts?.probe ?? null, routes: accounts?.routes }
+    for (const l of accountsBlock(acctView, { width: W, selected: mode === "select" || mode === "confirm" ? selIdx : null })) push(l)
     if (mode === "select") {
       const what =
         selAction === "switch"
@@ -660,7 +897,7 @@ export async function runTui(cfg: Config): Promise<number> {
 
     while (lines.length < H - 2) lines.push("")
     push(` ${dim("─".repeat(W - 2))}`)
-    push(`  ${bold("s")} switch  ${bold("d")} enable/disable  ${bold("P")} priority  ${bold("p")} check quota now  ${bold("a")} add  ${bold("x")} remove  ${bold("R")} reload  ${bold("g")} settings  ${bold("q")} quit`)
+    push(`  ${bold("s")} switch  ${bold("d")} enable/disable  ${bold("P")} priority  ${bold("p")} check quota now  ${bold("a")} add  ${bold("x")} remove  ${bold("R")} reload  ${bold("g")} settings  ${bold("Tab")} sessions  ${bold("q")} quit`)
     paint(lines)
   }
   const safeRender = () => {
@@ -737,9 +974,44 @@ export async function runTui(cfg: Config): Promise<number> {
       return
     }
     // normal
+    if (k === "q" || k === "Q" || k === "ctrl-c") {
+      running = false
+      return
+    }
+    if (k === "tab") {
+      view = view === "accounts" ? "sessions" : "accounts"
+      await refresh()
+      return
+    }
+    if (view === "sessions") {
+      const list = sessions?.sessions ?? []
+      const i = sessIdx()
+      if (k === "up" && list.length) pickedSession = list[Math.max(0, i - 1)].id
+      else if (k === "down" && list.length) pickedSession = list[Math.min(list.length - 1, i + 1)].id
+      else if ((k === "enter" || k === "right") && pickedSession) {
+        view = "session"
+        if (openSession !== pickedSession) [detail, pickedAgent] = [null, null]
+        openSession = pickedSession
+        await refresh()
+      } else if (k === "o") {
+        showAll = !showAll
+        await refresh()
+      } else if (k === "esc") view = "accounts"
+      return
+    }
+    if (view === "session") {
+      const tree = agentRows()
+      const i = agentIdx()
+      if (k === "up" && tree.length) pickedAgent = tree[Math.max(0, i - 1)].agent.id
+      else if (k === "down" && tree.length) pickedAgent = tree[Math.min(tree.length - 1, i + 1)].agent.id
+      else if (k === "esc" || k === "left" || k === "bs") {
+        view = "sessions"
+        await refresh()
+      }
+      return
+    }
     const n = (accounts?.accounts ?? []).length
-    if (k === "q" || k === "Q" || k === "ctrl-c") running = false
-    else if (k === "g") {
+    if (k === "g") {
       mode = "settings"
       setIdx = 0
     } else if (k === "R") await reload()
@@ -768,6 +1040,7 @@ export async function runTui(cfg: Config): Promise<number> {
     if (d === `${ESC}C`) return "right"
     if (d === `${ESC}D`) return "left"
     if (d === "\x1b") return "esc"
+    if (d === "\t") return "tab"
     if (d === "\r" || d === "\n") return "enter"
     if (d === "\x03") return "ctrl-c"
     if (d === "\x7f" || d === "\x08") return "bs"

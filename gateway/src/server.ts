@@ -26,6 +26,7 @@ import type { Rule } from "./policy.ts"
 import { findAccount, readPool } from "./pool.ts"
 import { accountViews } from "./quota.ts"
 import { parsePinPrefix, Routes } from "./routes.ts"
+import { Sessions } from "./sessions.ts"
 import type { RouteTable } from "./routes.ts"
 import { isModelPath, pinnedBlobs, savedBodies, Trace } from "./trace.ts"
 import { Transcripts } from "./transcripts.ts"
@@ -127,6 +128,7 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
   const p = paths(cfg)
   const trace = new Trace(p.trace, p.blobs, cfg.capture)
   const transcripts = new Transcripts(opts.claudeConfigDir)
+  const sessions = new Sessions(p.trace, transcripts)
   const routes = new Routes(join(cfg.dataDir, "routes.json"))
   const budget = new Budget()
   const rules: Rule[] = validateRules(cfg.policy)
@@ -155,6 +157,20 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
   const sweepTimers = [setTimeout(sweep, 60_000), setInterval(sweep, 6 * 3_600_000)]
   for (const t of sweepTimers) t.unref()
   const stopSweeps = () => sweepTimers.forEach((t) => clearTimeout(t))
+
+  /** The session tree is a view: a bug in it is logged, never taken out on a request. */
+  const view = (fn: () => void) => {
+    try {
+      fn()
+    } catch (err) {
+      stats.lastError = `sessions view: ${(err as Error).message}`
+    }
+  }
+  /** A finished call's row: into the record, then into the live session tree. */
+  const write = (row: TraceRow) => {
+    trace.write(row)
+    view(() => sessions.record(row))
+  }
 
   /** What is in flight right now, for the TUI's activity panel. */
   type Active = { id: string; ts: string; path: string; model: string | null; who: string; account: string | null }
@@ -341,6 +357,16 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
       json(res, 200, { rows: recentRows(Number.isFinite(n) ? n : 50) })
       return true
     }
+    if (path === "/_gateway/sessions" && req.method === "GET") {
+      const q = new URL(url, "http://x").searchParams
+      json(res, 200, sessions.list({ all: q.get("all") === "1", n: Number(q.get("n") ?? 0) || 0 }))
+      return true
+    }
+    if (path.startsWith("/_gateway/sessions/") && req.method === "GET") {
+      const one = sessions.detail(decodeURIComponent(path.slice("/_gateway/sessions/".length)))
+      json(res, one ? 200 : 404, one ?? { error: "no session by that id or prefix in the last day" })
+      return true
+    }
     // Runtime-tunable settings, kept in the accounts file so they survive a
     // restart. Threshold applies live; the rest at the next boot, and the reply
     // says so.
@@ -504,6 +530,7 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
         }
 
         active.set(id, { id, ts: new Date(t0).toISOString(), path, model: parsed.model, who: label(identity), account: null })
+        view(() => sessions.begin(id, path, identity, hints, t0))
 
         const pre = evaluatePre(rules, { identity, model: parsed.model, path, body: parsed.obj }, budget)
         let sendBody = body
@@ -511,7 +538,7 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
 
         // capture: gaps saves what no transcript will hold (trace.ts `putCall`).
         const gaps = cfg.capture === "gaps"
-        const recorded = gaps && isModelPath(path) && transcripts.has(identity.session)
+        const recorded = gaps && isModelPath(path) && transcripts.has(identity.session, Date.now(), identity.project)
         const side = hints?.requestClass === "auxiliary" || hints?.requestClass === "compaction"
         row = {
           v: 2, id, ts: new Date(t0).toISOString(), method: req.method ?? "GET", path,
@@ -528,7 +555,7 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
         if (pre.refusal) {
           stats.refusals += 1
           apiError(res, pre.refusal.status, "gateway_policy", pre.refusal.message)
-          trace.write({
+          write({
             ...(row as TraceRow), status: pre.refusal.status, account: null, accountSource: null,
             durMs: Date.now() - t0, ttfbMs: null, usage: null, stopReason: null, messageId: null,
             error: `refused by ${pre.refusal.rule}`,
@@ -584,7 +611,7 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
           stats.lastError = result.error
         }
 
-        trace.write({
+        write({
           ...(row as TraceRow),
           status: result.status,
           account: accountName,
@@ -610,7 +637,7 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
         if (!res.headersSent) apiError(res, 500, "gateway_error", (err as Error).message)
         else res.end()
         try {
-          trace.write({
+          write({
             v: 2, id, ts: new Date(t0).toISOString(), durMs: Date.now() - t0, ttfbMs: null,
             method: req.method ?? "GET", path, status: null, account: null,
             accountSource: null,
@@ -625,6 +652,7 @@ export async function createServer(cfg: Config, opts: ServerOptions = {}): Promi
       } finally {
         stats.inFlight -= 1
         active.delete(id)
+        view(() => sessions.end(id))
       }
     })()
   })

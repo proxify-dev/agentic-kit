@@ -78,11 +78,26 @@ export type Hints = {
   contextCompacted: string | null
   /** Run time of the tool calls whose results this request carries, in the order collected. */
   tools: { name: string; ms: number }[] | null
+  /**
+   * The subagent making the call (`x-claude-code-agent-id`), and the agent that
+   * started it (`x-claude-code-parent-agent-id`, absent when the main thread
+   * did). Both null on a main-thread call. Claude Code sends these two to any
+   * base URL, hint switch or not (2.1.304) — they are what tells two subagents
+   * of one session apart (sessions.ts).
+   */
+  agentId: string | null
+  parentAgentId: string | null
 }
 
 const word = (h: IncomingHttpHeaders, k: string): string | null => {
   const v = one(h, k)
   return v && /^[A-Za-z0-9_.-]{1,40}$/.test(v) ? v : null
+}
+
+/** An agent id: wider than a word (a teammate's may carry `@`), still never a path or a sentence. */
+const agentWord = (h: IncomingHttpHeaders, k: string): string | null => {
+  const v = one(h, k)
+  return v && /^[A-Za-z0-9_.:@-]{1,80}$/.test(v) ? v : null
 }
 
 /** `Bash=742;Read=9` — names percent-encoded, at most 32 entries (Claude Code's own cap). */
@@ -114,6 +129,8 @@ export function readHints(headers: IncomingHttpHeaders): Hints | null {
     compaction: word(headers, "x-claude-code-compaction"),
     contextCompacted: word(headers, "x-claude-code-context-compacted"),
     tools: toolDurations(headers),
+    agentId: agentWord(headers, "x-claude-code-agent-id"),
+    parentAgentId: agentWord(headers, "x-claude-code-parent-agent-id"),
   }
   return Object.values(hints).some((v) => v !== null) ? hints : null
 }

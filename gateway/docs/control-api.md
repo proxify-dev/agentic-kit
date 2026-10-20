@@ -28,6 +28,8 @@ of those. `OPTIONS` is answered here with no CORS grant, and an unclaimed `/_gat
 | `GET · PUT /_gateway/settings` | `switchThreshold`, `quotaProbeSeconds` (live; 0 = off, at most 604800 — a longer timer would fire at once) · `holdSeconds`, `distributeSessions` (at restart) · GET also `stripOverageHeaders` |
 | `PUT /_gateway/routes` | the route table |
 | `GET /_gateway/trace?n=` | last N trace rows |
+| `GET /_gateway/sessions?n=&all=1` | sessions of the last 24 hours, working first, at most `n`: state, title, main model, subagents by type, tokens, calls; `counts` over all. One-shot jobs (two calls or fewer, no subagent) are only counted unless `all=1` |
+| `GET /_gateway/sessions/<id>` | one session (an id or a unique prefix) and its agents: parent, kind, task, model, state, tokens, calls, last tools; 404 when none |
 | `POST /_gateway/stop` | loopback only: under the keeper, asks it to drain and stop; a gateway started by hand stops itself |
 
 ```sh
@@ -51,6 +53,7 @@ curl -s localhost:4747/_gateway/status | jq .capture
    g   settings           PUT /_gateway/settings — threshold and quota check live, hold/distribution at restart
    a   add account        browser login into the pool on screen, then reload
    x   remove account     DELETE /_gateway/accounts/X — pick, then answer y; its login leaves the gateway
+   Tab sessions           GET /_gateway/sessions — every session, Enter its agents (below)
    q   detach             the daemon keeps running
 ```
 
@@ -84,3 +87,44 @@ that served it, named `pinned` or `preferred` when a route decided (rotation is 
 unsaid), policy verdicts.
 
 `cc-gateway tui --trial` shows the screen of a running `try` gateway instead.
+
+## The sessions views
+
+Tab in the TUI (or `cc-gateway tui --sessions`) shows what goes through the gateway by session
+rather than by account — two views over `GET /_gateway/sessions`:
+
+```
+ Sessions  3 working · 15 your turn · 1 subagent running · 2 in flight   1445 one-shot jobs hidden — o shows them
+  state       session                                           model      agents                      context  tokens calls  last
+> ● working   Gateway sessions view  agentic-kit 73ccfa97       opus 5.5   1 running · Explore 2 · fork 1   44k    1.2M    47   now
+  ● your turn proxify  0e85f8df                                 opus 5.5   custom 1 · general-purpose 1   189k   43.6M   186 5m ago
+```
+
+Enter opens one session as a tree, each agent under the one that started it:
+
+```
+  agent                                     model      state          context    out calls     time
+  main                                      opus 5.5   ● calling         44k    12k    47      now
+  ├─ fork  write the docs                   opus 5.5   ✓ done           120k     8k    30   5m ago
+  │  └─ Explore  find the doc readers       haiku 5.5  ● tools           38k     2k    14   for 2m
+  └─ general-purpose  research the format   sonnet 5.5 ● calling         61k     4k     9   for 1m
+```
+
+↑↓ picks an agent; under the tree, its models with their turn counts, its tokens (input, cache
+read, cache write, output), its last tools and stop reason. Esc goes back, Tab to the accounts.
+
+Where each part comes from:
+
+| shown | from |
+|---|---|
+| the session, the main thread, a subagent, a fork | `x-claude-code-session-id`, `-request-class`, `-agent-type` |
+| which subagent, under which agent | `x-claude-code-agent-id`, `-parent-agent-id` — sent to any base URL |
+| model, tokens, calls | the request and the reply; `context` is the newest turn's input plus cache — how full its window is |
+| state | the newest turn's stop: `calling` (a call in flight) · `tools` (stopped on `tool_use` less than 15 minutes ago) · `your turn` (the main thread ended its turn, less than an hour ago) · `done` (a subagent ended its turn, or its meta file says finished) · `idle` |
+| title, task | Claude Code's files, never a message: the transcript's newest `custom-title` or `ai-title` line, and `<session>/subagents/agent-<id>.meta.json` |
+
+Side calls (titles, classifiers, compaction) count in `side`, never in the state. Rows written
+before the gateway kept the agent ids cannot tell two subagents of one type apart: they show as
+one node per type, "earlier calls, not told apart". The daemon keeps the last 24 hours in memory
+and rebuilds them from the day files on the first ask after a start.
+
