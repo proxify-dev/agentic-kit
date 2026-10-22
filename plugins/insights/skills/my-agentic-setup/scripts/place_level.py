@@ -204,6 +204,24 @@ def own_user_hooks(ids: set[str]) -> list[dict]:
     return res
 
 
+def skill_owners(scan: dict, ids: set[str]) -> list[dict]:
+    """Who wrote each user-level skill. A link only says how it got here, not who wrote it, so follow it and ask
+    git: mostly their commits -> 'own'; theirs among others' -> 'team' (works for more than them); no git under
+    an installer's folder, or no commits of theirs -> 'installed'. A plain folder with no git stays 'own'."""
+    out = []
+    for sk in scan["setup"]["own"].get("skills", []):
+        path = HOME / ".claude" / "skills" / sk["name"]
+        real = Path(os.path.realpath(path)) if path.exists() else path
+        a, n = authorship(real, ids) if path.exists() else (0.0, 0)
+        if n:
+            kind = "own" if a >= 0.5 else "team" if a > 0 else "installed"
+        else:
+            kind = "installed" if sk.get("is_symlink") else "own"
+        out.append({**sk, "owner": kind, "author_share": round(a, 2), "commits": n,
+                    "resolves_to": str(real).replace(str(HOME), "~")})
+    return out
+
+
 MEM_DIR_RE = re.compile(r"(^|/)(\.agents/memory|\.claude/agent-memory[^/]*|memory|memories|\.memory|notes)$", re.I)
 
 
@@ -259,18 +277,35 @@ def rule_placement(scan: dict, ids: set[str]) -> dict:
 
 # ---------- the heuristics, level by level ----------
 
+def days_kept(s) -> int:
+    """Days of chats this machine can show: the scan window, cut by Claude Code's retention (cleanupPeriodDays,
+    30 by default) and by the oldest log left. Volume bars scale to it, so someone keeping 7 days isn't read
+    against a 30-day bar (a first tester keeps 7 days, 2026-10-22)."""
+    lg = s.get("_logs", {})
+    win = lg.get("window_days") or 30
+    vals = [win] + [v for v in (lg.get("cleanup_days"), lg.get("oldest_days")) if isinstance(v, (int, float)) and v > 0]
+    return max(1, int(min(vals)))
+
+
+def scaled(n_for_30: float, kept: int, floor: int) -> int:
+    """A count bar written for 30 days, scaled to the days kept, never below `floor`."""
+    return max(floor, -(-int(n_for_30 * kept) // 30))
+
+
 def level1(s, ev, ws):
     typed = s["with_a_person_typing"]
     code = ev["sessions_with_code_edits"]
     days = s["active_days"]
-    win = 30
+    win = days_kept(s)
+    d_met, d_weak, c_met = scaled(12, win, 3), scaled(6, win, 2), scaled(10, win, 3)
     ints = ev.get("integrations", {})
     real_tools = {k: v for k, v in ints.items() if k not in ("docker", "playwright")}  # skeptic: not outside systems
     mcp_calls = sum(v for k, v in s.get("_mcp_used", {}).items() if not k.startswith("plugin_"))
     return [
         H("l1-daily", 1, "It does real work, every day", "Does the agent work on their real code most days?",
-          MET if days >= 12 and code >= 10 else WEAK if days >= 6 else NOT,
-          f"{days} active days of {win}; {code} typed sessions changed files", ">= 12 days and >= 10 code-changing sessions",
+          MET if days >= d_met and code >= c_met else WEAK if days >= d_weak else NOT,
+          f"{days} active days of the {win} days of chats kept; {code} typed sessions changed files",
+          f">= {d_met} days and >= {c_met} code-changing sessions (scaled to {win} days kept)",
           "Calendar days with a session the person typed in; 'real ticket' is only known by asking."),
         H("l1-changes", 1, "It changes the code, not just answers", "Does it edit their files, or do they copy answers over?",
           grade(share(code, typed), 0.20, 0.08), f"{code} of {typed} typed sessions edited files ({pct(share(code, typed))})",
@@ -291,7 +326,9 @@ def level2(s, ev, ws):
     plan, _ = of(ws["sessions_using_plan_mode"])
     sub, _ = of(ws["sessions_starting_subagents"])
     wt, _ = of(ws["sessions_in_worktrees"])
-    comp, _ = of(ws["sessions_compacted"])
+    comp_all, _ = of(ws["sessions_compacted"])
+    typed_compact = sum(g.get("compact", 0) for g in s.get("_slash", {}).values())
+    comp = max(0, comp_all - typed_compact)  # automatic compaction only (approx.: typed /compact counted per call)
     named = share(ev["prompts_naming_a_file"], ev["prompts_total"])
     checked = share(ev["commits_checked_after_last_edit"], ev["commits_in_sessions"])
     diff = share(ev["sessions_with_git_diff"], typed)
@@ -318,8 +355,8 @@ def level2(s, ev, ws):
           MET if (share(wt, typed) >= 0.05 or s["max_sessions_open_at_once"] >= 3) and share(sub, typed) >= 0.10
           and share(comp, typed) <= 0.25 else WEAK if share(sub, typed) >= 0.05 or share(wt, typed) >= 0.02 else NOT,
           f"worktrees in {pct(share(wt, typed))} of sessions; up to {s['max_sessions_open_at_once']} open at once; "
-          f"helpers in {pct(share(sub, typed))}; compacted {pct(share(comp, typed))}",
-          "worktrees >= 5% or 3+ open, helpers >= 10%, compaction <= 25%",
+          f"helpers in {pct(share(sub, typed))}; compacted on its own {pct(share(comp, typed))}",
+          "worktrees >= 5% or 3+ open, helpers >= 10%, automatic compaction <= 25%",
           "Helpers the agent chose itself count; the person's choice is only seen when they ask for one."),
     ]
     out += chat_shape(s, typed, comp)
@@ -341,7 +378,8 @@ def chat_shape(s, typed, comp):
     blank = sum(v for k, v in sub.get("built-in", {}).items() if k != "fork")
     named = sum(sum(g.values()) for k, g in sub.items() if k != "built-in")
     moves = {"resume": slash.get("resume", 0), "branch": slash.get("branch", 0), "fork": slash.get("fork", 0),
-             "clear": slash.get("clear", 0), "continued in a new chat": cov.get("continued", 0),
+             "clear": slash.get("clear", 0), "compact they typed": slash.get("compact", 0),
+             "continued in a new chat": cov.get("continued", 0),
              "forked sessions": cov.get("forked", 0)}
     n_moves = sum(moves.values())
     r10 = (CANT if n_moves == 0 else MET if n_moves >= 5 and share(comp, typed) <= 0.25 else WEAK)
@@ -352,7 +390,7 @@ def chat_shape(s, typed, comp):
         H("l2-fresh-chat", 2, "Notices a chat has gone bad: fresh start, resume, or fork it (row 10)",
           "When a chat drifts or fills up, do they start clean, pick an old one back up, or fork a good one?",
           r10, "; ".join(f"{k} {v}" for k, v in moves.items() if v) or "none seen",
-          ">= 5 resume/fork/branch/clear moves, compaction <= 25% of sessions",
+          ">= 5 resume/fork/branch/clear/compact moves they chose, automatic compaction <= 25% of sessions",
           "A fresh chat opened by hand after a bad one isn't linked to it yet; none seen = can't tell.",
           "Claude Code's own auto-compaction is not the person deciding."),
         H("l2-helpers", 2, "Side digging goes to helpers, and they pick fork vs blank (row 11)",
@@ -400,12 +438,15 @@ def level3(s, ev, ws, extra):
           + f"); {edits.get('memory', 0)} memory edits in sessions", ">= 1 own structured store touched on >= 5 days",
           "Folder found by name and shape, not by our tool names.",
           f"Claude Code's own default memory ({mem['claude_code_default_memory_files']} notes) is NOT counted.")
-    own_sk = [x for x in extra["own_skills"] if not x.get("is_symlink")]
+    owners = [x.get("owner") or ("installed" if x.get("is_symlink") else "own") for x in extra["own_skills"]]
+    own_sk = [o for o in owners if o == "own"]
+    team_sk = [o for o in owners if o == "team"]
     sup = H("l3-support", 3, "Support: packs repeated procedures, works for more than them",
             "Do they write their own skills, and edit rule files others also use?",
-            MET if len(own_sk) >= 3 and shared else WEAK if own_sk or shared else NOT,
-            f"{len(own_sk)} skills of their own (not linked from elsewhere); {len(shared)} repos where they and others edit rules",
-            ">= 3 own skills and 1 shared rule repo", "Support only; it can't make L3 on its own.")
+            MET if len(own_sk) + len(team_sk) >= 3 and (shared or team_sk) else WEAK if own_sk or team_sk or shared else NOT,
+            f"{len(own_sk)} skills they wrote, {len(team_sk)} they co-wrote with others (links followed to their repo, "
+            f"authorship by git); {len(shared)} repos where they and others edit rules",
+            ">= 3 own or co-written skills, and something shared with others", "Support only; it can't make L3 on its own.")
     return [a, b, c, sup]
 
 
@@ -477,8 +518,10 @@ GATES = {
 
 
 def enough_to_read(s, ev) -> tuple[bool, str]:
-    ok = s["active_days"] >= 10 and ev["sessions_with_code_edits"] >= 10 and s["with_a_person_typing"] >= 15
-    return ok, (f"{s['active_days']} active days, {s['with_a_person_typing']} typed sessions, "
+    kept = days_kept(s)
+    # enough to read = enough chats they typed; whether the agent edits code is a Level 1 check, not a readability bar
+    ok = s["active_days"] >= scaled(10, kept, 3) and s["with_a_person_typing"] >= scaled(15, kept, 5)
+    return ok, (f"{s['active_days']} active days of the {kept} days of chats kept, {s['with_a_person_typing']} typed sessions, "
                 f"{ev['sessions_with_code_edits']} that changed code")
 
 
@@ -489,6 +532,7 @@ def place(scan: dict, extra: dict | None = None) -> dict:
     s["_subagents"] = h.get("subagents", {})
     s["_slash"] = h.get("slash_commands", {})
     s["_cov"] = h.get("coverage", {}).get("sessions", {})
+    s["_logs"] = h.get("coverage", {}).get("logs", {})
     ev, ws = h["evidence"], h["working_style"]
     if extra is None:
         extra = read_extra(scan)
@@ -505,7 +549,7 @@ def read_extra(scan: dict) -> dict:
         "user_hooks": own_user_hooks(ids),
         "memory": memory_stores(scan, ids),
         "rules": rule_placement(scan, ids),
-        "own_skills": scan["setup"]["own"].get("skills", []),
+        "own_skills": skill_owners(scan, ids),
         "permissions": scan["setup"]["settings"].get("user", {}).get("permissions", {}),
     }
 
@@ -534,7 +578,7 @@ def decide(s, ev, h, levels, extra) -> dict:
 def to_md(r: dict) -> str:
     icon = {MET: "✅", WEAK: "🟡", NOT: "❌", CANT: "❔"}
     lv = r["suggested_level"]
-    L = [f"# Suggested level: {'L' + str(lv) if lv else 'not enough to read'}", "",
+    L = [f"# Suggested level: {'L' + str(lv) if lv else 'below L1' if lv == 0 else 'not enough to read'}", "",
          f"Read from: {r['seen']}. {r['note']}", ""]
     for n in ("1", "2", "3", "4"):
         g = r["gates"][int(n)] if int(n) in r["gates"] else r["gates"][n]

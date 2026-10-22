@@ -17,7 +17,7 @@ import place_level as pl  # noqa: E402
 def profile(base, *, days, typed, code, plan=0, sub=0, wt=0, comp=0, interrupts=0, open_=1, named=0.0,
             checked=0.0, diffs=0, review=0, corr=0, corr_fixed=0, edits=None, mcp=0, integ=None,
             own_runs=0, batches=0, sched=0, bounded=0, evals=0, eval_runs=0, blocks=0,
-            forks=0, blank=None, chat_moves=0):
+            forks=0, blank=None, chat_moves=0, kept=None, compact_typed=0):
     s = copy.deepcopy(base)
     h = s["habits"]
     h["sessions"].update(active_days=days, with_a_person_typing=typed, max_sessions_open_at_once=open_)
@@ -37,13 +37,15 @@ def profile(base, *, days, typed, code, plan=0, sub=0, wt=0, comp=0, interrupts=
     h["mcp_servers_used"] = {"github": mcp} if mcp else {}
     # rows 10-11: never inherit the base machine's helpers or chat moves
     h["subagents"] = {"built-in": {"general-purpose": sub if blank is None else blank, "fork": forks}}
-    h["slash_commands"] = {"built-in": {"resume": chat_moves}}
+    h["slash_commands"] = {"built-in": {"resume": chat_moves, "compact": compact_typed}}
     h.setdefault("coverage", {})["sessions"] = {"forked": 0, "continued": 0}
+    if kept is not None:  # days of chats the machine keeps (cleanupPeriodDays)
+        h["coverage"]["logs"] = {"cleanup_days": kept, "oldest_days": kept, "window_days": 30}
     return s
 
 
 def extra(*, own_plugins=0, installed_blocking_plugins=0, own_hooks_block=False, nested_own_repos=0,
-          shared=False, store=False, default_mem=40, own_skills=0, deny=0):
+          shared=False, store=False, default_mem=40, own_skills=0, deny=0, team_skills=0, installed_skills=0):
     plugins = [{"plugin": f"own{i}", "own": True, "hook_events": ["PreToolUse"], "hooks_can_block": True}
                for i in range(own_plugins)]
     plugins += [{"plugin": f"theirs{i}", "own": False, "hook_events": ["PreToolUse"], "hooks_can_block": True}
@@ -55,9 +57,14 @@ def extra(*, own_plugins=0, installed_blocking_plugins=0, own_hooks_block=False,
             "user_hooks": [{"event": "PreToolUse", "own": True, "can_block": own_hooks_block}] if own_hooks_block else [],
             "memory": {"own_stores": [{"path": "~/notes", "files": 40, "days_touched": 12, "has_index": True, "folders": 3}] if store else [],
                        "claude_code_default_memory_files": default_mem},
-            "rules": {"repos": repos}, "own_skills": [{"name": f"s{i}"} for i in range(own_skills)],
+            "rules": {"repos": repos}, "own_skills": [{"name": f"s{i}", "owner": "own"} for i in range(own_skills)]
+            + [{"name": f"t{i}", "is_symlink": True, "owner": "team"} for i in range(team_skills)]
+            + [{"name": f"i{i}", "is_symlink": True, "owner": "installed"} for i in range(installed_skills)],
             "permissions": {"deny": deny}}
 
+
+L2_HABITS = dict(days=20, typed=120, code=60, plan=12, sub=25, wt=10, open_=4, interrupts=30, named=0.08, checked=0.6,
+                 diffs=50, review=20, corr=20, corr_fixed=1, mcp=40, edits={"instructions": 3}, chat_moves=8, forks=6)
 
 CASES = [
     # name, expected level, scan profile, extra
@@ -89,6 +96,19 @@ CASES = [
           edits={"instructions": 25, "memory": 30, "skill": 30, "hooks_or_settings": 20},
           own_runs=200, batches=6, sched=5, bounded=20, evals=60, eval_runs=30, blocks=40, forks=8, chat_moves=7),
      extra(nested_own_repos=3, shared=True, store=True, own_skills=6, own_plugins=2, own_hooks_block=True, deny=3)),
+    # 2026-10-22, from the first people who ran it
+    ("keeps only 7 days of chats, works daily (seen on a first run): readable, not 'not enough'", 1,
+     dict(days=5, typed=14, code=6, sub=1, interrupts=1, checked=0.2, diffs=2, mcp=25, kept=7), extra()),
+    ("readable, but the agent never edits files: below L1, not 'not enough to read'", 0,
+     dict(days=18, typed=60, code=2, mcp=40), extra()),
+    ("an L2 who compacts on purpose a lot (/compact typed): compaction must not count against them", 2,
+     dict(L2_HABITS, comp=50, compact_typed=50), extra()),
+    ("skills linked in from a team repo they co-write count as support (seen on a first run)", 3,
+     dict(L2_HABITS, corr=30, corr_fixed=12, edits={"instructions": 25, "memory": 30}),
+     extra(nested_own_repos=3, store=True, team_skills=5)),
+    ("skills linked from an installer folder don't count as theirs", 2,
+     dict(L2_HABITS, corr=30, corr_fixed=12, edits={"instructions": 25, "memory": 30}),
+     extra(nested_own_repos=3, store=True, installed_skills=9)),
 ]
 
 

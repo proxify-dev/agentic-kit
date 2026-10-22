@@ -25,7 +25,7 @@ ICON = {pl.MET: ("✓", "met"), pl.WEAK: ("~", "weak"), pl.NOT: ("✕", "not"), 
 # pills built outside f-strings: a backslash inside an f-string needs Python 3.12+
 BLOCKS, REPORTS = '<span class="pill ok">can block</span>', '<span class="pill no">reports only</span>'
 RIGHT, WRONG = '<span class="pill ok">right</span>', '<span class="pill bad">wrong</span>'
-LEVEL_NAME = {1: "Uses agents on real work", 2: "Works with discipline", 3: "Sets agents up to know, learn and remember",
+LEVEL_NAME = {0: "The Level 1 checks didn't all pass yet: see which one below", 1: "Uses agents on real work", 2: "Works with discipline", 3: "Sets agents up to know, learn and remember",
               4: "Builds the harness around the agent"}
 
 CSS = """
@@ -117,7 +117,8 @@ def proof(scan: dict, r: dict) -> tuple[list, list]:
 
 
 def lv(x) -> str:
-    return f"L{x}" if x else "not enough to read"
+    """None: too little in the logs to read. 0: read, and the Level 1 checks didn't all pass yet."""
+    return f"L{x}" if x else "Below L1" if x == 0 else "not enough to read"
 
 
 def render(scan: dict, r: dict) -> str:
@@ -155,11 +156,16 @@ def render(scan: dict, r: dict) -> str:
         f"<tr><td>{E(x['repo'])}</td><td class='n'>{x['nested_rule_files']}</td><td>{x['by_person']}</td><td>{x['other_authors']}</td></tr>"
         for x in ex["rules"]["repos"] if x["nested_rule_files"])
     hooks_block = [h for h in ex["user_hooks"] if h["own"] and h["can_block"]]
+    from collections import Counter
+    sk = Counter(x.get("owner") or ("installed" if x.get("is_symlink") else "own") for x in ex.get("own_skills", []))
+    skills_line = (f"{sk.get('own', 0)} you wrote · {sk.get('team', 0)} you co-wrote with others · {sk.get('installed', 0)} "
+                   "installed from someone else. A linked skill is followed to where it really lives, and git says who wrote it.")
     built = f"""<section><div class="wrap"><h2>What you built, not installed</h2>
 <p class="sub">Only things whose git history is mostly yours count toward Level 3 and Level 4.
 Found as you: {E(', '.join(ex['identities']))}. Claude Code's own memory ({ex['memory']['claude_code_default_memory_files']} notes)
 and {len(not_own)} plugins with too little history of yours were left out.</p>
 <div class="two"><div><h3>Your plugins ({len(own_p)})</h3><table><tr><th>Plugin</th><th>Your commits</th><th>Hooks on</th><th>Hooks</th></tr>{prow}</table>
+<h3>Your skills</h3><p class="sub">{E(skills_line)}</p>
 <h3>Your own hooks that can block ({len(hooks_block)})</h3><table><tr><th>When</th><th>Script</th></tr>
 {''.join(f"<tr><td>{E(h['event'])}</td><td>{E(', '.join(h['scripts']))}</td></tr>" for h in hooks_block)}</table></div>
 <div><h3>Your memory stores</h3><table><tr><th>Where</th><th>Notes</th><th>Changed on</th><th>Shape</th></tr>{srow}</table>
