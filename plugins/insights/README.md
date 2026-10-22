@@ -9,8 +9,8 @@ How you really work with Claude Code, rebuilt from the files Claude Code keeps o
 It reads your session logs, settings, plugins, skills and the instruction files in your repos, and writes
 `/tmp/agentic-setup/my-setup.html`: how you run sessions and helpers, what the agent knows before it starts, how you
 hand work over, check it and correct it, what you built for yourself, and what runs when you're not there.
-`/tmp/agentic-setup/explorer.html` shows the same findings with how each one was worked out.
-`/tmp/agentic-setup/level.html` suggests your level (1–4) and shows every check behind it: its bar, your value,
+One page, `/tmp/agentic-setup/my-setup.html`, with three tabs: your level, how you work, and how each finding was worked out.
+The "Your level" tab suggests your level (1–4) and shows every check behind it: its bar, your value,
 and what it can't be sure of. Only what you built counts (judged by git history), not what you installed.
 It's a suggestion for an interviewer, not a verdict.
 

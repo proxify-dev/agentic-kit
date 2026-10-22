@@ -1,6 +1,6 @@
 ---
 name: my-agentic-setup
-description: Show this person how they really work with Claude Code — how they run sessions and helpers, what the agent knows before it starts, how they hand work over, check it and correct it, what they built for themselves — rebuilt from the files Claude Code keeps on this machine. Writes a private page for them, and a page suggesting their level (1–4) with every check shown; only on their yes, a masked report they can choose to share with Proxify. Use when the person asks "what's my agentic setup", "how do I work with agents", "/my-agentic-setup", or before an agentic-engineering evaluation call.
+description: Show this person how they really work with Claude Code — how they run sessions and helpers, what the agent knows before it starts, how they hand work over, check it and correct it, what they built for themselves — rebuilt from the files Claude Code keeps on this machine. Writes one private page for them, with tabs: their suggested level (1–4) with every check shown, how they work, and how it was worked out; only on their yes, a masked report they can choose to share with Proxify. Use when the person asks "what's my agentic setup", "how do I work with agents", "/my-agentic-setup", or before an agentic-engineering evaluation call.
 allowed-tools: Bash(python3 *), Read, AskUserQuestion
 ---
 
@@ -15,57 +15,43 @@ They need nothing but `python3` (stdlib only). On Windows use `python` or `py` w
 
 ## 1. Build their page
 
+Tell them first: one scan (1–2 minutes on a heavy machine), then one page with three tabs. Then run:
+
 ```
 python3 -c "import os; os.makedirs('/tmp/agentic-setup', exist_ok=True)"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --story --dev --out "/tmp/agentic-setup/story.json"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_story.py" "/tmp/agentic-setup/story.json" -o "/tmp/agentic-setup/my-setup.html"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_explorer.py" "/tmp/agentic-setup/story.json" -o "/tmp/agentic-setup/explorer.html"
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --story --dev --out "/tmp/agentic-setup/story.json" --facts-out "/tmp/agentic-setup/scan.json"
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/place_level.py" "/tmp/agentic-setup/scan.json" --out "/tmp/agentic-setup/level.json" > /dev/null
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_all.py" "/tmp/agentic-setup/story.json" "/tmp/agentic-setup/scan.json" "/tmp/agentic-setup/level.json" -o "/tmp/agentic-setup/my-setup.html"
 python3 -m webbrowser -t "file:///tmp/agentic-setup/my-setup.html"
 ```
 
-The scan takes 1–2 minutes on a heavy machine.
+`my-setup.html` has three tabs:
+- **Your level** (opens first): a suggested Level 1–4. Every check is shown with its bar and their value, and only what they built counts (by git history), not what they installed.
+- **How you work**: one view per part of the work.
+- **How it was worked out**: each finding with how it was counted.
 
-**Do not Read `story.json`, session logs, CLAUDE.md files or anything under `~/.claude/projects/`.** The page holds
-real project names and excerpts of their prompts; they stay on the page, out of this conversation. To talk about
-it, print only the headlines:
+**Do not Read `story.json`, `scan.json`, `level.json`, session logs, CLAUDE.md files or anything under
+`~/.claude/projects/`.** They hold real project names, git emails and excerpts of their prompts. Those stay on
+the page, out of this conversation. To talk about it, print only the level and the headlines:
 
 ```
-python3 -I -c "import json,os; r=json.load(open('/tmp/agentic-setup/story.json')); print(r.get('coverage',{}).get('line','')); [print('-', s['title'] + ':', s['lead']) for s in r['sections']]"
+python3 -I -c "import json; r=json.load(open('/tmp/agentic-setup/level.json')); print('Suggested level:', r['suggested_level'], '-', r['seen']); [print(f'L{k}:', 'passed' if g['passed'] else 'not passed', '-', g['rule']) for k, g in sorted(r['gates'].items())]"
+python3 -I -c "import json; r=json.load(open('/tmp/agentic-setup/story.json')); print(r.get('coverage',{}).get('line','')); [print('-', s['title'] + ':', s['lead']) for s in r['sections']]"
 ```
 
 ## 2. Tell them what it says
 
-Plain words, short. Lead with what the page says about how they work, not how it was counted. Then point at
-two pages:
-- `my-setup.html`: their page, one view per part of the work.
-- `explorer.html`: the same findings, each with how it was worked out (open it to check a number they doubt).
+Plain words, short. Lead with their suggested level and the one check that decided it. Then say what the page
+says about how they work, not how it was counted.
 
-Say plainly that this is an early version: the numbers were tuned on few machines, and a view that says
-"can't tell" means the logs held too little to say, never "you don't do it".
+Say plainly that this is an early version:
+- The level is a suggestion, not a verdict; the interviewer decides.
+- The bars were set on very few machines.
+- "Can't tell" means the logs held too little to say, never "you don't do it".
 
-## 3. Their suggested level
+If a check looks wrong to them, ask what they actually do. That's the feedback we need.
 
-A second page puts them on Level 1–4 from the same files. Every check, its bar and its value are on the
-page, and it counts only what they built (git history), not what they installed:
-
-```
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --out "/tmp/agentic-setup/scan.json"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/place_level.py" "/tmp/agentic-setup/scan.json" --out "/tmp/agentic-setup/level.json" --md "/tmp/agentic-setup/level.md" > /dev/null
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_place.py" "/tmp/agentic-setup/scan.json" "/tmp/agentic-setup/level.json" -o "/tmp/agentic-setup/level.html"
-python3 -m webbrowser -t "file:///tmp/agentic-setup/level.html"
-```
-
-The scan runs again (1–2 minutes): this one counts facts, the first one tells the story. Don't Read `level.json`
-or `scan.json` (they hold project paths and git emails). To talk about it, print only the level and the gates:
-
-```
-python3 -I -c "import json; r=json.load(open('/tmp/agentic-setup/level.json')); print('Suggested level:', r['suggested_level'], '-', r['seen']); [print(f'L{k}:', 'passed' if g['passed'] else 'not passed', '-', g['rule']) for k, g in sorted(r['gates'].items())]"
-```
-
-Say it the way the page does: a suggestion, not a verdict. The bars were set on very few machines, and the
-interviewer decides. If a check looks wrong to them, ask what they actually do. That's the feedback we need.
-
-## 4. A report to share — only on their yes
+## 3. A report to share — only on their yes
 
 Ask with AskUserQuestion whether they want a report they could share with Proxify. On yes:
 

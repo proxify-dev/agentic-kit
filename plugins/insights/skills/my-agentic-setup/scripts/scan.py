@@ -1432,6 +1432,8 @@ def main():
     ap.add_argument("--dev", action="store_true",
                     help="with --story: add how each finding was inferred, run facts, coverage and gaps (STORY-SCHEMA.md § Dev mode)")
     ap.add_argument("--out", help="write the JSON here instead of stdout")
+    ap.add_argument("--facts-out", help="also write the plain unmasked scan here (what place_level.py reads), "
+                                        "so the story and the level page come from one scan")
     ap.add_argument("--logs-dir", help="read session logs from this folder instead of <Claude config>/projects "
                                        "(logs copied from another machine, or a test with none)")
     a = ap.parse_args()
@@ -1486,6 +1488,8 @@ def main():
         "habits": hab,
     }
     report["scan_seconds_total"] = round(time.time() - t_start, 1)
+    if a.facts_out:
+        Path(a.facts_out).write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     if a.story:
         # Detail version: real names and excerpts, built from the unmasked scan. Not for sharing.
         sys.path.insert(0, str(HERE))
