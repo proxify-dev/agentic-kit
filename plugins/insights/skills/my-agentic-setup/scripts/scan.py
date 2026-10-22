@@ -1201,7 +1201,10 @@ def coverage_facts(root: Path, days: int, now: float, logs: tuple, sessions: lis
         "sessions": {"in_window": len(sessions), "typed": len(human), "automated": len(automated),
                      "temp": sum(1 for s in sessions if s.prompts and TMP_CWD.search(s.cwd or "") and not is_automated(s)),
                      "no_prompt": sum(1 for s in sessions if not s.prompts and not is_automated(s)),
-                     "subagent_files": subs},
+                     "subagent_files": subs,
+                     # chat shape (guide row 10): typed sessions that are a fork of another, or carried on in a new one
+                     "forked": sum(1 for s in human if s.marks.get("forked")),
+                     "continued": sum(1 for s in human if s.marks.get("continued_in"))},
         "prompts": {"counted": sum(s.prompts for s in human), "queued": marks(human, "queued_prompt"),
                     "queued_attached": marks(human, "queued_attached"), "fallback": marks(human, "fallback_prompt"),
                     "tagged": marks(human, "tagged_prompt"), "copied": marks(sessions, "copied_prompts"),
