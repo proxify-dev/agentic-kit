@@ -60,12 +60,14 @@ def main():
     ap.add_argument("story")
     ap.add_argument("facts")
     ap.add_argument("level")
+    ap.add_argument("--verdict", help="guide-verdict.json from guide-reader.workflow.js (optional)")
     ap.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
     story = json.loads(Path(a.story).read_text(encoding="utf-8"))
     facts = json.loads(Path(a.facts).read_text(encoding="utf-8"))
     level = json.loads(Path(a.level).read_text(encoding="utf-8"))
-    tabs = [("level", "Your level", render_place.render(facts, level)),
+    verdict = json.loads(Path(a.verdict).read_text(encoding="utf-8")) if a.verdict and Path(a.verdict).is_file() else None
+    tabs = [("level", "Your level", render_place.render(facts, level, verdict)),
             ("work", "How you work", render_story.render(story))]
     if story.get("dev"):  # the explorer needs the dev-mode story (how each finding was inferred)
         tabs.append(("how", "How it was worked out", render_explorer.render(story)))

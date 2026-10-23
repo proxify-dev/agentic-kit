@@ -245,14 +245,15 @@ def build(scan: dict, sessions: list, root_of: dict, person: str = "", v13: dict
             lands[k] += 1
             landed_ex.append((s, ts, t, p))
     ex = [{"label": "A correction", "text": clean(t), "meta": f"{repo(s)} · {day(ts)}"} for s, (ts, t) in pick(corr, 2, 4)]
-    ex += [{"label": "A correction that became a rule", "text": clean(t),
+    ex += [{"label": "A correction, then a rule changed later in the same chat (may be unrelated)", "text": clean(t),
             "meta": f"{repo(s)} · {day(ts)} → then changed {p.split('/')[-2] + '/' if '/' in p else ''}{p.split('/')[-1]}"}
            for s, ts, t, p in pick(landed_ex, 2, 5)]
     cs = sum(1 for s in human if s.corrections)
     sections.append({
         "id": "wrong", "title": "When the agent gets it wrong",
         "lead": f"Corrects the agent in about 1 session in {round(T / cs) if cs else '–'}; after "
-                f"{of_(len(landed_ex), len(corr))} corrections a rule, skill or hook changes in the same session.",
+                f"{of_(len(landed_ex), len(corr))} corrections a rule, skill or hook changes later in the same session "
+                f"(not always because of the correction).",
         "points": [
             f"{len(corr)} corrections in {cs} sessions ('no', 'that's wrong', 'revert', 'I said …').",
             "What changed after a correction: " + ", ".join(f"{k.replace('_', ' ')} ({c})" for k, c in lands.most_common()) + "." if lands else "",

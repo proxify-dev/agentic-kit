@@ -78,6 +78,12 @@ td.n{font-family:Poppins,Inter,sans-serif;font-weight:700;color:var(--p600);whit
 .limits li{margin:0 0 8px;font-size:15px}
 .next{background:var(--p25);border:1px solid var(--p100);border-radius:14px;padding:20px 22px;margin:8px 0 56px}
 .next b{color:var(--p700)}
+.readers{background:var(--p25);border-bottom:1px solid var(--p100)}
+.readers .eyebrow2{font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--p700);margin-bottom:6px}
+.readers h2{font-size:30px;margin-bottom:10px}.readers .lead{font-size:18px;color:var(--p900);max-width:860px;margin:0 0 12px}
+.ev{margin:0 0 14px;padding-left:0;list-style:none;max-width:860px}.ev li{padding:6px 0 6px 26px;position:relative;font-size:15px}
+.ev li.l3:before{content:"✓";position:absolute;left:4px;color:var(--ok);font-weight:700}
+.ev li.l2:before{content:"✕";position:absolute;left:4px;color:var(--bad);font-weight:700}
 @media(max-width:820px){.cards,.two,.ladder{grid-template-columns:1fr}.big .lv{font-size:80px}}
 """
 
@@ -116,12 +122,33 @@ def proof(scan: dict, r: dict) -> tuple[list, list]:
     return profiles, ablation
 
 
+VERDICT_WORD = {"L3": "Level 3", "below_L3": "Below Level 3", "not_enough_seen": "Not enough seen"}
+
+
+def readers_card(v: dict) -> str:
+    """Level 3 as the AI readers judged it from the evidence pack (guide-reader.workflow.js): the same method
+    that decides Level 3 from evaluation calls. Shown above the counted checks."""
+    ev = "".join(f'<li class="{"l3" if e.get("way") == "L3_way" else "l2"}">{E(e.get("text", ""))}</li>'
+                 for e in v.get("evidence") or [])
+    reads = ", ".join(f"{x.get('lens')}: {VERDICT_WORD.get(x.get('verdict'), x.get('verdict'))}" for x in v.get("readings") or [])
+    flag = '<span class="pill bad">readers split: the interviewer should look</span>' if v.get("flagged") else ""
+    doubt = f'<div class="caveat">The writer doubts the level: {E(v["writer_doubt"])}</div>' if v.get("writer_doubt") else ""
+    return f"""<section class="readers"><div class="wrap"><div class="eyebrow2">Level 3, judged by AI readers against the level guide</div>
+<h2>{E(VERDICT_WORD.get(v.get("verdict"), v.get("verdict", "")))} {flag}</h2>
+<p class="lead">{E(v.get("reason", ""))}</p>
+<ul class="ev">{ev}</ul>
+{f'<p class="sub"><b>Not clear yet:</b> {E(v["gap"])}</p>' if v.get("gap") else ""}
+{f'<p class="sub"><b>The question that would settle it:</b> {E(v["next_question"])}</p>' if v.get("next_question") else ""}
+<p class="bar">{v.get("reads", 1)} read{"s" if v.get("reads", 1) != 1 else ""} · {E(reads)}. The same method decides Level 3 from evaluation
+calls: one reader first, two more and a judge when it's unsure or the count below disagrees.</p>{doubt}</div></section>"""
+
+
 def lv(x) -> str:
     """None: too little in the logs to read. 0: read, and the Level 1 checks didn't all pass yet."""
     return f"L{x}" if x else "Below L1" if x == 0 else "not enough to read"
 
 
-def render(scan: dict, r: dict) -> str:
+def render(scan: dict, r: dict, verdict: dict | None = None) -> str:
     level = r["suggested_level"]
     gates = {int(k): v for k, v in r["gates"].items()}
     steps = "".join(
@@ -132,7 +159,7 @@ def render(scan: dict, r: dict) -> str:
 <div class="meta">Read from {E(r['seen'])} · last 30 days · this laptop only</div>
 <div class="ladder">{steps}</div></div></div>"""
 
-    sections = []
+    sections = [readers_card(verdict)] if verdict else []
     for n in (1, 2, 3, 4):
         g = gates[n]
         hs = r["levels"][str(n)]
@@ -160,9 +187,12 @@ def render(scan: dict, r: dict) -> str:
     sk = Counter(x.get("owner") or ("installed" if x.get("is_symlink") else "own") for x in ex.get("own_skills", []))
     skills_line = (f"{sk.get('own', 0)} you wrote · {sk.get('team', 0)} you co-wrote with others · {sk.get('installed', 0)} "
                    "installed from someone else. A linked skill is followed to where it really lives, and git says who wrote it.")
+    ask = (scan.get("setup", {}).get("identity") or {}).get("ask_about") or []
+    ask_line = (f" Also committing with Claude in your repos, under a name that isn't yours: {E(', '.join(ask))}."
+                " Not counted as you; if one is you, say so when the skill asks.") if ask else ""
     built = f"""<section><div class="wrap"><h2>What you built, not installed</h2>
 <p class="sub">Only things whose git history is mostly yours count toward Level 3 and Level 4.
-Found as you: {E(', '.join(ex['identities']))}. Claude Code's own memory ({ex['memory']['claude_code_default_memory_files']} notes)
+Found as you: {E(', '.join(ex['identities']))}.{ask_line} Claude Code's own memory ({ex['memory']['claude_code_default_memory_files']} notes)
 and {len(not_own)} plugins with too little history of yours were left out.</p>
 <div class="two"><div><h3>Your plugins ({len(own_p)})</h3><table><tr><th>Plugin</th><th>Your commits</th><th>Hooks on</th><th>Hooks</th></tr>{prow}</table>
 <h3>Your skills</h3><p class="sub">{E(skills_line)}</p>

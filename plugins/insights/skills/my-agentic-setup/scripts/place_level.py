@@ -78,7 +78,7 @@ def grade(value: float, met: float, weak: float) -> str:
 def identities(scan: dict) -> set[str]:
     """The person's git emails. Portable: global config, each worked-in repo's config, and the authors of
     commits that carry an agent trailer (whoever commits with Claude as co-author is the one at the keyboard)."""
-    ids = set()
+    ids = set((scan.get("setup", {}).get("identity") or {}).get("emails") or [])
     for args in (("config", "--global", "user.email"),):
         out = git(HOME, *args).strip()
         if out:
@@ -283,7 +283,10 @@ def days_kept(s) -> int:
     against a 30-day bar (a first tester keeps 7 days, 2026-10-22)."""
     lg = s.get("_logs", {})
     win = lg.get("window_days") or 30
-    vals = [win] + [v for v in (lg.get("cleanup_days"), lg.get("oldest_days")) if isinstance(v, (int, float)) and v > 0]
+    # retention: cleanupPeriodDays, 30 when not set. How far back: the oldest CHAT in the window, not the oldest
+    # file: a long-lived chat keeps its file fresh (a tester read as 23 days while her chats reached 30+).
+    reach = lg.get("oldest_record_days") or lg.get("oldest_days")
+    vals = [win, lg.get("cleanup_days") or 30] + ([reach] if isinstance(reach, (int, float)) and reach > 0 else [])
     return max(1, int(min(vals)))
 
 
@@ -426,7 +429,7 @@ def level3(s, ev, ws, extra):
           (MET if share(fixed, sc) >= 0.30 else WEAK if share(fixed, sc) >= 0.10 else NOT) if sc >= 10 else CANT,
           f"{fixed} of {sc} sessions with a correction also edited a rule, skill, hook or memory ({pct(share(fixed, sc))})",
           ">= 30% of corrected sessions, with >= 10 corrected sessions",
-          "Corrections found by an English word list (misses other languages; 60-76% agreement with a hand check).")
+          "Corrections found by an English word list (misses other languages; 60-76% agreement with a hand check). The change is any later rule, skill or hook edit in the same chat, not always caused by the correction: a tester found 1 of her listed cases real.")
     # C. Memory the person set up
     mem = extra["memory"]
     own = [m for m in mem["own_stores"] if m["days_touched"] >= 5 and (m["has_index"] or m["folders"] >= 2)]
@@ -467,14 +470,18 @@ def level4(s, ev, ws, extra):
               "Plugins installed from someone else's repo are not counted.")
     hs = ev.get("headless_by_starter", {})
     own_runs = hs.get("own code calling the Agent SDK", 0) + hs.get("claude -p from a script or tool", 0)
+    # schedules = Claude Code's own scheduled fires + jobs the OS starts that run an agent (LaunchAgent, cron, systemd)
+    os_jobs = (s.get("_sched") or {}).get("timed_agent_jobs", 0)
+    schedules = ev.get("scheduled_fires", 0) + os_jobs
     runs = H("l4-runs", 4, "Runs agents without sitting there (scripts, schedules, lists of items)",
              "Do agents run from their own code, on a schedule or over a list?",
-             MET if own_runs >= 50 and (ev.get("headless_batches", 0) >= 3 or ev.get("scheduled_fires", 0) >= 3) else
+             MET if own_runs >= 50 and (ev.get("headless_batches", 0) >= 3 or schedules >= 3) else
              WEAK if own_runs >= 5 else NOT,
              f"{own_runs} runs started by their own code; {ev.get('headless_batches', 0)} batches; "
-             f"{ev.get('scheduled_fires', 0)} scheduled fires; {ev.get('headless_bounded_calls', 0)} with a cost or turn cap",
+             f"{ev.get('scheduled_fires', 0)} scheduled fires; {os_jobs} scheduled jobs on this machine that start an agent "
+             f"(LaunchAgent, cron, systemd); {ev.get('headless_bounded_calls', 0)} with a cost or turn cap",
              ">= 50 own-code runs and >= 3 batches or schedules",
-             "What started a run is inferred from its shape; plugins also start runs.")
+             "What started a run is inferred from its shape; plugins also start runs. Jobs in the cloud (GitHub Actions, cloud routines) leave nothing on this laptop: not looked at, ask.")
     edits = ev["instruction_edits_by_kind"]
     setup_edits = edits.get("skill", 0) + edits.get("agent", 0) + edits.get("hooks_or_settings", 0)
     evals = H("l4-evals", 4, "Proves the setup works: re-runs evals after changing it",
@@ -533,6 +540,7 @@ def place(scan: dict, extra: dict | None = None) -> dict:
     s["_slash"] = h.get("slash_commands", {})
     s["_cov"] = h.get("coverage", {}).get("sessions", {})
     s["_logs"] = h.get("coverage", {}).get("logs", {})
+    s["_sched"] = scan.get("setup", {}).get("schedulers", {})
     ev, ws = h["evidence"], h["working_style"]
     if extra is None:
         extra = read_extra(scan)

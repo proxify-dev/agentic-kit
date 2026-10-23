@@ -217,6 +217,60 @@ def machinery() -> dict:
     }
 
 
+AGENT_RUN_RE = re.compile(r"\bclaude\b|claude[-_]agent[-_]sdk|@anthropic-ai/|\banthropic\b|\bcodex\b", re.I)
+
+
+def schedulers() -> dict:
+    """Jobs the OS starts on its own (macOS LaunchAgents, cron, systemd user timers) and which of them start
+    an agent: the command, or the script it runs, names claude / the Agent SDK / anthropic / codex.
+    Claude Code's logs only show a scheduled run if it ran claude; a launchd job running a plain script that
+    calls the API leaves no session, so the job itself is the evidence. Reads only; labels stay local."""
+    import plistlib
+    jobs = []
+
+    def starts_agent(cmd: str) -> bool:
+        if AGENT_RUN_RE.search(cmd):
+            return True
+        for tok in re.findall(r"(?:~|/)[\w./~-]+", cmd):
+            f = Path(os.path.expanduser(tok))
+            try:
+                if f.is_file() and f.stat().st_size < 2_000_000 and AGENT_RUN_RE.search(f.read_text(errors="ignore")[:200_000]):
+                    return True
+            except OSError:
+                pass
+        return False
+
+    la = HOME / "Library" / "LaunchAgents"
+    for p in sorted(la.glob("*.plist")) if la.is_dir() else []:
+        try:
+            d = plistlib.loads(p.read_bytes())
+        except Exception:
+            continue
+        label = str(d.get("Label") or p.stem)
+        if label.startswith(("com.apple.", "com.google.keystone", "com.microsoft.", "homebrew.mxcl.")):
+            continue  # the OS's or an app updater's own job, not the person's
+        cmd = " ".join(map(str, d.get("ProgramArguments") or [d.get("Program") or ""]))
+        timed = any(k in d for k in ("StartInterval", "StartCalendarInterval", "WatchPaths", "QueueDirectories"))
+        jobs.append({"kind": "launchd", "label": label, "timed": timed, "starts_agent": starts_agent(cmd)})
+    try:
+        tab = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        tab = ""
+    for i, line in enumerate(l for l in tab.splitlines() if l.strip() and not l.lstrip().startswith("#")):
+        cmd = " ".join(line.split()[5:]) if not line.startswith("@") else " ".join(line.split()[1:])
+        jobs.append({"kind": "cron", "label": f"cron-{i + 1}", "timed": True, "starts_agent": starts_agent(cmd)})
+    sd = HOME / ".config" / "systemd" / "user"
+    for t in sorted(sd.glob("*.timer")) if sd.is_dir() else []:
+        svc = t.with_suffix(".service")
+        cmd = " ".join(l.partition("=")[2] for l in (svc.read_text(errors="ignore").splitlines() if svc.is_file() else [])
+                       if l.strip().startswith("ExecStart"))
+        jobs.append({"kind": "systemd", "label": t.stem, "timed": True, "starts_agent": starts_agent(cmd)})
+    return {"jobs": len(jobs), "timed": sum(j["timed"] for j in jobs),
+            "start_an_agent": sum(j["starts_agent"] for j in jobs),
+            "timed_agent_jobs": sum(j["timed"] and j["starts_agent"] for j in jobs),
+            "agent_jobs": [{"kind": j["kind"], "label": j["label"], "timed": j["timed"]} for j in jobs if j["starts_agent"]]}
+
+
 def other_tools() -> dict:
     """Which other agent tools left a folder here, and how many days since that folder last changed:
     present is not used, so the age is what tells a live tool from one tried once."""
@@ -337,11 +391,15 @@ class Session:
                  "step_log", "_pending", "_asked",
                  # coverage: Claude Code version, which record signals the session carried per version,
                  # every file read (first time each), the first code edit, instruction files edited
-                 "ver", "has_src", "sig_v", "reads", "first_edit_ts", "inst_files")
+                 "ver", "has_src", "sig_v", "reads", "first_edit_ts", "inst_files",
+                 # every folder its records were written from: a chat started in a parent folder (~/work)
+                 # that moves into a repo or worktree belongs to that repo, not to no repo
+                 "cwds")
 
     def __init__(self, sid, is_sub):
         self.sid, self.is_sub = sid, is_sub
         self.cwd = self.entry = self.agent_setting = None
+        self.cwds = Counter()
         self.first = self.last = None
         self.prompts = self.compactions = self.hooks_fired = self.interrupts = 0
         self.scheduled = self.hook_blocks = self.agent_model_param = 0
@@ -787,6 +845,8 @@ def read_session(path: Path, is_sub: bool) -> Session:
                 s.first = s.first or ts
                 s.last = ts
             s.cwd = s.cwd or d.get("cwd")
+            if d.get("cwd"):
+                s.cwds[d["cwd"]] += 1
             s.entry = s.entry or d.get("entrypoint")
             ver = d.get("version")
             s.ver = s.ver or ver
@@ -1006,7 +1066,22 @@ def read_session(path: Path, is_sub: bool) -> Session:
                         if BASH_PATTERNS["git_commit"].search(cmd):
                             s.steps.append("C")
                             s.step_log.append(("C", ts, None))
+    settle_cwd(s)
     return s
+
+
+def settle_cwd(s) -> None:
+    """A session that started outside any repo but worked inside one belongs to that repo: its most-used
+    folder that resolves to a repo becomes its folder. Seen 2026-10-22 on a tester who opens every chat in a
+    parent folder and works in repos and worktrees under it: 133 chats tied to no repo, 0 commits matched,
+    and her git identity never learned. A temp-folder start stays as it is (it marks a throwaway)."""
+    if not s.cwd or TMP_CWD.search(s.cwd) or canonical_root(Path(s.cwd)) is not None:
+        return
+    for folder, _ in s.cwds.most_common():
+        if folder != s.cwd and not TMP_CWD.search(folder) and canonical_root(Path(folder)) is not None:
+            s.marks["moved_into_repo"] += 1
+            s.cwd = folder
+            return
 
 
 TMP_CWD = re.compile(r"^/(private/)?(tmp|var/folders)/|/T/")
@@ -1197,8 +1272,13 @@ def coverage_facts(root: Path, days: int, now: float, logs: tuple, sessions: lis
         "logs": {"dir": str(root).replace(str(HOME), "~"), "state": state, "window_days": days, "files_total": total,
                  "files_in_window": in_window, "cleanup_days": cleanup,
                  "oldest_days": round((now - oldest) / 86400) if oldest else None,
-                 "newest_days": round((now - newest) / 86400) if newest else None},
+                 "newest_days": round((now - newest) / 86400) if newest else None,
+                 # how far back the chats themselves reach: a long-lived chat keeps its file fresh, so the
+                 # oldest FILE can be younger than the oldest message in the window (a tester: files 23 days, chats 30+)
+                 "oldest_record_days": round((now - min(s.first.timestamp() for s in sessions if s.first)) / 86400)
+                 if any(s.first for s in sessions) else None},
         "sessions": {"in_window": len(sessions), "typed": len(human), "automated": len(automated),
+                     "moved_into_repo": sum(1 for s in human if s.marks.get("moved_into_repo")),
                      "temp": sum(1 for s in sessions if s.prompts and TMP_CWD.search(s.cwd or "") and not is_automated(s)),
                      "no_prompt": sum(1 for s in sessions if not s.prompts and not is_automated(s)),
                      "subagent_files": subs,
@@ -1413,6 +1493,9 @@ def mask(report: dict, own_names: set[str], public_markets: set[str]) -> dict:
     if "main_agent_settings" in ev:
         ev["main_agent_settings"] = {(a if ns_public(a) or a.lower() in BUILTIN_AGENTS else lab("agent", a)): c
                                      for a, c in ev["main_agent_settings"].items()}
+    r["setup"].pop("identity", None)   # emails never leave in a shared report
+    for i, j in enumerate((r["setup"].get("schedulers") or {}).get("agent_jobs", [])):
+        j["label"] = f"job-{chr(65 + i)}"
     r["masked"] = True
     return r
 
@@ -1432,6 +1515,7 @@ def main():
     ap.add_argument("--dev", action="store_true",
                     help="with --story: add how each finding was inferred, run facts, coverage and gaps (STORY-SCHEMA.md § Dev mode)")
     ap.add_argument("--out", help="write the JSON here instead of stdout")
+    ap.add_argument("--identity", help="identity.json the person confirmed ({'emails': [...]}): who they are in git")
     ap.add_argument("--facts-out", help="also write the plain unmasked scan here (what place_level.py reads), "
                                         "so the story and the level page come from one scan")
     ap.add_argument("--logs-dir", help="read session logs from this folder instead of <Claude config>/projects "
@@ -1469,6 +1553,14 @@ def main():
             names[r["_name"]] += r["sessions"]
         r.pop("_name", None)
     person = names.most_common(1)[0][0] if names else ""
+    # who they are in git, before anything is credited to them: config (with its includes), each repo, Claude
+    # commits, and the list the person confirmed (identity.py)
+    sys.path.insert(0, str(HERE))
+    import identity as _identity
+    confirmed = (load_json(Path(a.identity)) or {}).get("emails") if a.identity else None
+    skill_roots = [Path(os.path.realpath(CLAUDE / "skills" / sk["name"])) for sk in own["skills"] if sk.get("is_symlink")]
+    ident = _identity.collect([root for root, _ in per_root.most_common(a.max_repos)]
+                              + sorted({git_root(p) for p in skill_roots if git_root(p)}), confirmed)
 
     report = {
         "scanner": "setup-snapshot/0.1",
@@ -1482,6 +1574,8 @@ def main():
             "mcp": mcp_summary(),
             "other_agent_tools": other_tools(),
             "machinery": machinery(),
+            "schedulers": schedulers(),
+            "identity": ident,
             "repos_worked_in": {"count": len(per_root), "top": repos},
             "my_commits_30d": {"total": len(commits), "agent_marked": sum(commits.values())},
         },

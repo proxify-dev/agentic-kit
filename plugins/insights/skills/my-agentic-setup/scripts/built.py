@@ -73,8 +73,16 @@ def build(scan: dict, sessions: list, typed: list) -> dict:
                          "on": (prev or {}).get("on", False) or bool(p.get("enabled"))}
     for name, p in by_name.items():
         row(name, "plugin", "built" if p["local"] else "borrowed", ("plugin", name), on=p["on"])
+    import identity as _identity
+    from pathlib import Path as _P
+    emails = set((S.get("identity") or {}).get("emails") or [])
     for sk in own["skills"]:
-        made = "borrowed" if sk.get("is_symlink") else "built?"
+        made = "built?"
+        if sk.get("is_symlink"):
+            # follow the link and ask git who wrote what it points to (a tester's 23 own skills, kept in her team
+            # repo and linked in, all read "borrowed" before this)
+            share, commits = _identity.authored_share(_P.home() / ".claude" / "skills" / sk["name"], emails) if emails else (0.0, 0)
+            made = "built" if commits and share >= 0.5 else "borrowed"
         row(sk["name"], "skill", made, ("item", sk["name"]))
     builtin_agents = {"general-purpose", "explore", "plan", "statusline-setup", "claude-code-guide", "fork", "claude"}
     for ag in own["agents"]:

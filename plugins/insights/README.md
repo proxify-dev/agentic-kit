@@ -31,6 +31,19 @@ It's a suggestion for an interviewer, not a verdict.
 
 Needs `python3` (stdlib only). No other plugin.
 
+## Update
+
+In a terminal (not inside a Claude Code chat):
+
+```
+claude plugin marketplace update agentic-kit
+claude plugin update insights@agentic-kit
+```
+
+Then restart Claude Code. Inside a chat there is no `/plugin update`: typing it just opens the plugin panel.
+In a chat, use `/plugin marketplace update agentic-kit`, then `/plugin` → **Installed** → insights → **Update now**,
+then `/reload-plugins`.
+
 ## Limits
 
 An early version. The numbers were tuned on few machines; a view that says "can't tell" means the logs held too
