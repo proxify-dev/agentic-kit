@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""One page at the end of the run: three tabs over the same scan.
+"""One page at the end of the run: two tabs over the same scan.
 
-  Your level             render_place.py  (opens first: the answer)
-  How you work           render_story.py  (the detail)
-  How it was worked out  render_explorer.py (each finding with its method; dev-mode story only)
+  How you work      render_story.py  (each finding, with "how we know" folded under it)
+  What to try next  next_steps.py    (a few small steps + the brief for their own agent)
+
+No level and no score on the member's machine (ruling 2026-10-26); levels are set with Proxify, not here.
+Two tabs, not three (brand review, 2026-10-26): "how it was worked out" was the same findings again, so it now lives
+inside "How you work" as the fold-out under each finding.
 
 Each tab is the page its own renderer makes, held in an iframe's srcdoc, so their styles never clash and the
-result is still one file. Run: python3 -I render_all.py STORY.json FACTS.json LEVEL.json -o my-setup.html
+result is still one file. Run: python3 -I render_all.py STORY.json FACTS.json -o my-setup.html --brief BRIEF.md
 """
 from __future__ import annotations
 
@@ -18,8 +21,7 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))
-import render_explorer  # noqa: E402
-import render_place  # noqa: E402
+import next_steps  # noqa: E402
 import render_story  # noqa: E402
 
 CSS = """
@@ -59,18 +61,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("story")
     ap.add_argument("facts")
-    ap.add_argument("level")
-    ap.add_argument("--verdict", help="level-verdict.json from level-reader.workflow.js (optional)")
     ap.add_argument("-o", "--out", required=True)
+    ap.add_argument("--brief", required=True, help="where to write the brief for their own agent")
     a = ap.parse_args()
     story = json.loads(Path(a.story).read_text(encoding="utf-8"))
     facts = json.loads(Path(a.facts).read_text(encoding="utf-8"))
-    level = json.loads(Path(a.level).read_text(encoding="utf-8"))
-    verdict = json.loads(Path(a.verdict).read_text(encoding="utf-8")) if a.verdict and Path(a.verdict).is_file() else None
-    tabs = [("level", "Your level", render_place.render(facts, level, verdict)),
-            ("work", "How you work", render_story.render(story))]
-    if story.get("dev"):  # the explorer needs the dev-mode story (how each finding was inferred)
-        tabs.append(("how", "How it was worked out", render_explorer.render(story)))
+    chosen = next_steps.picks(facts)
+    Path(a.brief).write_text(next_steps.brief(chosen), encoding="utf-8")
+    tabs = [("work", "How you work", render_story.render(story, member=True)),
+            ("next", "What to try next", next_steps.render(chosen, a.brief))]
     Path(a.out).write_text(page(tabs), encoding="utf-8")
     print(a.out)
 

@@ -20,7 +20,7 @@ from collections import Counter, defaultdict
 from datetime import timedelta
 from pathlib import Path
 
-LOGS = "session logs (~/.claude/projects/*/*.jsonl), sessions a person typed in"
+LOGS = "session logs (~/.claude/projects/*/*.jsonl), sessions you typed in"
 NOTES_RE = re.compile(r"\.(md|mdx|txt|rst|json|jsonl|ya?ml|toml|lock|csv|ini|cfg)$|(^|/)(\.agents|\.claude|memory|docs?)/", re.I)
 TEST_FILE_RE = re.compile(r"(^|/)(tests?|__tests__|spec)/|[._-](test|spec)\.\w+$|(^|/)test_\w+\.py$", re.I)
 REWORK_RE = re.compile(r"\b(fix(es|ed)?|revert|oops|hotfix|bug|broken|typo|regression|undo)\b", re.I)
@@ -240,7 +240,7 @@ def build(human: list, days: int, git_root, repo_name) -> dict:
            "a re-run that passes in another session is not seen", label="After a failed check"),
         pt("Who made the checks happen: " + ", ".join(f"{k} ({v})" for k, v in who.most_common()) +
            (f"; plus {hooks} hooks in settings that run a check by themselves." if hooks else "; no hook runs a check by itself."),
-           "per check: the person's last message asked for it → 'you asked'; else the repo's CLAUDE.md/AGENTS.md mentions a check command → "
+           "per check: your last message asked for it → 'you asked'; else the repo's CLAUDE.md/AGENTS.md mentions a check command → "
            "'instructions'; else 'the agent, on its own'. Hooks counted from settings files on disk",
            f"{sum(who.values())} checks; {hooks} check-running hooks", "heuristic",
            "'asked' is a word match on the last message; a hook's own runs don't appear as tool calls, only the hook count does",
@@ -257,7 +257,7 @@ def build(human: list, days: int, git_root, repo_name) -> dict:
            label="Code vs notes"),
         pt(f"What skipping costs: unchecked code commits needed a fix or revert within 24 h {pct(rw_un, len(unchecked_code))}% of the time "
            f"({rw_un} of {len(unchecked_code)}); checked ones {pct(rw_ch, len(checked_code))}% ({rw_ch} of {len(checked_code)}).",
-           "a later commit by the same person, same repo, within 24 h, touching a same file, whose message says fix / revert / bug / typo …",
+           "a later commit of yours, same repo, within 24 h, touching a same file, whose message says fix / revert / bug / typo …",
            f"unchecked {rw_un}/{len(unchecked_code)}, checked {rw_ch}/{len(checked_code)}", "heuristic",
            "a 'fix' commit may fix something else in the same file; a fix without those words is missed",
            label="What it cost", source="git log of each repo (read-only), matched to " + LOGS),
@@ -268,7 +268,7 @@ def build(human: list, days: int, git_root, repo_name) -> dict:
     return {
         "id": "check", "title": "Checking the work", "lead": lead,
         "how": {"source": LOGS + "; git log of each repo; settings files on disk",
-                "rule": "the order of steps in a session (edit → check → result → commit), matched to the person's git commits",
+                "rule": "the order of steps in a session (edit → check → result → commit), matched to your git commits",
                 "raw": f"{checks_run} checks with a result, {fails} failed; {len(matched)} commits matched", "confidence": "heuristic",
                 "caveat": "tests run by CI, by a hook, or in another session are not in a session's own steps",
                 "code": "checks.build"},

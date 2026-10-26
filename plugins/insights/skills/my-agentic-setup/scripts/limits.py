@@ -27,15 +27,15 @@ def too_few(n: int, unit: str = "moments") -> bool:
 
 
 def cant_tell(n: int, noun: str, unit: str = "moments") -> str:
-    return f"Can't tell — too few moments ({n} {noun}); at least {MIN_N[unit]} needed."
+    return f"Not visible in your logs yet: only {n} {noun} so far, and we need at least {MIN_N[unit]} to read a pattern."
 
 
 def no_logs_text(logs: dict) -> str | None:
     """F1: the sentence that replaces every claim when the logs hold nothing to read."""
     if logs.get("state") == "none":
-        return f"Can't tell — no Claude Code logs found ({logs.get('dir')})."
+        return f"Not visible in your logs yet: we found no Claude Code logs in {logs.get('dir')}."
     if logs.get("state") == "stale":
-        return (f"Can't tell — no Claude Code session in the last {logs.get('window_days')} days "
+        return (f"Not visible in your logs yet: there's no Claude Code session in the last {logs.get('window_days')} days "
                 f"(the newest log is {logs.get('newest_days')} days old).")
     return None
 
@@ -56,7 +56,7 @@ def gate(sec: dict, reqs: list, logs: dict) -> bool:
                 break
         if not why:
             return False
-        sec["numbers"] = [{"value": "can't tell", "label": x.get("label", "")} for x in sec.get("numbers") or []]
+        sec["numbers"] = [{"value": "not visible yet", "label": x.get("label", "")} for x in sec.get("numbers") or []]
         # a point that quotes a percentage is a rate from this N; one that quotes "3 of 5" shows its own N
         sec["points"] = [p for p in sec.get("points") or [] if "%" not in (p["text"] if isinstance(p, dict) else p)]
     sec["lead"] = why
@@ -73,7 +73,7 @@ def gate(sec: dict, reqs: list, logs: dict) -> bool:
 # than 3 eligible sessions are too thin to place the switch, but count in the totals.
 # signal -> (what the record says, the key of the versions where the signal could have shown)
 SIGNALS = {
-    "promptSource": ("marks who typed each message (a person, a program or the system)", "eligible"),
+    "promptSource": ("marks who typed each message (you, a program or the system)", "eligible"),
     "entrypoint": ("records which app started the session", "eligible"),
     "instructions": ("lists the instruction files it loaded at the start of a session", "eligible"),
     "home_file": ("lists the instruction file in the home folder, such as ~/CLAUDE.md", "home_eligible"),
@@ -131,7 +131,7 @@ def switch_text(sw: dict) -> str:
 
 def version_text(v: dict) -> str:
     if not v or not v.get("first"):
-        return "Claude Code version not recorded."
+        return "Claude Code version isn't recorded."
     span = v["first"] if v["first"] == v["last"] else f"{v['first']}–{v['last']}"
     return f"Claude Code {span}."
 
@@ -141,14 +141,14 @@ def version_text(v: dict) -> str:
 # what only it knows through `extra` (git commits matched, folders checked), and SOURCE_NOTE what its
 # method cannot see.
 SOURCE_NOTE = {
-    "helpers": "Helper transcripts are read for the files they open only; helpers started by helpers are not counted.",
-    "memory": "Notes read or written by other tools, or by hand, leave no record here; shell lookups are matched by tool name.",
-    "wrong": "Messages are checked against an English word list: a correction in another language, or a polite one, is not caught.",
-    "context": "Instruction files and settings are read from disk as they are today, not as they were in each session.",
-    "built": "What exists is read from disk today; use is counted from the logs.",
-    "ladder": "Setup is read from disk today; use is counted from the logs.",
-    "check": "Tests run by CI, by a hook or in another session leave no record in a session.",
-    "unattended": "Only runs that left a log on this machine.",
+    "helpers": "We read helper transcripts only for the files they open, and we count the first level of helpers (not helpers started by helpers).",
+    "memory": "Notes you read or write with other tools, or by hand, aren't visible here; shell lookups are matched by tool name.",
+    "wrong": "We check messages against an English word list, so a correction in another language, or a polite one, may slip past.",
+    "context": "We read instruction files and settings from disk as they are today, which may differ from how they were in each session.",
+    "built": "We read what exists from disk as it is today and count use from the logs.",
+    "ladder": "We read your setup from disk as it is today and count use from the logs.",
+    "check": "Tests run by CI, by a hook or in another session aren't visible in a session's log.",
+    "unattended": "Covers runs that left a log on this machine.",
 }
 
 
@@ -164,21 +164,21 @@ def coverage(view: str, F: dict, extra: dict | None = None) -> dict:
     if logs["state"] != "ok":
         why = (f"no session logs in {logs['dir']}" if logs["state"] == "none" else
                f"the newest log in {logs['dir']} is {logs['newest_days']} days old, outside the {logs['window_days']}-day window")
-        return {"line": f"Nothing read: {why}. {version_text(F['versions'])}", "read": [], "skipped": [why]}
+        return {"line": f"Nothing to read yet: {why}. {version_text(F['versions'])}", "read": [], "skipped": [why]}
     elif view == "unattended":
         read.append(f"{n_(S['automated'])} automated runs (Agent SDK, claude -p) among {n_(S['in_window'])} sessions in the last {logs['window_days']} days")
-        skipped.append(f"{n_(S['typed'])} sessions a person typed in: other views")
+        skipped.append(f"{n_(S['typed'])} sessions you typed in: shown in other sections")
     else:
-        read.append(f"{n_(S['typed'])} sessions a person typed in, of {n_(S['in_window'])} in the last {logs['window_days']} days")
+        read.append(f"{n_(S['typed'])} sessions you typed in, of {n_(S['in_window'])} in the last {logs['window_days']} days")
         if view in ("sessions", "start", "handover", "wrong", "memory", "where", "helpers", "crosstalk", "builtins"):
             q = P["queued"]
             read.append(f"{n_(P['counted'])} typed messages" + (f", {n_(q)} of them typed while the agent was busy" if q else ""))
         if S["automated"]:
-            skipped.append(f"{n_(S['automated'])} automated runs (no person typing)")
+            skipped.append(f"{n_(S['automated'])} automated runs (started by code, not by you typing)")
         if S["temp"]:
             skipped.append(f"{n_(S['temp'])} throwaway sessions in temp folders")
         if S["no_prompt"]:
-            skipped.append(f"{n_(S['no_prompt'])} sessions with no typed message")
+            skipped.append(f"{n_(S['no_prompt'])} sessions without a typed message")
         if P["copied"]:
             skipped.append(f"{n_(P['copied'])} messages copied into resumed or forked chats, counted once")
     read += extra.get("read", [])
@@ -193,5 +193,5 @@ def history_text(logs: dict) -> str:
         return ""
     keep = logs.get("cleanup_days")
     note = (f"Claude Code keeps {keep} days of chats here." if keep else
-            "Claude Code deletes chats after 30 days unless cleanupPeriodDays is raised.")
+            "Claude Code deletes chats after 30 days unless you raise cleanupPeriodDays.")
     return f"Logs reach back {logs['oldest_days']} days. {note}"

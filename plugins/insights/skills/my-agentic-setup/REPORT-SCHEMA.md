@@ -31,8 +31,7 @@ beyond headings and the legend.
         {
           "id": "harness-7",                   // v13 practice id
           "title": "Uses hooks",               // v13 practice question
-          "verdict": "seen",                   // seen | signs | ask
-          "evidence": [                        // 1-3 lines, each with its number; [] allowed for "ask"
+          "evidence": [                        // 1-3 lines, each with its number; [] allowed when the logs hold nothing on it
             "5 hooks of your own, plus 31 from plugins.",
             "Hooks fired in 538 of 541 sessions."
           ],
@@ -54,7 +53,6 @@ beyond headings and the legend.
 }
 ```
 
-Verdicts:
-- `seen` — the logs show it; evidence says how often.
-- `signs` — partial or indirect evidence; worth a question.
-- `ask` — the logs cannot tell; only the interview can. Not a negative.
+No grading leaves the machine (ruling 2026-10-26): a practice carries its facts and its question, never a
+verdict. practices.build() still computes seen / signs / ask locally, for next_steps.py to pick suggestions;
+practices.shareable() drops it before report.json is written.
