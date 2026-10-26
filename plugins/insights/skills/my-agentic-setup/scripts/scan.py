@@ -532,16 +532,26 @@ def first_sighting(d: dict) -> bool:
 # on how the text looks.
 HUMAN_SOURCES = {"typed", "queued"}
 PROGRAMMATIC_ENTRY = ("sdk",)
+# Apps a person types into that run Claude Code through the Agent SDK, so Claude Code marks the person's message
+# promptSource "sdk", the same as a script's. Seen 2026-10-26: VS Code extension 2.1.296 starts Claude Code with
+# CLAUDE_CODE_ENTRYPOINT=claude-vscode and stream-json input, and the typed message is written as "sdk". Without
+# this, every VS Code chat counted as a program's run and was left out (a member got "not enough to read").
+PERSON_APPS = ("claude-vscode", "claude-desktop", "claude-jetbrains")
 _SEEN_PROMPTS: set = set()
 
 
 def prompt_kind(d: dict, s: "Session", text: str) -> str | None:
-    """typed · queued · fallback (a person, by the old rule) · program · None (not a message)."""
+    """typed · queued · app (a person, typing in an app that drives Claude Code) · fallback (a person, by the old
+    rule) · program · None (not a message)."""
     if d.get("isSidechain"):
         return None   # a helper's brief from the main agent, not the person
     src = d.get("promptSource")
     if src is not None:
-        return src if src in HUMAN_SOURCES else "program"
+        if src in HUMAN_SOURCES:
+            return src
+        if src == "sdk" and (d.get("entrypoint") or s.entry or "") in PERSON_APPS:
+            return "app"
+        return "program"
     if s.has_src or (s.entry or "").startswith(PROGRAMMATIC_ENTRY):
         return None   # the file carries the field elsewhere (or a program drove it): this one is machine-made
     if not text.strip() or text.lstrip().startswith("<"):
@@ -752,6 +762,8 @@ def note_prompt(s: Session, text: str, ts, kind: str, attached: bool = False) ->
         s.marks["queued_attached"] += attached
     elif kind == "fallback":
         s.marks["fallback_prompt"] += 1
+    elif kind == "app":
+        s.marks["app_prompt"] += 1
     if text.lstrip().startswith("<"):
         s.marks["tagged_prompt"] += 1
     if ts:
@@ -979,7 +991,7 @@ def read_session(path: Path, is_sub: bool) -> Session:
                     pass   # counted above, from the raw record
                 elif "[Request interrupted by user" in text:
                     s.interrupts += 1
-                elif kind in HUMAN_SOURCES or kind == "fallback":
+                elif kind in HUMAN_SOURCES or kind in ("app", "fallback"):
                     note_prompt(s, text, ts, kind)
                 elif kind == "program":
                     s.marks["program_prompt"] += 1
@@ -1287,6 +1299,7 @@ def coverage_facts(root: Path, days: int, now: float, logs: tuple, sessions: lis
                      "continued": sum(1 for s in human if s.marks.get("continued_in"))},
         "prompts": {"counted": sum(s.prompts for s in human), "queued": marks(human, "queued_prompt"),
                     "queued_attached": marks(human, "queued_attached"), "fallback": marks(human, "fallback_prompt"),
+                    "through_app": marks(human, "app_prompt"),
                     "tagged": marks(human, "tagged_prompt"), "copied": marks(sessions, "copied_prompts"),
                     "program": marks(human, "program_prompt")},
         "entrypoints": {"interactive": dict(typed_entries),

@@ -12,7 +12,7 @@ writes them as one markdown file a reader can judge the same way:
   - where to look: their own rule files and memory index, so a reader can open the real thing (read-only);
   - what the logs cannot see, so "not seen" is never read as "doesn't do it".
 
-Stays on the person's machine (/tmp/agentic-setup). Readers run in their own Claude Code.
+Stays on the person's machine (~/agentic-setup). Readers run in their own Claude Code.
 Run: python3 -I evidence_pack.py STORY.json FACTS.json LEVEL.json -o evidence-l3.md
 """
 from __future__ import annotations

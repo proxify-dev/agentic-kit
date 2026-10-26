@@ -46,7 +46,7 @@ COVERAGE = [
     ("Task flow", "Explore before editing", LOGS + ": tool order in a session (Read, Grep, Glob, shell cat/sed/grep/ls after any cd, helpers' reads)", "heuristic", "measured"),
     ("Task flow", "Files read: Read tool, shell readers, @-attached, helpers", LOGS + ": Read and Bash calls (cd resolved), file attachments, subagent transcripts", "heuristic", "measured"),
     ("Task flow", "Messages typed while the agent was busy", LOGS + ": promptSource queued, queued_command attachments from a person", "solid", "measured"),
-    ("Task flow", "Who sent a message (person, program, system)", LOGS + ": promptSource; the entrypoint only for logs without it", "solid", "measured"),
+    ("Task flow", "Who sent a message (person, program, system)", LOGS + ": promptSource; 'sdk' from the VS Code, JetBrains or desktop app is the person (those apps drive Claude Code through the Agent SDK); the entrypoint only for logs without it", "solid", "measured"),
     ("Task flow", "Prompt shape (length, file, done-words)", LOGS + ": prompt text, regexes", "guess", "measured"),
     ("Task flow", "Commits checked after the last edit", LOGS + ": Bash order", "heuristic", "measured"),
     ("Task flow", "Corrections and whether they became a rule", LOGS + ": prompt regex + later tooling edit", "guess", "measured"),
