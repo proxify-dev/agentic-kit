@@ -13,7 +13,7 @@ writes them as one markdown file a reader can judge the same way:
   - what the logs cannot see, so "not seen" is never read as "doesn't do it".
 
 Stays on the person's machine (~/agentic-setup). Readers run in their own Claude Code.
-Run: python3 -I evidence_pack.py STORY.json FACTS.json LEVEL.json -o evidence-l3.md
+Run: python3 -I evidence_pack.py STORY.json FACTS.json LEVEL.json -o evidence.md
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from pathlib import Path
 
 HOME = Path.home()
 
-# story section id -> the guide area it speaks to (guide-l3.md groups A-F)
+# story section id -> the guide area it speaks to (the guide's Level 3 areas A-F, guide-all.md)
 AREAS = [
     ("A. It knows without being told (instructions)", ["context", "ladder"]),
     ("B. It learns from its mistakes (corrections)", ["wrong"]),
@@ -112,6 +112,19 @@ def not_seen(facts: dict) -> list[str]:
             ""]
 
 
+def counted_lines(level: dict) -> list[str]:
+    """The Level 1 and 2 lines as numbers only: what was measured and how, never the bar or met/not met, so the
+    readers judge one picture of how the person works (v14.2) instead of re-reading place_level.py's verdict."""
+    out = ["## How the work runs, counted (the guide's Level 1 and Level 2 lines)", "",
+           "Measured over their typed chats. Numbers only: they show how the work runs, they are not a verdict.", ""]
+    for lv in ("1", "2"):
+        for r in (level.get("levels") or {}).get(lv) or []:
+            if r.get("value"):
+                out.append(f"- **{r.get('guide_line') or r.get('id')}** ({r.get('question') or ''}): {r['value']}"
+                           + (f" _(how: {r['why']})_" if r.get("why") else ""))
+    return out + [""]
+
+
 def build(story: dict, facts: dict, level: dict) -> str:
     S = {s["id"]: s for s in story.get("sections", [])}
     h = facts["habits"]["sessions"]
@@ -127,6 +140,7 @@ def build(story: dict, facts: dict, level: dict) -> str:
         for i in ids:
             if i in S:
                 lines += section_md(S[i])
+    lines += counted_lines(level)
     lines += where_to_look(facts, level)
     lines += not_seen(facts)
     return "\n".join(lines)

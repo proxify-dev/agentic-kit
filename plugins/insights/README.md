@@ -10,8 +10,11 @@ It reads your session logs, settings, plugins, skills and the instruction files 
 `~/agentic-setup/my-setup.html`: how you run sessions and helpers, what the agent knows before it starts, how you
 hand work over, check it and correct it, what you built for yourself, and what runs when you're not there.
 One page, `~/agentic-setup/my-setup.html`, with three tabs: your level, how you work, and how each finding was worked out.
-The "Your level" tab suggests your level (1–4) and shows every check behind it: its bar, your value,
-and what it can't be sure of. Only what you built counts (judged by git history), not what you installed.
+The "Your level" tab suggests your level (1–4). AI readers in your own Claude Code decide it from a summary of your
+records, against the same level guide and the same way levels are decided from evaluation calls; every counted check
+is shown under it with its bar, your value, and what it can't be sure of. Without the Workflow tool (an older Claude
+Code) the counted checks alone give the level, as a rough hint. Only what you built counts (judged by git history), not
+what you installed.
 It's a suggestion for an interviewer, not a verdict.
 
 ## Privacy
