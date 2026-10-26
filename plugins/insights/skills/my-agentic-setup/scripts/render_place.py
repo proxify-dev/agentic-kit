@@ -126,21 +126,32 @@ VERDICT_WORD = {"L3": "Level 3", "below_L3": "Below Level 3", "not_enough_seen":
 
 
 def readers_card(v: dict) -> str:
-    """Level 3 as the AI readers judged it from the evidence pack (guide-reader.workflow.js): the same method
-    that decides Level 3 from evaluation calls. Shown above the counted checks."""
-    ev = "".join(f'<li class="{"l3" if e.get("way") == "L3_way" else "l2"}">{E(e.get("text", ""))}</li>'
-                 for e in v.get("evidence") or [])
-    reads = ", ".join(f"{x.get('lens')}: {VERDICT_WORD.get(x.get('verdict'), x.get('verdict'))}" for x in v.get("readings") or [])
+    """The level as the AI readers judged it from the evidence pack. level-verdict.json (level-reader.workflow.js,
+    the v14.2 call scorer: the whole level, L1-L4) or, from older runs, guide-verdict.json (Level 3 only)."""
+    whole = "level" in v
+    if whole:
+        word = f"Level {str(v.get('level', ''))[1:]}" + (" — could be higher" if v.get("open_above") else "")
+        cls = lambda e: "l3" if str(e.get("level", "")) >= "L3" else "l2"
+        reads = ", ".join(f"{x.get('lens')}: {x.get('level')}" for x in v.get("readings") or [])
+        eyebrow = "Your level, judged by AI readers against the level guide"
+        method = ("The same method decides levels from evaluation calls: one picture of who carries the context, "
+                  "one reader first, two more and a judge when it's unsure, Level 3 or above, or the counted checks below disagree.")
+    else:
+        word = VERDICT_WORD.get(v.get("verdict"), v.get("verdict", ""))
+        cls = lambda e: "l3" if e.get("way") == "L3_way" else "l2"
+        reads = ", ".join(f"{x.get('lens')}: {VERDICT_WORD.get(x.get('verdict'), x.get('verdict'))}" for x in v.get("readings") or [])
+        eyebrow = "Level 3, judged by AI readers against the level guide"
+        method = "The same method decides Level 3 from evaluation calls: one reader first, two more and a judge when it's unsure or the count below disagrees."
+    ev = "".join(f'<li class="{cls(e)}">{E(e.get("text", ""))}</li>' for e in v.get("evidence") or [])
     flag = '<span class="pill bad">readers split: the interviewer should look</span>' if v.get("flagged") else ""
     doubt = f'<div class="caveat">The writer doubts the level: {E(v["writer_doubt"])}</div>' if v.get("writer_doubt") else ""
-    return f"""<section class="readers"><div class="wrap"><div class="eyebrow2">Level 3, judged by AI readers against the level guide</div>
-<h2>{E(VERDICT_WORD.get(v.get("verdict"), v.get("verdict", "")))} {flag}</h2>
+    return f"""<section class="readers"><div class="wrap"><div class="eyebrow2">{E(eyebrow)}</div>
+<h2>{E(word)} {flag}</h2>
 <p class="lead">{E(v.get("reason", ""))}</p>
 <ul class="ev">{ev}</ul>
 {f'<p class="sub"><b>Not clear yet:</b> {E(v["gap"])}</p>' if v.get("gap") else ""}
 {f'<p class="sub"><b>The question that would settle it:</b> {E(v["next_question"])}</p>' if v.get("next_question") else ""}
-<p class="bar">{v.get("reads", 1)} read{"s" if v.get("reads", 1) != 1 else ""} · {E(reads)}. The same method decides Level 3 from evaluation
-calls: one reader first, two more and a judge when it's unsure or the count below disagrees.</p>{doubt}</div></section>"""
+<p class="bar">{v.get("reads", 1)} read{"s" if v.get("reads", 1) != 1 else ""} · {E(reads)}. {E(method)}</p>{doubt}</div></section>"""
 
 
 def lv(x) -> str:
@@ -151,12 +162,19 @@ def lv(x) -> str:
 def render(scan: dict, r: dict, verdict: dict | None = None) -> str:
     level = r["suggested_level"]
     gates = {int(k): v for k, v in r["gates"].items()}
+    # The readers decide the level when they ran (v14.2); the counted checks alone are only a rough hint.
+    read_lv = int(str(verdict["level"])[1:]) if verdict and str(verdict.get("level", "")).startswith("L") else None
+    reached = (lambda n: n <= read_lv) if read_lv is not None else (lambda n: gates[n]["passed"])
     steps = "".join(
-        f'<div class="step {"pass" if gates[n]["passed"] else ""}"><span class="tick">{"✓" if gates[n]["passed"] else ""}</span>'
+        f'<div class="step {"pass" if reached(n) else ""}"><span class="tick">{"✓" if reached(n) else ""}</span>'
         f'<b>L{n}</b><span>{E(LEVEL_NAME[n])}</span></div>' for n in (1, 2, 3, 4))
-    hero = f"""<div class="hero"><div class="wrap"><div class="eyebrow">Setup snapshot · suggested level</div>
-<div class="big"><div class="lv">{E(lv(level))}</div><div class="what">{E(LEVEL_NAME.get(level, ''))}</div></div>
-<div class="meta">Read from {E(r['seen'])} · last 30 days · this laptop only</div>
+    shown = read_lv if read_lv is not None else level
+    eyebrow = ("Setup snapshot · your level, judged by AI readers" if read_lv is not None
+               else "Setup snapshot · counted checks only, a rough hint")
+    counted = f" · the counted checks alone say {lv(level)}" if read_lv is not None and read_lv != level else ""
+    hero = f"""<div class="hero"><div class="wrap"><div class="eyebrow">{E(eyebrow)}</div>
+<div class="big"><div class="lv">{E(lv(shown))}</div><div class="what">{E(LEVEL_NAME.get(shown, ''))}</div></div>
+<div class="meta">Read from {E(r['seen'])} · last 30 days · this laptop only{E(counted)}</div>
 <div class="ladder">{steps}</div></div></div>"""
 
     sections = [readers_card(verdict)] if verdict else []

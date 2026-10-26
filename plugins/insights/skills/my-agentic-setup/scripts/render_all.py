@@ -60,7 +60,7 @@ def main():
     ap.add_argument("story")
     ap.add_argument("facts")
     ap.add_argument("level")
-    ap.add_argument("--verdict", help="guide-verdict.json from guide-reader.workflow.js (optional)")
+    ap.add_argument("--verdict", help="level-verdict.json from level-reader.workflow.js (optional)")
     ap.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
     story = json.loads(Path(a.story).read_text(encoding="utf-8"))

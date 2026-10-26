@@ -34,28 +34,30 @@ Options: "Yes, that's all of them" / "One isn't me" / "I also use another one". 
 ```
 python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --story --dev --identity "$HOME/agentic-setup/identity.json" --out "$HOME/agentic-setup/story.json" --facts-out "$HOME/agentic-setup/scan.json"
 python3 -I "${CLAUDE_SKILL_DIR}/scripts/place_level.py" "$HOME/agentic-setup/scan.json" --out "$HOME/agentic-setup/level.json" > /dev/null
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/evidence_pack.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" "$HOME/agentic-setup/level.json" -o "$HOME/agentic-setup/evidence-l3.md"
-python3 -I -c "import json, os; print(json.load(open(os.path.expanduser('~/agentic-setup/level.json')))['gates']['3']['passed'])"
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/evidence_pack.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" "$HOME/agentic-setup/level.json" -o "$HOME/agentic-setup/evidence.md"
+python3 -I -c "import json, os; print(json.load(open(os.path.expanduser('~/agentic-setup/level.json')))['suggested_level'])"
 ```
 
-Then let AI readers judge Level 3 from the evidence pack. Call the Workflow tool with
-`scriptPath: "${CLAUDE_SKILL_DIR}/workflows/guide-reader.workflow.js"` (the full path) and these args:
-`{"pack": "<HOME>/agentic-setup/evidence-l3.md", "guide": "<CLAUDE_SKILL_DIR>/guide/guide-l3.md", "out": "<HOME>/agentic-setup/guide-verdict.json", "count_l3": <the true/false printed above>}`,
+Then let AI readers decide their level from the evidence pack: the whole level, Level 1 to 4, as one picture of who
+carries the context, the same way levels are decided from evaluation calls. Call the Workflow tool with
+`scriptPath: "${CLAUDE_SKILL_DIR}/workflows/level-reader.workflow.js"` (the full path) and these args:
+`{"pack": "<HOME>/agentic-setup/evidence.md", "guide": "<CLAUDE_SKILL_DIR>/guide/guide-all.md", "out": "<HOME>/agentic-setup/level-verdict.json", "count_level": <the number printed above, or null if it printed None>}`,
 where `<HOME>` is the absolute home folder (`python3 -c "import pathlib; print(pathlib.Path.home())"`): `~` is not expanded there.
-It runs 2 to 5 readers in their own Claude Code (a few minutes) and writes `guide-verdict.json`. It returns only the
-verdict. If the Workflow tool isn't there (an older Claude Code), skip this; the page still works without the readers' card.
+It runs 2 to 5 readers in their own Claude Code (a few minutes) and writes `level-verdict.json`. It returns only the
+level and how it was reached. If the Workflow tool isn't there (an older Claude Code), skip this; the page then shows the
+counted checks alone, labelled as a rough hint.
 
 ```
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_all.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" "$HOME/agentic-setup/level.json" --verdict "$HOME/agentic-setup/guide-verdict.json" -o "$HOME/agentic-setup/my-setup.html"
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_all.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" "$HOME/agentic-setup/level.json" --verdict "$HOME/agentic-setup/level-verdict.json" -o "$HOME/agentic-setup/my-setup.html"
 python3 -c "import pathlib, webbrowser; webbrowser.open_new_tab((pathlib.Path.home() / 'agentic-setup' / 'my-setup.html').as_uri())"
 ```
 
 `my-setup.html` has three tabs:
-- **Your level** (opens first): the readers' Level 3 answer with its reason and evidence, then a suggested Level 1–4. Every check is shown with its bar and their value, and only what they built counts (by git history), not what they installed.
+- **Your level** (opens first): the level the readers decided, with its reason and evidence, then every counted check with its bar and their value. Only what they built counts (by git history), not what they installed. Without the readers, the counted checks give the level, labelled as a rough hint.
 - **How you work**: one view per part of the work.
 - **How it was worked out**: each finding with how it was counted.
 
-**Do not Read `story.json`, `scan.json`, `level.json`, `evidence-l3.md`, `guide-verdict.json`, session logs, CLAUDE.md files or anything under
+**Do not Read `story.json`, `scan.json`, `level.json`, `evidence.md`, `level-verdict.json`, session logs, CLAUDE.md files or anything under
 `~/.claude/projects/`.** They hold real project names, git emails and excerpts of their prompts. Those stay on
 the page, out of this conversation. To talk about it, print only the level and the headlines:
 
@@ -66,12 +68,12 @@ python3 -I -c "import json, os; r=json.load(open(os.path.expanduser('~/agentic-s
 
 ## 2. Tell them what it says
 
-Plain words, short. Lead with their suggested level and the one check that decided it, and the readers' Level 3 verdict (from the Workflow's return; the reason stays on the page). Then say what the page
+Plain words, short. Lead with the level the readers decided (from the Workflow's return; the reason stays on the page), and say when the counted checks alone say something else. If the readers didn't run, lead with the counted level and the one check that decided it, and call it a rough hint. Then say what the page
 says about how they work, not how it was counted.
 
 Say plainly that this is an early version:
 - The level is a suggestion, not a verdict; the interviewer decides.
-- The bars were set on very few machines.
+- The readers judge from this laptop's records only; the counted bars were set on very few machines.
 - "Can't tell" means the logs held too little to say, never "you don't do it".
 
 If a check looks wrong to them, ask what they actually do. That's the feedback we need.
