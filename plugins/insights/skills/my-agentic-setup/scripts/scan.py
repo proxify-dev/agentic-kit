@@ -1210,7 +1210,10 @@ def habits(days: int, own_names: set[str], installed: set[str], logs_root: Path 
     for n, c in commands.items():
         cmd_kind[classify(n, own_names, "command", installed)][n] += c
 
-    active_days = len({s.first.date() for s in human if s.first})
+    # A 30-day window from now touches 31 calendar dates (part of the first, all of today): count the last
+    # `days` dates only, so "days with agent work" can never read 31 of 30.
+    dates = sorted({s.first.date() for s in human if s.first})
+    active_days = len([d for d in dates if dates and d > dates[-1] - timedelta(days=days)]) if dates else 0
     out = {
         "window_days": days,
         "scan_seconds": round(time.time() - t0, 1),
@@ -1529,8 +1532,10 @@ def main():
                     help="with --story: add how each finding was inferred, run facts, coverage and gaps (STORY-SCHEMA.md § Dev mode)")
     ap.add_argument("--out", help="write the JSON here instead of stdout")
     ap.add_argument("--identity", help="identity.json the person confirmed ({'emails': [...]}): who they are in git")
-    ap.add_argument("--facts-out", help="also write the plain unmasked scan here (what place_level.py reads), "
-                                        "so the story and the level page come from one scan")
+    ap.add_argument("--report-out", help="with --story: also write the shareable report.json from this same scan "
+                                         "(masked, no grading), so sharing needs no second scan")
+    ap.add_argument("--facts-out", help="also write the plain unmasked scan here (what next_steps.py reads), "
+                                        "so both tabs come from one scan")
     ap.add_argument("--logs-dir", help="read session logs from this folder instead of <Claude config>/projects "
                                        "(logs copied from another machine, or a test with none)")
     a = ap.parse_args()
@@ -1603,6 +1608,13 @@ def main():
         import practices
         import story
         v13 = practices.build(mask(report, own_names, PUBLIC_MARKETS), person=person)
+        if a.report_out:
+            # Repos get the same labels a --report scan gives them, so the shared file never holds a path.
+            masked = mask(report, own_names, PUBLIC_MARKETS)
+            for i, r in enumerate(masked["setup"]["repos_worked_in"]["top"]):
+                r["repo"] = f"repo-{chr(65 + i)}"
+            Path(a.report_out).write_text(json.dumps(practices.shareable(practices.build(masked, person=person)),
+                                                     indent=1, default=str), encoding="utf-8")
         root_of = {}
         for s in ALL_SESSIONS:
             if s.cwd and s.cwd not in root_of:
@@ -1622,7 +1634,7 @@ def main():
         # carries counts only, so nothing in it names a repo or a thing the person made.
         sys.path.insert(0, str(HERE))
         import practices
-        report = practices.build(report, person=person)
+        report = practices.shareable(practices.build(report, person=person))
     text = json.dumps(report, indent=1, default=str)
     if a.out:
         Path(a.out).write_text(text, encoding="utf-8")

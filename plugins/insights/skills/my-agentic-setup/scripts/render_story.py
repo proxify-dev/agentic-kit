@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # python3 -I drops the
 
 from render_report import as_list, e, pretty_date
 
-DETAIL_BANNER = "Detail version: contains real names and prompt excerpts. Not for sharing."
+DETAIL_BANNER = "This page is private to you. It includes real project names and excerpts from your prompts, so please don't share it."
 
 CSS = """
 :root{
@@ -306,7 +306,7 @@ def render_gaps(gaps):
             e(g.get("title")), e(g.get("why")),
             "".join('<span class="tag">%s</span>' % e(a) for a in as_list(g.get("affects"))))
         for g in items)
-    return '<section class="devbox" id="gaps"><h2>Where the picture is thin</h2><ol class="gaps">%s</ol></section>' % lis
+    return '<section class="devbox" id="gaps"><h2>What your logs can\'t show yet</h2><ol class="gaps">%s</ol></section>' % lis
 
 
 def render_coverage(cov):
@@ -341,7 +341,7 @@ def render_no_trace(items):
     items = [x for x in as_list(items) if x]
     if not items:
         return ""
-    return ('<section class="devbox" id="no-trace"><h2>Leaves nothing in the logs</h2><ul class="points">%s</ul></section>'
+    return ('<section class="devbox" id="no-trace"><h2>Things your logs can\'t show</h2><ul class="points">%s</ul></section>'
             % "".join("<li>%s</li>" % e(x) for x in items))
 
 
@@ -351,9 +351,10 @@ EXPAND_JS = ("<script>(function(){var n=document.querySelector('nav.side');if(!n
              "b.textContent=o?'Collapse all':'Expand all'};n.appendChild(b)})()</script>")
 
 
-def render(r):
-    person = (r.get("person") or "").strip()
-    title = "How %s works with agents" % person if person else "How this person works with agents"
+def render(r, member=False):
+    """member=True: the page a member sees (render_all.py). Keeps "how we know" under each finding and what the
+    logs can't show; drops the working tools (Dev mode tag, run stats, coverage map, side nav)."""
+    title = "How you work with agents"
     meta = [x for x in (pretty_date(r["generated"]) if r.get("generated") else "",
                         "last %s days" % r["window_days"] if r.get("window_days") else "") if x]
     banner = '<div class="banner" role="note">%s</div>' % e(DETAIL_BANNER) if r.get("privacy") != "masked" else ""
@@ -361,25 +362,25 @@ def render(r):
     para = '<p class="paragraph">%s</p>' % e(r["in_one_paragraph"]) if r.get("in_one_paragraph") else ""
     dev = r.get("dev") if isinstance(r.get("dev"), dict) else None
     isdev = dev is not None
-    tag = '<span class="devtag">Dev mode</span>' if isdev else ""
-    nav = [] if isdev else None
+    tag = '<span class="devtag">Dev mode</span>' if isdev and not member else ""
+    nav = [] if isdev and not member else None
     story = render_sections(sections, isdev, nav)
     sidenav = ""
-    if isdev:
-        top = [('gaps', 'Gaps') if dev.get("gaps") else None, ('coverage', 'Coverage') if dev.get("coverage") else None]
+    if isdev and not member:
+        top = [('gaps', 'Not shown yet') if dev.get("gaps") else None, ('coverage', 'Coverage') if dev.get("coverage") else None]
         links = "".join('<a href="#%s">%s</a>' % t for t in top if t)
-        tail = '<a href="#no-trace">Leaves no trace</a>' if dev.get("no_trace") else ""
+        tail = '<a href="#no-trace">Not in your logs</a>' if dev.get("no_trace") else ""
         sidenav = '<nav class="side" aria-label="Sections">%s%s%s</nav>' % (links, "".join(nav), tail)
     body = [
         banner,
         sidenav,
-        '<header class="hero"><div class="in"><div class="eyebrow">Agentic setup report</div><h1>%s%s</h1>'
+        '<header class="hero"><div class="in"><div class="eyebrow">Your agentic setup</div><h1>%s%s</h1>'
         '<div class="meta">%s</div>%s</div></header>'
-        % (e(title), tag, e(" · ".join(meta)), render_run(dev.get("run")) if isdev else ""),
+        % (e(title), tag, e(" · ".join(meta)), render_run(dev.get("run")) if isdev and not member else ""),
         render_stats(r.get("at_a_glance")),
         '<main class="wrap">',
         render_gaps(dev.get("gaps")) if isdev else "",
-        render_coverage(dev.get("coverage")) if isdev else "",
+        render_coverage(dev.get("coverage")) if isdev and not member else "",
         para,
         story,
         render_no_trace(dev.get("no_trace")) if isdev else "",
@@ -393,7 +394,7 @@ def render(r):
         '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
         '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600'
         '&amp;family=Poppins:wght@600;700&amp;display=swap" rel="stylesheet">\n'
-        "<style>\n%s\n</style>\n</head>\n<body%s>\n%s\n</body>\n</html>\n" % (e(title), CSS, ' class="dev"' if isdev else "", "\n".join(body))
+        "<style>\n%s\n</style>\n</head>\n<body%s>\n%s\n</body>\n</html>\n" % (e(title), CSS, ' class="dev"' if isdev and not member else "", "\n".join(body))
     )
 
 

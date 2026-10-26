@@ -1,6 +1,6 @@
 ---
 name: my-agentic-setup
-description: Show this person how they really work with Claude Code — how they run sessions and helpers, what the agent knows before it starts, how they hand work over, check it and correct it, what they built for themselves — rebuilt from the files Claude Code keeps on this machine. Writes one private page for them, with tabs: their suggested level (1–4) with every check shown, how they work, and how it was worked out; only on their yes, a masked report they can choose to share with Proxify. Use when the person asks "what's my agentic setup", "how do I work with agents", "/my-agentic-setup", or before an agentic-engineering evaluation call.
+description: Show this person how they really work with Claude Code — how they run sessions and helpers, what the agent knows before it starts, how they hand work over, check it and correct it, what they built for themselves — rebuilt from the files Claude Code keeps on this machine. Writes one private page for them with two tabs: how they work (each finding with how it was counted) and a few small steps to try next, plus a brief their own agent can follow (pull requests only, never merged); only on their yes, a masked report they can choose to share with Proxify. It never shows a level or a score. Use when the person asks "what's my agentic setup", "how do I work with agents", "/my-agentic-setup", or before an agentic-engineering evaluation call.
 allowed-tools: Bash(python3 *), Read, AskUserQuestion
 ---
 
@@ -15,9 +15,15 @@ page written there (2026-10-26). A non-hidden folder in home is readable by ever
 The scripts sit in `${CLAUDE_SKILL_DIR}/scripts/` (if that variable is empty: `scripts/` beside this file).
 They need nothing but `python3` (stdlib only). On Windows use `python` or `py` where this says `python3`.
 
+## Never a level, never a score
+
+This page shows no level and no score, and you never give one in the chat either (ruling 2026-10-26: levels are
+set together with Proxify, never on the member's own machine). If they ask for their level, say it isn't something
+this tool gives, and point them to what it does show: how they work and what to try next.
+
 ## 1. Build their page
 
-Tell them first: one question about who they are in git, one scan (1–2 minutes on a heavy machine), then one page with three tabs.
+Tell them first: one question about who they are in git, one scan (1–2 minutes on a heavy machine), then one page with two tabs.
 
 **Who they are in git.** Everything they built counts as theirs only if git knows their email, and many people
 commit with a different email per folder. List what their git config knows:
@@ -32,66 +38,51 @@ Options: "Yes, that's all of them" / "One isn't me" / "I also use another one". 
 `~/agentic-setup/identity.json` as `{"emails": [...]}`. Then run:
 
 ```
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --story --dev --identity "$HOME/agentic-setup/identity.json" --out "$HOME/agentic-setup/story.json" --facts-out "$HOME/agentic-setup/scan.json"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/place_level.py" "$HOME/agentic-setup/scan.json" --out "$HOME/agentic-setup/level.json" > /dev/null
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/evidence_pack.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" "$HOME/agentic-setup/level.json" -o "$HOME/agentic-setup/evidence.md"
-python3 -I -c "import json, os; print(json.load(open(os.path.expanduser('~/agentic-setup/level.json')))['suggested_level'])"
-```
-
-Then let AI readers decide their level from the evidence pack: the whole level, Level 1 to 4, as one picture of who
-carries the context, the same way levels are decided from evaluation calls. Call the Workflow tool with
-`scriptPath: "${CLAUDE_SKILL_DIR}/workflows/level-reader.workflow.js"` (the full path) and these args:
-`{"pack": "<HOME>/agentic-setup/evidence.md", "guide": "<CLAUDE_SKILL_DIR>/guide/guide-all.md", "out": "<HOME>/agentic-setup/level-verdict.json", "count_level": <the number printed above, or null if it printed None>}`,
-where `<HOME>` is the absolute home folder (`python3 -c "import pathlib; print(pathlib.Path.home())"`): `~` is not expanded there.
-It runs 2 to 5 readers in their own Claude Code (a few minutes) and writes `level-verdict.json`. It returns only the
-level and how it was reached. If the Workflow tool isn't there (an older Claude Code), skip this; the page then shows the
-counted checks alone, labelled as a rough hint.
-
-```
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_all.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" "$HOME/agentic-setup/level.json" --verdict "$HOME/agentic-setup/level-verdict.json" -o "$HOME/agentic-setup/my-setup.html"
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --story --dev --identity "$HOME/agentic-setup/identity.json" --out "$HOME/agentic-setup/story.json" --facts-out "$HOME/agentic-setup/scan.json" --report-out "$HOME/agentic-setup/report.json"
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_all.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" --brief "$HOME/agentic-setup/next-steps-brief.md" -o "$HOME/agentic-setup/my-setup.html"
 python3 -c "import pathlib, webbrowser; webbrowser.open_new_tab((pathlib.Path.home() / 'agentic-setup' / 'my-setup.html').as_uri())"
 ```
 
-`my-setup.html` has three tabs:
-- **Your level** (opens first): the level the readers decided, with its reason and evidence, then every counted check with its bar and their value. Only what they built counts (by git history), not what they installed. Without the readers, the counted checks give the level, labelled as a rough hint.
-- **How you work**: one view per part of the work.
-- **How it was worked out**: each finding with how it was counted.
+`my-setup.html` has two tabs:
+- **How you work** (opens first): one view per part of the work, each finding with "how we know" folded under it.
+- **What to try next**: up to four small steps picked from what the logs don't show yet, and how to hand the
+  repo ones to their own agent with `~/agentic-setup/next-steps-brief.md`. The brief makes the agent work one step
+  at a time, ask first, and open a pull request it never merges.
 
-**Do not Read `story.json`, `scan.json`, `level.json`, `evidence.md`, `level-verdict.json`, session logs, CLAUDE.md files or anything under
+**Do not Read `story.json`, `scan.json`, session logs, CLAUDE.md files or anything under
 `~/.claude/projects/`.** They hold real project names, git emails and excerpts of their prompts. Those stay on
-the page, out of this conversation. To talk about it, print only the level and the headlines:
+the page, out of this conversation. To talk about it, print only the headlines:
 
 ```
-python3 -I -c "import json, os; r=json.load(open(os.path.expanduser('~/agentic-setup/level.json'))); print('Suggested level:', r['suggested_level'], '-', r['seen']); [print(f'L{k}:', 'passed' if g['passed'] else 'not passed', '-', g['rule']) for k, g in sorted(r['gates'].items())]"
 python3 -I -c "import json, os; r=json.load(open(os.path.expanduser('~/agentic-setup/story.json'))); print(r.get('coverage',{}).get('line','')); [print('-', s['title'] + ':', s['lead']) for s in r['sections']]"
 ```
 
 ## 2. Tell them what it says
 
-Plain words, short. Lead with the level the readers decided (from the Workflow's return; the reason stays on the page), and say when the counted checks alone say something else. If the readers didn't run, lead with the counted level and the one check that decided it, and call it a rough hint. Then say what the page
-says about how they work, not how it was counted.
+Address them as "you". Plain words, short, friendly and professional. Say what the page shows about how they
+work, then the first step on the "What to try next" tab. Prefer "not yet" and "not visible in your logs" to
+negatives, and never give a level, a score or a ranking.
 
 Say plainly that this is an early version:
-- The level is a suggestion, not a verdict; the interviewer decides.
-- The readers judge from this laptop's records only; the counted bars were set on very few machines.
-- "Can't tell" means the logs held too little to say, never "you don't do it".
+- It reads this machine's records only, so work on other machines or tools won't show.
+- "Not visible in your logs" means the logs held too little to say, never "you don't do it".
 
-If a check looks wrong to them, ask what they actually do. That's the feedback we need.
+If something looks wrong to them, ask what they actually do. That's the feedback we need.
 
-## 3. A report to share — only on their yes
+## 3. Share with Proxify — only on their yes
 
-Ask with AskUserQuestion whether they want a report they could share with Proxify. On yes:
+Ask with AskUserQuestion whether they want a version they could share with Proxify. It comes from the same scan,
+so there is nothing to scan again. On yes:
 
 ```
-python3 -c "import os; os.makedirs(os.path.expanduser('~/agentic-setup'), exist_ok=True)"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --report --out "$HOME/agentic-setup/report.json"
 python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_report.py" "$HOME/agentic-setup/report.json" -o "$HOME/agentic-setup/report.html"
 python3 -c "import pathlib, webbrowser; webbrowser.open_new_tab((pathlib.Path.home() / 'agentic-setup' / 'report.html').as_uri())"
 ```
 
-The report holds counts and plain sentences only: no project, skill, agent or MCP server names, no prompt text.
-Tell them to read `~/agentic-setup/report.html` before sharing it: it is exactly what Proxify would see. They can delete `~/agentic-setup/` whenever they like. Nothing has been sent;
-they choose whether and where to upload it. Never offer to send it for them.
+It holds counts and plain sentences only: no project, skill, agent or MCP server names, no prompt text, and no
+grading. Tell them to read `~/agentic-setup/report.html` before sharing it: it is exactly what Proxify would see.
+They can delete `~/agentic-setup/` whenever they like. Nothing has been sent; they choose whether and where to upload
+it. Never offer to send it for them.
 
 ## What it cannot see
 

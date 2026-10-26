@@ -1,8 +1,8 @@
-"""orchestration — part one of the story: how this person runs agents.
+"""orchestration — part one of the story: how you run agents.
 
-Sessions (how they start, branch, come back), helpers (what gets handed off, in the background or not),
-sessions talking to each other, memory across sessions, the context they set up, which Claude Code
-built-ins they lean on and which they never touch, and how far their setup goes.
+Sessions (how you start, branch, come back), helpers (what gets handed off, in the background or not),
+sessions talking to each other, memory across sessions, the context you set up, which Claude Code
+built-ins you use and which you have not used yet, and how far your setup goes.
 
 Same rules as story.py: DETAIL version (real names and excerpts), every sentence carries its number,
 a sentence the data cannot back is left out.
@@ -72,11 +72,11 @@ BUILTIN_COMMANDS = {
     "debug": "debug a failure", "code-review": "review the change", "diff": "see the change", "status": "session status",
     "stats": "usage stats", "skills": "list skills", "ide": "connect an editor", "chrome": "connect the browser",
     "list-agents": "list helpers and teammates", "peers": "list teammates", "ultrareview": "cloud multi-agent review",
-    "artifacts": "browse shared pages", "keybindings": "edit key bindings", "vim": "vim keys", "theme": "colours",
+    "artifacts": "browse shared pages", "keybindings": "edit key bindings", "vim": "vim keys", "theme": "colors",
 }
 
 
-LOGS = "session logs (~/.claude/projects/*/*.jsonl), sessions a person typed in"
+LOGS = "session logs (~/.claude/projects/*/*.jsonl), sessions you typed in"
 
 
 def pt(text, source, rule, raw="", conf="solid", caveat=None, code=None):
@@ -158,16 +158,16 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
         ["Wiped with /clear", n(cleared)],
     ]
     out.append({
-        "part": P, "id": "sessions", "title": "Sessions: how they start, live and end",
+        "part": P, "id": "sessions", "title": "Sessions: how you start, run and end them",
         "lead": (f"Sessions are long-lived: you came back to {came_back} after hours away and {multi_day} ran across days; "
                  f"you shrink them ({compacted}) far more than you wipe them ({cleared})."),
-        "how": {"source": LOGS, "rule": "per session: gaps between the person's own records, compact_boundary records, /clear commands",
+        "how": {"source": LOGS, "rule": "per session: gaps between your own records, compact_boundary records, /clear commands",
                 "raw": f"{T} sessions; {came_back} with a 3h+ gap; {multi_day} first and last record on different days",
                 "confidence": "solid", "code": "orchestration.sections → sessions"},
         "points": [
-            pt(f"The longest stayed open for {round(longest / 24, 1)} days of on-and-off work." if longest >= 24 else
-               f"The longest stayed open for {round(longest)} hours.",
-               LOGS, "first to last timestamp of the person's own records in one session file",
+            pt(f"Your longest stayed open for {round(longest / 24, 1)} days of on-and-off work." if longest >= 24 else
+               f"Your longest stayed open for {round(longest)} hours.",
+               LOGS, "first to last timestamp of your own records in one session file",
                f"longest span {round(longest, 1)} h", "solid",
                "a session left open but idle counts the whole span"),
             pt(f"{forked + cont} sessions branched off or carried on from another one, so a thread of work outlives one chat.",
@@ -179,7 +179,7 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
             pt("Named sessions: " + ", ".join(f"“{t}”" for t in titled[:6]) + "." if titled else "",
                LOGS + "; custom-title records", "a title of 6 words or fewer that is not the start of the session's first message",
                f"{len(titled)} names kept", "heuristic",
-               "Claude Code titles sessions automatically from the first message; a short automatic title can pass as a name"),
+               "Claude Code titles sessions automatically from the first message, so a short automatic title can pass as a name"),
         ],
         "table": {"caption": "What happens to a session", "columns": ["What happened", "Sessions"], "rows": life_rows,
                   "how": {"source": LOGS, "rule": "one row per marker; commands counted from local_command and user records starting with the command tag, each record once",
@@ -215,7 +215,7 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
         "how": {"source": LOGS + "; assistant tool_use records named Agent (or Task)",
                 "rule": "each Agent call is one helper; run_in_background in its input marks it background",
                 "raw": f"{H_N} Agent calls in {sess_with} of {T} sessions; {bg.get('Agent', 0)} with run_in_background",
-                "confidence": "solid", "caveat": "helpers started inside helpers live in subagent files, which are not read: counts are the first level only",
+                "confidence": "solid", "caveat": "helpers started inside helpers live in subagent files, which aren't read: counts are the first level only",
                 "code": "scan.read_session → agent_descs"},
         "points": [
             pt(f"Helpers reported back {n(marks.get('task_report', 0))} times; you stopped {n(tools.get('TaskStop', 0))} of them early "
@@ -224,10 +224,10 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
                f"task-notification {marks.get('task_report', 0)}, TaskStop {tools.get('TaskStop', 0)}, Monitor {tools.get('Monitor', 0)}", "solid",
                "a report from a background shell job also arrives as a task-notification, not only helpers"),
             pt(f"{n(bg.get('Bash', 0))} shell commands also ran in the background.", LOGS, "Bash calls with run_in_background", str(bg.get("Bash", 0))),
-            pt("You choose the model for a helper yourself: " + ", ".join(f"{m} ({c})" for m, c in picked.most_common(3)) + "."
+            pt("Models set for helpers: " + ", ".join(f"{m} ({c})" for m, c in picked.most_common(3)) + "."
                if picked else "", LOGS, "the model field in an Agent call's input; absent = the session's model",
                ", ".join(f"{m} {c}" for m, c in picked.most_common()), "solid",
-               "whether the person or the agent chose it, the log can't say"),
+               "the log doesn't show whether you or the agent chose the model"),
             pt(f"{n(tools.get('Workflow', 0))} scripted multi-agent workflow runs." if tools.get("Workflow") else "",
                LOGS, "Workflow tool calls", str(tools.get("Workflow", 0))),
         ],
@@ -235,7 +235,7 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
                   "rows": rows,
                   "how": {"source": LOGS, "rule": "grouped by subagent_type (missing = general-purpose); examples are the description field the agent wrote",
                           "raw": f"{len(by_type)} helper types", "confidence": "solid",
-                          "caveat": "the description is the agent's own summary, not the person's words"}},
+                          "caveat": "the description is the agent's own summary, not your words"}},
     })
 
     # ── 3 sessions talking ──────────────────────────────────────────────────
@@ -244,18 +244,18 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
     talk_sessions = sum(1 for s in human if s.tools.get("SendMessage") or s.marks.get("peer_msg"))
     out.append({
         "part": P, "id": "crosstalk", "title": "Sessions working together",
-        "lead": f"Your sessions don't work alone: {ratio(talk_sessions, T)} sent or received messages "
+        "lead": f"Your sessions work together: {ratio(talk_sessions, T)} sent or received messages "
                 f"from another agent or session ({n(sent)} sent, {n(received)} received).",
         "how": {"source": LOGS, "rule": "sent = SendMessage tool calls; received = user records holding a peer-session or teammate message",
                 "raw": f"SendMessage {sent}; 'Another Claude session sent a message' or <teammate-message> {received}; {talk_sessions} sessions",
                 "confidence": "solid", "caveat": "messages between a session and its own helpers count the same as between two top-level sessions",
                 "code": "scan.read_session → marks['peer_msg']"},
         "points": [
-            pt(f"Checked who else was running {n(tools.get('ListAgents', 0))} times before handing work over.",
+            pt(f"You checked who else was running {n(tools.get('ListAgents', 0))} times before handing work over.",
                LOGS, "ListAgents tool calls", str(tools.get("ListAgents", 0)), "solid",
                "'before handing work over' is the usual reason, not checked call by call"),
             pt("Sessions started as a named main agent: " + ", ".join(f"{a} ({c})" for a, c in main_agents.most_common(6)) + "."
-               if main_agents else "Never started a session as a named main agent.",
+               if main_agents else "No session has started as a named main agent yet.",
                LOGS + "; agent-setting records", "the agentSetting a session was started with (`claude --agent x`)",
                ", ".join(f"{a} {c}" for a, c in main_agents.most_common()), "solid"),
             pt(f"{n(marks.get('launched_agent', 0))} sessions launched another top-level session.",
@@ -279,14 +279,14 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
     recall_agents = Counter({k: v for k, v in helpers.items() if re.search(r"tracer|observer|memory|reader", k)})
     out.append({
         "part": P, "id": "memory", "title": "Memory across sessions",
-        "lead": f"Writes down what a session learned ({n(sum(mem_paths.values()))} memory writes) and looks back at past sessions "
-                f"({n(sum(lookups.values()) + sum(recall_skills.values()) + sum(recall_agents.values()))} lookups) instead of starting cold.",
+        "lead": f"You write down what a session learned ({n(sum(mem_paths.values()))} memory writes) and look back at past sessions "
+                f"({n(sum(lookups.values()) + sum(recall_skills.values()) + sum(recall_agents.values()))} lookups), so a new session starts with context.",
         "how": {"source": LOGS + " and headless runs", "rule": "memory writes = Edit/Write on a file under a folder with 'memory' in its name, or MEMORY.md; "
                 "lookups = shell commands that read past sessions or memory, plus recall skills and helpers",
                 "raw": f"{sum(mem_paths.values())} writes; {sum(lookups.values())} shell lookups, {sum(recall_skills.values())} skills, {sum(recall_agents.values())} helpers",
                 "confidence": "heuristic",
-                "caveat": "only writes that went through the agent are seen; Claude Code's own auto-memory writes files without a log record; "
-                          "lookup patterns (tracer, observer, ak, claude -r) are this kit's tools: a member's own tools would be missed",
+                "caveat": "only writes that went through the agent are visible; Claude Code's own auto-memory writes files without a log record; "
+                          "lookup patterns (tracer, observer, ak, claude -r) are this kit's tools, so tools you built yourself may not be matched",
                 "code": "scan.LOOKUP_RE · scan.edit_kind"},
         "points": [
             pt("Where memory gets written: " + ", ".join(f"{k} ({c})" for k, c in mem_paths.most_common(5)) + "." if mem_paths else "",
@@ -295,8 +295,8 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
                if lookups or recall_skills or recall_agents else "",
                LOGS, "LOOKUP_RE over Bash commands; skills and helpers whose name says recall, observer, tracer, memory or reader",
                ", ".join(f"{k} {c}" for k, c in (lookups + recall_skills + recall_agents).most_common(10)), "heuristic",
-               "a name-based match: a memory tool with a different name is not counted"),
-            pt(f"Carries context out by hand: /export {cmds.get('export', 0)}, /copy {cmds.get('copy', 0)}; "
+               "a name-based match, so a memory tool with a different name may not be counted"),
+            pt(f"You carry context out by hand: /export {cmds.get('export', 0)}, /copy {cmds.get('copy', 0)}; "
                f"{marks.get('pasted', 0)} prompts paste a block of earlier material.",
                LOGS, "/export and /copy invocations; <pasted_content> blocks in user records",
                f"export {cmds.get('export', 0)}, copy {cmds.get('copy', 0)}, pasted {marks.get('pasted', 0)}", "heuristic",
@@ -327,7 +327,7 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
          "how": {"source": DISK + ": ~/.claude/CLAUDE.md", "rule": "exists and has lines", "raw": f"{gi.get('claude_md_lines')} lines", "confidence": "solid"}},
         {"step": "Project instructions (CLAUDE.md / AGENTS.md)", "done": any(r.get("claude_md_lines") for r in repos),
          "evidence": f"in {sum(1 for r in repos if r.get('claude_md_lines'))} of your {len(repos)} main projects; "
-                     f"{sum(1 for r in repos if r.get('claude_local_md'))} also keep a private CLAUDE.local.md.",
+                     f"{sum(1 for r in repos if r.get('claude_local_md'))} also have a private CLAUDE.local.md.",
          "how": {"source": DISK + ": the git root of each folder sessions ran in, top 12 by sessions",
                  "rule": "CLAUDE.md, .claude/CLAUDE.md or AGENTS.md at the repo root", "raw": f"{len(repos)} repos checked",
                  "confidence": "solid", "caveat": "only the 12 busiest repos are checked"}},
@@ -343,14 +343,14 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
          "how": {"source": DISK + ": settings.json outputStyle; ~/.claude/output-styles/*.md", "rule": "set and not default",
                  "confidence": "solid"}},
         {"step": "Context added by hooks at session start", "done": bool(starts),
-         "evidence": ", ".join(f"{k} ({n(c)})" for k, c in starts.most_common(5)) or "none.",
+         "evidence": ", ".join(f"{k} ({n(c)})" for k, c in starts.most_common(5)) or "none yet.",
          "how": {"source": LOGS + "; hook attachment records on SessionStart and UserPromptSubmit",
                  "rule": "the [tag] at the start of the text a hook added names who sent it", "confidence": "heuristic",
                  "caveat": "a hook that adds text without a [tag] shows as 'unnamed hook'"}},
         {"step": "Working modes you switch between", "done": bool(mode_cmds),
-         "evidence": ", ".join(f"/{k} ({c})" for k, c in mode_cmds.items()) or "none used this month.",
+         "evidence": ", ".join(f"/{k} ({c})" for k, c in mode_cmds.items()) or "none yet this month.",
          "how": {"source": LOGS + "; local_command records", "rule": "commands named ask, orchestrate, align, interview, or modes:*",
-                 "confidence": "heuristic", "caveat": "a fixed list of this kit's mode names: other people's modes would be missed"}},
+                 "confidence": "heuristic", "caveat": "we match a fixed list of mode names, so modes with other names aren't counted"}},
         {"step": "Tools loaded only when needed", "done": bool(tools.get("ToolSearch")),
          "evidence": f"ToolSearch {n(tools.get('ToolSearch', 0))} times; /add-dir {cmds.get('add-dir', 0)}.",
          "how": {"source": LOGS, "rule": "ToolSearch tool calls", "confidence": "solid",
@@ -380,24 +380,24 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
     used_rows.sort(key=lambda r: -int(r[2].replace(",", "")))
     images = marks.get("image", 0)
     out.append({
-        "part": P, "id": "builtins", "title": "Built-in features: what you lean on",
+        "part": P, "id": "builtins", "title": "Built-in features you use",
         "lead": f"You use {len(used_rows)} of Claude Code's {len(BUILTIN_TOOLS) + len(BUILTIN_COMMANDS)} built-in features this month; "
-                f"{len(never)} you never touched.",
+                f"{len(never)} you haven't used yet.",
         "how": {"source": LOGS + "; catalogue of built-ins from the claude-code-guide agent (docs + transcripts, Claude Code 2.1.303)",
-                "rule": "a tool counts when the agent called it; a command when the person typed it",
+                "rule": "a tool counts when the agent called it; a command when you typed it",
                 "raw": f"{len(BUILTIN_TOOLS)} tools + {len(BUILTIN_COMMANDS)} commands in the catalogue",
                 "confidence": "solid",
-                "caveat": "CLI flags (claude -r, --worktree, --agent …) and settings leave no per-use record, so they are not in this count",
+                "caveat": "CLI flags (claude -r, --worktree, --agent …) and settings leave no per-use record, so they aren't in this count",
                 "code": "orchestration.BUILTIN_TOOLS · BUILTIN_COMMANDS"},
         "points": [
-            pt(f"Shows instead of tells: {n(images)} screenshots or images pasted into prompts." if images else "",
+            pt(f"You show instead of tell: {n(images)} screenshots or images pasted into prompts." if images else "",
                LOGS, "imagePasteIds on user records", str(images)),
-            pt(f"Had an advisor model double-checking in {sum(1 for s in human if s.marks.get('advisor'))} sessions."
+            pt(f"You had an advisor model double-check in {sum(1 for s in human if s.marks.get('advisor'))} sessions."
                if marks.get("advisor") else "", LOGS, "assistant records carrying advisorModel",
                f"{marks.get('advisor', 0)} records", "solid"),
-            pt("Never touched this month: " + ", ".join(never) + "." if never else "",
+            pt("Not yet used this month: " + ", ".join(never) + "." if never else "",
                LOGS, "catalogue entries with zero uses in the window", f"{len(never)} of {len(BUILTIN_TOOLS) + len(BUILTIN_COMMANDS)}",
-               "solid", "'never' means not in these logs: used on another machine or before the window is invisible"),
+               "solid", "'not yet used' means not in these logs: use on another machine, or before this window, isn't visible"),
         ],
         "table": {"caption": "Built-ins you use, most first", "columns": ["Feature", "What it's for", "Times", "Last used"],
                   "rows": used_rows[:25]},
@@ -411,23 +411,23 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
     from scan import own_code_runs
     code_runs = own_code_runs(by)
     ladder = [
-        {"step": "Chats with an agent", "done": T > 0, "evidence": f"{n(T)} sessions typed in."},
-        {"step": "Configures it", "done": bool(us.get("permissions", {}).get("allow") or us.get("permissions", {}).get("deny")
+        {"step": "You chat with an agent", "done": T > 0, "evidence": f"{n(T)} sessions you typed in."},
+        {"step": "You configure it", "done": bool(us.get("permissions", {}).get("allow") or us.get("permissions", {}).get("deny")
                                                or any(r.get("claude_md_lines") for r in repos)),
          "evidence": f"permission rules, instruction files in {sum(1 for r in repos if r.get('claude_md_lines'))} projects."},
-        {"step": "Extends it with others' tools", "done": bool(S["plugins"]["installed"] or own["skills"]),
+        {"step": "You extend it with tools from others", "done": bool(S["plugins"]["installed"] or own["skills"]),
          "evidence": f"{len(S['plugins']['installed'])} plugins, {sum(1 for i in own['skills'] if i.get('is_symlink'))} installed skills, "
                      f"{len(H['mcp_servers_used'])} MCP servers used."},
-        {"step": "Builds their own", "done": bool(written or plugins_local),
-         "evidence": f"{written} own skills and agents, {plugins_local} plugins from their own marketplace folder, "
+        {"step": "You build your own", "done": bool(written or plugins_local),
+         "evidence": f"{written} own skills and agents, {plugins_local} plugins from your own marketplace folder, "
                      f"{sum((us.get('hooks_by_event') or {}).values())} own hooks."},
-        {"step": "Orchestrates several agents", "done": H["sessions"]["max_sessions_open_at_once"] >= 3 or H_N >= 50,
+        {"step": "You orchestrate several agents", "done": H["sessions"]["max_sessions_open_at_once"] >= 3 or H_N >= 50,
          "evidence": f"up to {H['sessions']['max_sessions_open_at_once']} sessions at once, {n(H_N)} helpers, {n(sent)} messages between sessions."},
-        {"step": "Runs agents without being there", "done": code_runs >= 20,
-         "evidence": f"{n(code_runs)} runs started by their own code; {E['scheduled_fires']} on a schedule; {E['headless_batches']} batches."},
+        {"step": "You run agents while you're away", "done": code_runs >= 20,
+         "evidence": f"{n(code_runs)} runs started by your own code; {E['scheduled_fires']} on a schedule; {E['headless_batches']} batches."},
     ]
     ladder_how = [
-        "any session a person typed in",
+        "any session you typed in",
         "permission allow/deny rules in settings, or an instruction file in a busy repo",
         "any installed plugin or skill",
         "a skill with no install record, an agent file, a plugin from a folder marketplace on this machine",
@@ -436,11 +436,11 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
     ]
     for l, rule in zip(ladder, ladder_how):
         l["how"] = {"source": LOGS + " and files on disk", "rule": rule, "confidence": "heuristic",
-                    "caveat": "thresholds are first guesses from one machine"}
+                    "caveat": "the thresholds are early estimates from one machine"}
     reached = sum(1 for l in ladder if l["done"])
     out.append({
-        "part": P, "id": "ladder", "title": "How far the setup goes",
-        "lead": f"{reached} of {len(ladder)} steps: " + (ladder[reached - 1]["step"].lower() if reached else "not started") + ".",
+        "part": P, "id": "ladder", "title": "How your setup has grown",
+        "lead": f"{reached} of {len(ladder)} steps: " + (ladder[reached - 1]["step"].lower() if reached else "not started yet") + ".",
         "points": [],
         "ladder": ladder,
     })
@@ -455,19 +455,19 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
         {"value": str(H["sessions"]["max_sessions_open_at_once"]), "label": "open at once, at most"},
         {"value": n(H_N), "label": "helpers started"},
         {"value": n(sent + received), "label": "messages between sessions"},
-        {"value": n(code_runs), "label": "runs started by their own code"},
+        {"value": n(code_runs), "label": "runs started by your own code"},
     ]
     if cost:
-        glance.append({"value": f"${n(round(cost))}", "label": f"of sessions they typed in, at API prices ({days_of(H)} days)"})
+        glance.append({"value": f"${n(round(cost))}", "label": f"of sessions you typed in, at API prices ({days_of(H)} days)"})
 
     style = (
-        f"Works like a conductor: about {round(E['sessions_typed_per_active_day'])} sessions a day, up to "
-        f"{H['sessions']['max_sessions_open_at_once']} open at once, and {ratio(sess_with, T)} of them hand work to helpers — "
+        f"You run several agents at once: about {round(E['sessions_typed_per_active_day'])} sessions a day, up to "
+        f"{H['sessions']['max_sessions_open_at_once']} open at once, and {ratio(sess_with, T)} of them hand work to helpers – "
         f"{n(H_N)} this month, {pct(bg.get('Agent', 0), H_N)}% left running in the background. "
         f"Sessions talk to each other ({n(sent + received)} messages) and live long: {came_back} picked back up after hours away, "
         f"{forked + cont} branched or carried on. "
         f"Memory is deliberate ({n(sum(mem_paths.values()))} memory writes) and context is layered, from global rules to hooks that brief "
-        f"every new session. Much of the work runs without them: {n(code_runs)} runs started by their own code."
+        f"every new session. Much of the work runs without you: {n(code_runs)} runs started by your own code."
     )
     return out, style, glance
 
@@ -477,12 +477,12 @@ def sections(scan: dict, human: list, auto: list, repo, ratio) -> tuple[list, st
 LABELS = [
     ("longest stayed open", "Longest session"), ("branched off or carried on", "Branched or continued"),
     ("Named sessions", "Session names"), ("reported back", "Reports, stops, watches"),
-    ("shell commands also ran", "Background shell"), ("choose the model", "Model per helper"),
-    ("workflow runs", "Workflows"), ("Checked who else", "Who's running"), ("named main agent", "Main agents"),
+    ("shell commands also ran", "Background shell"), ("Models set for helpers", "Model per helper"),
+    ("workflow runs", "Workflows"), ("checked who else", "Who's running"), ("named main agent", "Main agents"),
     ("launched another top-level", "Sessions launching sessions"), ("Where memory gets written", "Memory: where"),
-    ("past sessions get looked up", "Memory: lookups"), ("Carries context out", "Context carried out"),
+    ("past sessions get looked up", "Memory: lookups"), ("carry context out", "Context carried out"),
     ("folded into a summary", "Compact summaries"), ("screenshots or images", "Images"),
-    ("advisor model", "Advisor model"), ("Never touched", "Never used"),
+    ("advisor model", "Advisor model"), ("Not yet used this month", "Not yet used"),
 ]
 
 

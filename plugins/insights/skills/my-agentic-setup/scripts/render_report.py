@@ -4,19 +4,16 @@
     python3 render_report.py report.json [-o report.html]
 
 Stdlib only. Every string from the JSON is escaped; the page needs no JavaScript.
+
+This is the "Share with Proxify" view: the same scan as the member's own page, with names masked, and no grading.
+Each practice shows its facts and the question we may ask; there is no seen/signs/ask label, no tally and no
+level (ruling 2026-10-26: nothing on the member's machine reads as a score).
 """
 import argparse
 import datetime
 import html
 import json
 import sys
-
-VERDICTS = {
-    "seen": ("Seen", "Logs show it"),
-    "signs": ("Some signs", "Worth a question"),
-    "ask": ("Ask", "Logs can't tell – not a negative"),
-}
-VERDICT_ORDER = ("seen", "signs", "ask")
 
 CSS = """
 :root{
@@ -44,28 +41,17 @@ section{background:#fff;border:1px solid var(--g200);border-radius:12px;padding:
 .kpi span{font-size:14px;color:var(--g600);font-weight:400}
 .summary{font-size:18px;margin:0;padding-left:20px}
 .summary li{margin:.35em 0}
-.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.legend div{border-radius:10px;padding:12px 14px;font-size:15px;border:1px solid var(--g200)}
-.chip{display:inline-block;font-weight:500;font-size:12px;line-height:1;padding:5px 10px;border-radius:999px;border:1px solid;white-space:nowrap}
-.chip.seen,.cell.seen{background:var(--okbg);border-color:var(--okline);color:var(--ok)}
-.chip.signs,.cell.signs{background:var(--warnbg);border-color:var(--warnline);color:var(--warn)}
-.chip.ask,.cell.ask{background:var(--p25);border-color:var(--p100);color:var(--p700)}
-.legend p{margin:.3em 0 0;color:var(--g600);font-weight:400}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
-.cell{display:block;border:1px solid;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:500;line-height:1.35}
-.gridgroup{margin:0 0 14px}
-.gridgroup h3{font-size:14px;font-weight:600;color:var(--g700);margin:0 0 8px}
 .count{font-size:14px;font-weight:500;color:var(--g600);margin:-.2em 0 .6em}
 .blurb{margin:0 0 16px;color:var(--g700)}
 .practice{border:1px solid var(--g200);border-left-width:4px;border-radius:10px;padding:14px 16px;margin:0 0 10px;background:#fff;break-inside:avoid}
-.practice.seen{border-left-color:var(--ok)} .practice.signs{border-left-color:var(--warn)} .practice.ask{border-left-color:var(--p600)}
+.practice{border-left-color:var(--p600)}
+.practice .none{margin:.5em 0 0;font-size:15px;color:var(--g600);font-weight:400}
 .practice header{display:flex;gap:12px;justify-content:space-between;align-items:flex-start}
 .practice h3{margin:0;font-size:16px;font-weight:600}
 .practice ul{margin:.5em 0 0;padding-left:20px;font-size:15px;font-weight:400}
 .practice li{margin:.2em 0}
 .q{margin:.7em 0 0;padding:9px 12px;background:var(--p25);border:1px solid var(--p100);border-radius:8px;font-size:15px;color:var(--p900);font-weight:400}
 .q b{font-weight:600;color:var(--p700)}
-.practice.ask .q{background:var(--p100)}
 .rows{width:100%;border-collapse:collapse;font-size:15px}
 .rows th,.rows td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--g200);vertical-align:top}
 .rows th{font-weight:600;color:var(--g700);width:28%}
@@ -80,7 +66,7 @@ footer{color:var(--g500);font-size:13px;text-align:center;padding:0 24px 40px}
   .hero{padding:24px}
   .kpis{margin-top:12px}
   section{border-radius:0;padding:16px;margin-bottom:12px}
-  .practice,.kpi,.legend div,.cell{break-inside:avoid}
+  .practice,.kpi{break-inside:avoid}
   h2,h3{break-after:avoid}
 }
 """.strip()
@@ -102,25 +88,8 @@ def pretty_date(raw):
         return str(raw or "")
 
 
-def verdict_of(practice):
-    v = practice.get("verdict")
-    return v if v in VERDICTS else "ask"
-
-
-def count_line(practices):
-    n = {v: 0 for v in VERDICT_ORDER}
-    for p in practices:
-        n[verdict_of(p)] += 1
-    return "%d seen · %d signs · %d ask" % (n["seen"], n["signs"], n["ask"])
-
-
-def chip(verdict):
-    return '<span class="chip %s">%s</span>' % (verdict, e(VERDICTS[verdict][0]))
-
-
 def page_title(r):
-    person = (r.get("person") or "").strip()
-    return "How %s works with agents" % person if person else "How this person works with agents"
+    return "Your agentic setup, ready to share"
 
 
 def render_hero(r):
@@ -135,7 +104,7 @@ def render_hero(r):
     sep = '<span aria-hidden="true">·</span>'
     return (
         '<header class="hero"><div class="in">'
-        '<div class="eyebrow">Agentic setup report</div>'
+        '<div class="eyebrow">Share with Proxify</div>'
         '<h1>%s</h1><div class="meta">%s</div></div></header>' % (e(page_title(r)), sep.join(bits))
     )
 
@@ -159,50 +128,24 @@ def render_summary(r):
     return '<section><h2>In short</h2><ul class="summary">%s</ul></section>' % lis
 
 
-def render_legend():
-    cells = "".join("<div>%s<p>%s</p></div>" % (chip(v), e(VERDICTS[v][1])) for v in VERDICT_ORDER)
-    return '<section><h2>How to read the verdicts</h2><div class="legend">%s</div></section>' % cells
-
-
 def anchor(bi, pi):
     return "p-%d-%d" % (bi, pi)
 
 
-def render_overview(badges):
-    groups = []
-    for bi, b in enumerate(badges):
-        practices = [p for p in as_list(b.get("practices")) if isinstance(p, dict)]
-        cells = "".join(
-            '<a class="cell %s" href="#%s" title="%s">%s</a>'
-            % (verdict_of(p), anchor(bi, pi), e(VERDICTS[verdict_of(p)][0]), e(p.get("title")))
-            for pi, p in enumerate(practices)
-        )
-        groups.append(
-            '<div class="gridgroup"><h3>%s – %s</h3><div class="grid">%s</div></div>'
-            % (e(b.get("title")), e(count_line(practices)), cells)
-        )
-    return "<section><h2>At a glance</h2>%s</section>" % "".join(groups)
-
-
 def render_practice(bi, pi, p):
-    v = verdict_of(p)
     ev = as_list(p.get("evidence"))
-    ev_html = "<ul>%s</ul>" % "".join("<li>%s</li>" % e(x) for x in ev) if ev else ""
+    ev_html = ("<ul>%s</ul>" % "".join("<li>%s</li>" % e(x) for x in ev) if ev
+               else '<p class="none">Your logs don\'t cover this one, so we\'d like to hear about it from you.</p>')
     ask = p.get("ask")
-    q = '<p class="q"><b>Ask in the call:</b> %s</p>' % e(ask) if ask else ""
-    return (
-        '<article class="practice %s" id="%s"><header><h3>%s</h3>%s</header>%s%s</article>'
-        % (v, anchor(bi, pi), e(p.get("title")), chip(v), ev_html, q)
-    )
+    q = '<p class="q"><b>A question we may ask you:</b> %s</p>' % e(ask) if ask else ""
+    return ('<article class="practice" id="%s"><header><h3>%s</h3></header>%s%s</article>'
+            % (anchor(bi, pi), e(p.get("title")), ev_html, q))
 
 
 def render_badge(bi, b):
     practices = [p for p in as_list(b.get("practices")) if isinstance(p, dict)]
     body = "".join(render_practice(bi, pi, p) for pi, p in enumerate(practices))
-    return (
-        '<section><h2>%s</h2><div class="count">%s</div><p class="blurb">%s</p>%s</section>'
-        % (e(b.get("title")), e(count_line(practices)), e(b.get("blurb")), body)
-    )
+    return '<section><h2>%s</h2><p class="blurb">%s</p>%s</section>' % (e(b.get("title")), e(b.get("blurb")), body)
 
 
 def render_setup(r):
@@ -221,7 +164,7 @@ def render_lists(r):
         return '<div><h2>%s</h2><ul class="plain">%s</ul></div>' % (
             e(title), "".join("<li>%s</li>" % e(i) for i in items))
 
-    inner = box("What this report can't see", "cannot_see") + box("What's in this file", "privacy")
+    inner = box("What this report can't show yet", "cannot_see") + box("What's in this file", "privacy")
     return '<section><div class="two">%s</div></section>' % inner if inner else ""
 
 
@@ -232,13 +175,11 @@ def render(r):
         "<main>",
         render_kpis(r),
         render_summary(r),
-        render_legend(),
-        render_overview(badges),
         "".join(render_badge(bi, b) for bi, b in enumerate(badges)),
         render_setup(r),
         render_lists(r),
         "</main>",
-        "<footer>Generated on the member's machine from Claude Code's own files. Schema %s.</footer>"
+        "<footer>Generated on your machine from Claude Code's own files. Schema %s.</footer>"
         % e(r.get("schema")),
     ]
     return (
