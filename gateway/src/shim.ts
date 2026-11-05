@@ -22,7 +22,7 @@ import { command as gw } from "./command.ts"
 import { CLAUDE_ENV } from "./claude-env.ts"
 import type { Config } from "./config.ts"
 
-export const FRAGMENT_REV = 5
+export const FRAGMENT_REV = 6
 export const FRAGMENT_NAME = "05-gateway.mjs"
 /** The bash fragment rev 4 and before wrote; removed on sight. */
 export const LEGACY_FRAGMENT_NAME = "05-brain-gateway.sh"
@@ -66,9 +66,13 @@ try {
 // \`claude --account X\` / \`--prefer X\`: the gateway turns X into the one
 // account it names (/_gateway/resolve), and a /tc-acct/ or /tc-prefer/ prefix
 // is its pin grammar. Asked of the gateway, never read from the accounts file:
-// the file holds tokens, and the gateway's list is the one that routes. No
-// name back -> no CC_SHIM_ROUTED -> the shim refuses the launch rather than
-// run it on another account.
+// the file holds tokens, and the gateway's list is the one that routes.
+// \`--account\` with no name back -> no CC_SHIM_ROUTED -> the shim refuses the
+// launch rather than run it on another account. \`--prefer\` with no name back
+// (unknown, ambiguous, disabled) still routes through the gateway, unpinned:
+// the gateway's rotation picks the account. Exiting here would leave the launch
+// on claude's own login, which is the account the pool is there to rotate away
+// from, and a spent one gives "You've hit your weekly limit" mid-session.
 if (env.CC_SHIM_ACCOUNT) {
   let who = ""
   let failed = false
@@ -81,10 +85,15 @@ if (env.CC_SHIM_ACCOUNT) {
   } catch {
     failed = true
   }
-  if (failed) process.stderr.write(\`claude --account: \${why || "the gateway did not answer"}\\n\`)
-  if (!who) process.exit(0)
-  base = \`\${base}/\${env.CC_SHIM_ACCOUNT_SOFT ? "tc-prefer" : "tc-acct"}/\${who}\`
-  env.CC_SHIM_ROUTED = who
+  const soft = Boolean(env.CC_SHIM_ACCOUNT_SOFT)
+  const flag = soft ? "--prefer" : "--account"
+  if (failed) process.stderr.write(\`claude \${flag}: \${why || "the gateway did not answer"}\${soft ? " — the gateway picks the account" : ""}\\n\`)
+  if (who) {
+    base = \`\${base}/\${soft ? "tc-prefer" : "tc-acct"}/\${who}\`
+    env.CC_SHIM_ROUTED = who
+  } else if (!soft) {
+    process.exit(0)
+  }
 }
 
 env.ANTHROPIC_BASE_URL = base

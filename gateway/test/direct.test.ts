@@ -470,6 +470,12 @@ test("direct: `claude --account X` resolves a partial name to the one account, a
     assert.equal(await launch({ CC_SHIM_ACCOUNT: "acme" }), `${base}/tc-acct/work@acme.io|work@acme.io`)
     assert.equal(await launch({ CC_SHIM_ACCOUNT: "me@", CC_SHIM_ACCOUNT_SOFT: "1" }), `${base}/tc-prefer/me@home.io|me@home.io`)
     assert.equal(await launch({ CC_SHIM_ACCOUNT: "nobody" }), ' !claude --account: no account matches "nobody"')
+    // --prefer on an account it cannot route (here disabled) still goes through
+    // the gateway, unpinned: claude's own login would be the spent account.
+    assert.equal(
+      await launch({ CC_SHIM_ACCOUNT: "old@", CC_SHIM_ACCOUNT_SOFT: "1" }),
+      `${base}| !claude --prefer: old@home.io is disabled — cc-gateway account enable old@home.io — the gateway picks the account`,
+    )
     assert.equal(await launch({}), `${base}|`)
   })
   assert.equal(up.seen.length, 0)
