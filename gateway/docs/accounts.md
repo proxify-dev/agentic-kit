@@ -76,7 +76,8 @@ spend another account's quota. `cc-gateway env --account X` prints the same envi
 
 With cc-shim, `claude --account X` does the same: cc-shim takes the flag off the command line, and its
 `05-gateway.mjs` fragment resolves X and points the launch at `/tc-acct/<name>` (`--prefer X`:
-`/tc-prefer/<name>`, which may rotate away). A bare `--account` lists the enabled accounts through
+`/tc-prefer/<name>`, which may rotate away; a `--prefer` name that does not resolve, or names a
+disabled account, still goes through the gateway, unpinned, so rotation picks the account). A bare `--account` lists the enabled accounts through
 `cc-gateway account choose`, which prints the menu on stderr and only the chosen name on stdout.
 
 A standing pin for every request is the config's `account` field (or `AK_GATEWAY_ACCOUNT` in the
