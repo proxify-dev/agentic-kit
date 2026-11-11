@@ -85,6 +85,29 @@ class _home_as:
 
 
 CACHE_HOURS = 6   # live sessions keep adding files; a few hours stale is fine. Age counts from when the cache was built.
+_CACHE_FILE = re.compile(r"^[0-9a-f]{16}\.(state\.)?pkl(\.\d+\.tmp)?$")   # <sig>.pkl, <sig>.state.pkl, and their temp files
+
+
+def _prune_cache(folder):
+    """Delete the cache files no run will read again: every one last written more than CACHE_HOURS ago (a state file's
+    build time is never later than its write time, so it has expired too), and the temp files a stopped run left.
+    Both caches are keyed on the code, so each version of the tool writes a new pair (~1.7 GB on a laptop with a busy
+    month of logs) and, until 11-11, none was ever deleted: 24 GB on the builder's laptop after one week of changes,
+    and one more pair per release on every member's. Only names this cache writes are touched."""
+    cutoff = time.time() - CACHE_HOURS * 3600
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return
+    for name in names:
+        if not _CACHE_FILE.match(name):
+            continue
+        p = os.path.join(folder, name)
+        try:
+            if os.path.getmtime(p) < cutoff:
+                os.remove(p)
+        except OSError:   # another run removed or replaced it first
+            pass
 TYPED = ("typed", "queued")
 INJECTED = ("<command-name>", "<command-message>", "<local-command", "<task-notification>", "<teammate-message",
             "<system-reminder>", "<cross-session-message", "Caveat:", "[Request interrupted")
@@ -355,6 +378,7 @@ class Laptop:
         self.__dict__.update(idx)
         if self._cache:
             os.makedirs(os.path.dirname(cpath), exist_ok=True)
+            _prune_cache(os.path.dirname(cpath))   # before the write: a nearly full disk gets the space back first
             tmp = cpath + f".{os.getpid()}.tmp"
             with open(tmp, "wb") as f:
                 pickle.dump(idx, f)

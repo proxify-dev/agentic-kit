@@ -13,7 +13,8 @@ confirms or raises, never a final score. A person who wants the copy with no lev
 Say it is a beta when you start.
 
 It is read-only. It reads `~/.claude` and the git repos Claude Code ran in, and writes only into the run folder
-(`~/agentic-setup/`), the page beside it, and `archive/` there (each rebuild keeps the page it replaces). It installs nothing and changes no repo. The scan sends
+(`~/agentic-setup/`), the page beside it, and `archive/` there (each rebuild keeps the page it replaces), plus a
+speed-up cache in `~/.cache/setup-snapshot/portable/` (up to a few GB; used for 6 hours, then deleted by the next run). It installs nothing and changes no repo. The scan sends
 nothing anywhere. The one AI pass is a Claude Code subagent in this very session, so the digest it reads goes
 through Claude Code like any chat does, nowhere else. Opening the page in a browser fetches the Inter font from
 Google Fonts when online. The page sends one thing, and only when the person presses Send on its "Share with Proxify"
@@ -133,7 +134,7 @@ plainly that this is an early trial:
 - Claude Code keeps session logs 30 days unless `cleanupPeriodDays` says otherwise.
 
 If something on the page looks wrong to them, ask what they really do and write it down: that is the feedback this
-trial is for. They can delete `~/agentic-setup/` whenever they like. Nothing has been sent unless they press Send on the page.
+trial is for. They can delete `~/agentic-setup/` and `~/.cache/setup-snapshot/` whenever they like. Nothing has been sent unless they press Send on the page.
 
 ## 5. Sharing with Proxify
 
