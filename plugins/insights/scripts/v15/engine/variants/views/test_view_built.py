@@ -1,99 +1,124 @@
 #!/usr/bin/env python3
-"""'What you've built': each row says what the part is, whether it is theirs and ran, and why it matters; the parts not seen
-fold behind one line; the per-skill depth sits under the skills row. Made-up board rows, the fields board.py writes.
-Run: python3 -m unittest test_view_built   (from this folder; standard library only)"""
+"""'What you've built' answers "what have I built for my agent, and does it get used?" (his 11-11 on the tab before:
+"really hard to read"): a tile per kind they have, then each kind sorted by use with the unused folded, a skill's reach
+as four plain steps, hooks pinned on a session's life, rule files counted only where the count holds. Made-up board rows
+with the `list` board.py writes. Run: python3 -m unittest test_view_built   (from this folder; standard library only)"""
 import html
 import os
+import re
 import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import view_built
 
-SUMMARY = "4 skills: depth 4 0 · 3 1 · 2 1 · 1 1; not used 1; evals not seen running 0; 1 flagged"
+
+def sk(name, step, uses, used=True, why="", about=""):
+    return {"name": name, "kind": "skill", "step": step, "uses": uses, "used": used, "why": why, "about": about, "copies": 1}
 
 
-def sk(name, depth, why, used=True, big=False, lines=40):
-    return {"name": name, "depth": depth, "used": used, "why": why, "lines": lines, "too_big_one_file": big,
-            "try_next": "split the parts only some tasks need into references" if big else "",
-            "live_context_syntax": False, "has_evals_not_seen_running": False, "evals_note": ""}
+SKILLS = [sk("deploy-secret", 3, 12, why="its script scripts/deploy-secret.sh was run after it loaded", about="Ships a secret."),
+          {**sk("review", 2, 30, why="loaded 5x; the agent opened one of its own files in 2 of them (refs/review-rules.md), not in all"), "copies": 2},
+          sk("bigone", 1, 4), sk("twin", None, None, used=None, why="an installed skill has the same name"),
+          sk("dusty", None, 0, used=False)] + [sk(f"s{i}", 1, 1) for i in range(8)]
+SKILLS.append({"name": "ship", "kind": "command", "uses": 0, "used": False, "about": "Ship it.", "copies": 2})
+HOOKS = [{"name": "guard", "plugin": "", "events": ["PreToolUse"], "runs_at": {"PreToolUse": 900}, "uses": 900, "copies": 1},
+         {"name": "notes", "plugin": "kit", "events": ["SessionStart", "UserPromptSubmit"], "runs_at": {"SessionStart": 40},
+          "uses": 40, "copies": 1},
+         {"name": "idle-check", "plugin": "", "events": ["Stop"], "runs_at": {}, "uses": 0, "copies": 1},
+         {"name": "stop-log", "plugin": "", "events": ["Stop"], "runs_at": {"Stop": 20}, "uses": 20, "copies": 1}]
 
 
-SKILLS = [
-    sk("deploy-secret", 3, "its script scripts/deploy-secret.sh was run after it loaded"),
-    sk("review", 2, "loaded 5x; the agent opened one of its own files in 2 of them (refs/review-rules.md), not in all"),
-    sk("bigone", 1, "one file, read whole in all 3 loads", big=True, lines=482),
-    sk("dusty", None, "not used in the last 30 days", used=False),
-]
+def row(id_, state="built and used", items=0, calls=0, unit="calls", lst=None, **more):
+    r = {"id": id_, "name": id_, "kind": "build", "state": state, "items": items, "calls": calls, "unit": unit,
+         "examples": [], "source": f"inventory.json: {id_}", "why": "", **more}
+    if lst is not None:
+        r["list"] = lst
+    return r
 
 
-def page(row_extra, member=False, masked=False, more=()):
-    row = {"id": "cap-skills-own", "name": "Skills and commands you wrote", "kind": "build", "state": "built and used",
-           "items": 4, "calls": 9, "unit": "calls", "examples": ["deploy-secret"], "source": "anatomy.json", "why": "4 skills", **row_extra}
+def page(rows, member=True, masked=False, **ctx):
     return view_built.render({"esc": html.escape, "member": member, "masked": masked,
-                              "v15_result": {"board": {"rows": [row, *more]}}})
+                              "v15_result": {"board": {"rows": rows}}, **ctx})
 
 
-def other(id_, name, state, kind="build", items=0, calls=0, unit="runs", why="", examples=()):
-    return {"id": id_, "name": name, "kind": kind, "state": state, "items": items, "calls": calls, "unit": unit,
-            "examples": list(examples), "source": "inventory.json", "why": why}
+def text(out):
+    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", out)))
 
 
-class SkillDepth(unittest.TestCase):
-    def test_summary_and_used_skills_deepest_first(self):
-        out = page({"skills": SKILLS, "skills_summary": SUMMARY})
-        # plain words counted from the list, not the board's code-like summary (his 11-06)
-        self.assertIn("4 skills; 3 used in the last 30 days: 1 run code · 1 use progressive disclosure · 1 read one file; "
-                      "1 too big for one file.", out)
-        self.assertNotIn("depth 4 0", out)
-        self.assertIn("Depth 3 · runs code", out)
-        self.assertIn("Depth 2 · progressive disclosure", out)
-        self.assertLess(out.index("deploy-secret</span>"), out.index("review</span>"))
+FULL = [row("cap-skills-own", items=14, calls=47, lst=SKILLS), row("cap-hooks", items=3, calls=940, unit="runs", lst=HOOKS),
+        row("cap-subagents", "built, not used lately", items=1, lst=[{"name": "scout", "about": "Reads", "uses": 0, "model": "haiku"}]),
+        row("cap-mcp", "uses others'", items=6, calls=902), row("cap-evals", "not seen"), row("cap-event-runs", "can't tell",
+                                                                                             why="the logs don't say who started them")]
+MAP = {"projects": [{"root": "~/shop", "typed_sessions": 120, "totals": {"always_files": 2, "scoped_files": 3, "on_demand_files": 7}},
+                    {"root": "~/ops", "typed_sessions": 9, "totals": {"always_files": 1, "scoped_files": 0, "on_demand_files": 0}}],
+       "user": {"totals": {"always_files": 1}}}
 
-    def test_one_file_skills_fold_away_and_the_count_says_how_many_are_commands(self):
-        flat = [{"name": f"s{i}", "depth": 1, "used": True, "why": "one file, read whole in all 2 loads"} for i in range(5)]
-        out = page({"skills": SKILLS + flat, "skills_summary": SUMMARY, "items": 12})
-        self.assertIn("Show 5 that read one file", out)
-        self.assertLess(out.index("Show 5 that read one file"), out.index("s0</span>"))
-        self.assertIn("(the rest of the 12 are commands)", out)
 
-    def test_a_name_shared_with_an_installed_skill_is_neither_used_nor_one_file(self):
-        shared = [{"name": "twin", "depth": None, "used": None, "why": "an installed skill has the same name"}]
-        out = page({"skills": SKILLS + shared, "skills_summary": SUMMARY})
-        self.assertIn("Show 1 we can't tell apart", out)
-        self.assertIn(html.escape("1 can't tell apart from an installed skill with the same name"), out)
-        self.assertIn("3 used in the last 30 days", out)   # the shared name is not counted as used
+class Built(unittest.TestCase):
+    def test_at_a_glance_a_tile_per_kind_they_have(self):
+        out = page(FULL, setup_map=MAP)
+        tiles = re.findall(r'<a class="tile" href="#built-(\w+)"><span class="bt-num">([\d,]+)</span><span class="lab">([^<]+)', out)
+        self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "commands you wrote"),
+                                 ("rules", "6", "rule files in your 2 busiest projects"), ("agents", "1", "sub-agents you defined"),
+                                 ("hooks", "4", "hooks you set up")])
+        self.assertIn("<b>12</b> used this month", out)    # used, and a name an installed skill also has: not idle
+        self.assertIn("<b>3</b> ran this month", out)
+        self.assertIn("<b>129</b> sessions ran with them", out)
+        for kind in ("skills", "commands", "rules", "agents", "hooks"):   # a tile opens its section
+            self.assertIn(f'<section class="kd" id="built-{kind}">', out)
+        self.assertNotIn('href="#built-evals"', out)                     # nothing of theirs: no tile
 
-    def test_flag_shows_with_next_step_and_is_not_a_depth(self):
-        out = page({"skills": SKILLS, "skills_summary": SUMMARY})
-        self.assertIn("482 lines in one file", out)
-        self.assertIn("split the parts only some tasks need into references", out)
-        self.assertIn("Depth 1 · reads one file", out)  # the flagged skill keeps its depth
+    def test_a_kind_lists_its_things_by_use_and_folds_the_unused(self):
+        out = page(FULL)
+        skills = out[out.index('id="built-skills"'):out.index('id="built-commands"')]
+        first = skills[:skills.index("Show all")]
+        self.assertEqual(first.count('<li class="it">'), view_built.TOP)
+        self.assertLess(first.index(">review<"), first.index(">deploy-secret<"))   # 30 uses before 12
+        self.assertIn("Show all 12", skills)
+        self.assertIn("Not used in 30 days (1)", skills)
+        self.assertLess(skills.index("Not used in 30 days"), skills.index("dusty"))
+        self.assertIn("can't tell", skills)                                    # a shared name is listed, never hidden
+        self.assertIn("Ships a secret.", skills)                               # their own description, one line
+        # a skill's reach in plain words, its detail in the tooltip; no "Depth N" and no legend paragraph
+        self.assertIn("Runs code</span>", skills)
+        self.assertIn("Opens more files when needed</span>", skills)
+        self.assertIn("refs/review-rules.md", skills)
+        for gone in ("Depth", "progressive disclosure", "evals seen running"):
+            self.assertNotIn(gone, out)
+        self.assertIn('review<small title="2 copies on this laptop, counted once">×2', out)   # copies of one skill are one
 
-    def test_unused_collapsed_behind_a_toggle(self):
-        out = page({"skills": SKILLS, "skills_summary": SUMMARY})
-        self.assertIn("Show 1 not used", out)
-        self.assertIn('<details class="sknu">', out)
-        self.assertNotIn("<details class=\"sknu\" open", out)
-        self.assertLess(out.index("review</span>"), out.index("Show 1 not used"))
-        self.assertLess(out.index("Show 1 not used"), out.index("dusty"))
+    def test_hooks_are_pinned_on_a_sessions_life(self):
+        out = page(FULL)
+        hooks = out[out.index('id="built-hooks"'):out.index('id="built-agents"')] if 'id="built-agents"' in out[out.index('id="built-hooks"'):] else out[out.index('id="built-hooks"'):]
+        moments = re.findall(r'<span class="mo">([^<]+)', hooks)
+        self.assertEqual(moments, ["Session starts", "You send a message", "Before a tool runs", "After it runs", "Agent stops", "Session ends"])
+        self.assertRegex(hooks, r"Before a tool runs.*?<span>guard</span><b>900</b>")
+        self.assertRegex(hooks, r"Session starts.*?<span>notes</span><b>40</b>")
+        self.assertRegex(hooks, r'Agent stops</span>.*?<span>stop-log</span><b>20</b>.*?class="hk-chip idle"[^>]*><span>idle-check')
+        # where the records count no runs, the hook is drawn with no number and the moment says so (never "0")
+        self.assertRegex(hooks, r"You send a message<small>runs not counted</small>.*?<span>notes</span></span>")
 
-    def test_the_persons_own_page_names_their_skills(self):
-        # a tester, 11-09: "own-skill-N" on her own laptop told her nothing. Only the copy made to leave the laptop masks
-        out = page({"skills": SKILLS, "skills_summary": SUMMARY}, member=True)
-        self.assertIn("deploy-secret</span>", out)
-        self.assertIn("refs/review-rules.md", out)
-        self.assertNotIn("own-skill-", out)
+    def test_rule_files_are_counted_only_where_the_count_holds(self):
+        rows = FULL + [row("cap-instructions", items=1632, calls=593, unit="sessions",
+                           why="1632 instruction files of yours in 19 projects")]
+        out = page(rows, setup_map=MAP)
+        rules = out[out.index('id="built-rules"'):out.index('id="built-agents"')]
+        self.assertNotIn("1632", out)
+        self.assertIn("2 load in every session · 3 load in their folder · 7 docs opened when needed", rules)
+        self.assertIn("Plus 1 file in your user folder", rules)
+        self.assertIn("can't yet tell rule files you wrote from copies", rules)
+        self.assertNotIn('href="#built-rules"', page(rows))                   # no map: no count to show
 
-    def test_masked_copy_hides_skill_and_file_names(self):
-        out = page({"skills": SKILLS, "skills_summary": SUMMARY}, member=True, masked=True)
-        for leaked in ("deploy-secret", "review-rules", "bigone", "dusty", "scripts/", "refs/", ".md", ".sh"):
-            self.assertNotIn(leaked, out)
-        self.assertIn("own-skill-1", out)
-        self.assertIn("own-skill-4", out)
-        self.assertIn("its script was run after it loaded", out)
-        self.assertIn("the agent opened one of its own files in 2 of them, not in all", out)
-        self.assertIn("Depth 3 · runs code", out)  # depth and the flag stay for the member
+    def test_the_persons_own_page_names_their_things_the_masked_copy_does_not(self):
+        own = page(FULL, setup_map=MAP)
+        for name in ("deploy-secret", "guard", "scout", "shop"):
+            self.assertIn(name, own)
+        masked = page(FULL, masked=True, setup_map=MAP)
+        for leaked in ("deploy-secret", "Ships a secret.", "refs/review-rules.md", "scripts/deploy-secret.sh", "guard", "scout", ">shop<"):
+            self.assertNotIn(leaked, masked)
+        for kept in ("own-skill-1", "own-hook-1", "own-sub-agent-1", "project-1", "Runs code</span>", "<b>900</b>"):
+            self.assertIn(kept, masked)
 
     def test_member_mask_keeps_numbers_and_live_context(self):
         self.assertEqual(view_built._mask_why("`claude plugin eval` was run on the plugin that holds it (2x) and 1 headless run that "
@@ -101,55 +126,39 @@ class SkillDepth(unittest.TestCase):
                          "`claude plugin eval` was run on the plugin that holds it (2x) and 1 headless run that "
                          "loaded it was given a prompt written in an eval or test file of theirs")
         self.assertIn("(!`...`)", view_built._mask_why("its SKILL.md runs a command when it loads (!`...`)"))
+        self.assertEqual(view_built._mask_why("its script scripts/x.sh was run after it loaded"), "its script was run after it loaded")
 
-    def test_skill_called_like_a_word_does_not_damage_the_sentence(self):
-        out = page({"skills": [sk("file", 1, "one file, read whole in all 3 loads")], "skills_summary": "1 skill"}, member=True, masked=True)
-        self.assertIn("one file, read whole in all 3 loads", out)
-
-    def test_a_row_says_what_it_is_whether_it_is_theirs_and_ran_and_why_it_matters(self):
-        out = page({"why": "4 skills and commands of yours; 9 calls in the window"}, member=True)
-        self.assertIn("Yours, and in use in the last 30 days", out)                 # whose it is and whether it ran: the group
-        self.assertIn("Claude loads one only when the task comes up.", out)         # what it is
-        self.assertIn("4 skills and commands of yours; 9 calls in the last 30 days.", out)  # the numbers, in the board's sentence
-        self.assertNotIn("in the window", out)
-        self.assertIn("Why it matters", out)
-        self.assertNotIn("how we know", out)                                        # the field a state rests on is Proxify's
-        self.assertIn("how we know", page({}))
-
-    def test_parts_not_seen_fold_behind_one_line(self):
-        gone = [other("cap-hooks", "Hooks", "not seen"), other("cap-evals", "Evals", "not seen"),
-                other("cap-mcp", "MCP servers", "uses others'", kind="use", items=6, calls=902, unit="calls",
-                      why="6 MCP servers set up; 902 calls in the window")]
-        out = page({}, member=True, more=gone)
-        self.assertIn("You built 1 part of your setup yourself, and it ran in the last 30 days. 1 part you use as others made them.", out)
-        self.assertIn("2 parts not seen on this laptop</summary>", out)
-        self.assertEqual(out.count("<details class=\"bnone\">"), 1)
-        self.assertNotIn("<details class=\"bnone\" open", out)
-        self.assertLess(out.index("2 parts not seen"), out.index(">Hooks</h4>"))   # the rows sit inside the fold
-        self.assertLess(out.index(">MCP servers</h4>"), out.index("2 parts not seen"))
-        self.assertIn("A hook makes a rule hold every time.", out)                   # what it would give them
+    def test_the_rest_folds_behind_one_line_each(self):
+        out = page(FULL)
+        t = text(out)
+        self.assertIn("In use, made by others cap-mcp · 902 calls this month", t)
+        self.assertIn("Not seen on this laptop (1)", t)
+        self.assertIn("They show whether a change to your setup made it better or worse.", t)   # what it would give
+        self.assertIn("Couldn't tell from the logs (1)", t)
+        self.assertIn("the logs don't say who started them", t)
+        self.assertEqual(out.count('<details class="bt-fold none">'), 2)
+        self.assertNotIn("How we know", out)                                   # the field a count rests on is Proxify's
+        self.assertIn("How we know", page(FULL, member=False))
 
     def test_nothing_built_says_so(self):
-        out = view_built.render({"esc": html.escape, "member": True, "v15_result": {"board": {"rows": [
-            other("cap-mcp", "MCP servers", "uses others'", kind="use", items=2, calls=5, unit="calls")]}}})
+        out = page([row("cap-mcp", "uses others'", items=2, calls=5)])
         self.assertIn("Nothing on this laptop shows a part of the setup that you built yourself yet.", out)
+        self.assertNotIn('class="tile"', out)
 
-    def test_old_run_without_the_fields_does_not_crash(self):
-        out = page({})
-        self.assertIn("Skills and commands you wrote", out)
-        self.assertNotIn("Depth", out)
-        self.assertIn("Skills and commands you wrote", page({}, member=True))
-
-    def test_old_run_summary_only(self):
-        out = page({"skills": [], "skills_summary": "depth not read in this run"})
-        self.assertIn("depth not read in this run", out)
-        self.assertNotIn("Show", out)
-
-    def test_skill_with_unknown_use_is_listed_not_hidden(self):
-        s = sk("twin", None, "an installed skill has the same name, so its uses can't be told apart", used=None)
-        out = page({"skills": [s], "skills_summary": "1 skill"})
-        self.assertIn("Depth not told", out)
-        self.assertNotIn("not used</summary>", out)
+    def test_old_runs_and_half_filled_rows_do_not_crash(self):
+        # before the board's `list`: the count from the row, the skills from their depth list, no number of uses
+        old = page([row("cap-skills-own", items=4, calls=9, skills=[{"name": "a", "depth": 3, "used": True, "why": "w"},
+                                                                    {"name": "b", "depth": None, "used": False}]),
+                    row("cap-hooks", items=2, calls=5, unit="runs", examples=["x.sh"])])
+        self.assertIn('<span class="bt-num">2</span><span class="lab">skills you wrote', old)
+        self.assertIn("Runs code</span>", old)
+        self.assertIn('<span class="bt-num">2</span><span class="lab">hooks you set up', old)
+        self.assertIn("x.sh", old)
+        for junk in ([row("cap-skills-own", lst=[{}, "x", {"name": "a"}])], [row("cap-hooks", lst=[{"name": "h", "events": None}])],
+                     [{"id": "cap-hooks", "state": "built and used"}]):
+            out = page(junk)                                                   # renders, whatever it could count
+            self.assertTrue('class="kd"' in out or "Nothing on this laptop" in out)
+        self.assertIn("not in this run", view_built.render({"esc": html.escape, "v15_result": {}}))
 
 
 if __name__ == "__main__":
