@@ -1,293 +1,500 @@
-"""What you've built: the parts of a setup, one row each, read from facts on the laptop (engine/board.py).
+"""What you've built: what the person built for their agent, and whether it got used in the last 30 days.
 
-Each row says what the part is, whether it is theirs and whether it ran, and why it matters, in sentences: on a
-tester's page (11-11) the rows were a state, a name and "6 of yours · 3 calls", and nothing said what a part is for.
-Rows are grouped by state (an icon and a word; colour only adds to them), and the parts that weren't seen fold behind
-one line instead of standing as a wall of "Not seen". What a row counts is board.py's and is not changed here.
+Why it looks like this (his 11-11 on the tab before it: "really hard to read"; on the new Review: "go further… on this
+view as well"). Every kind of thing was a long text list, with words like "Depth 3 · progressive disclosure" and a
+legend paragraph to decode them, and the rule-file line said "1632 instruction files of yours", which counted copies and
+files his tools generate. Now, in the Review's visual language:
+  1. at a glance: one tile per kind they have, a big number with what it counts and a meter of how many got used
+  2. per kind: one plain line of what it is, then the things sorted by use, the top 8 first, the unused folded in one group;
+     a skill shows how far it goes as four plain steps (reads one file → opens more files when needed → runs code →
+     tested automatically) instead of "Depth N"
+  3. hooks as a picture: a session's life as a line, each hook pinned at the moment it fires, with how often it did
+  4. rule files counted only where the count holds: the busiest projects the setup read mapped (setup-map.json), since
+     elsewhere the scan can't yet tell files they wrote from copies and generated ones (memory/scanner/issues/
+     cached-plugin-copies-counted-as-their-rule-files.md)
+What a kind counts, and its list, are board.py's (engine/board.py rows, `list`: one entry per thing, copies counted
+once), so a number and its list never disagree; nothing here decides whose a thing is.
 
-The person's own page names their things: their skills by name, up to three examples per row. ctx["masked"]
-(frame.py --masked) is the copy made to leave the laptop: a skill is own-skill-N, the files inside a `why` are
-dropped, and no row gives examples or the board's sentence (the count only). Proxify's copy adds the field each
-state rests on.
-
-Under the "Skills and commands you wrote" row the page lists the per-skill depth the board reads (engine/board.py skill_depth):
-its summary line, the skills that were used deepest first, the ones not used in the last 30 days behind a toggle. Depth is the
-depth of use, never a level of the person; the over-250-lines flag is a note with a next step, never a minus on a depth.
+The person's own page names their things. ctx["masked"] (frame.py --masked) is the copy made to leave the laptop: a
+thing is own-skill-N, project-N…, with no description, path or file name. Proxify's copy adds where each count comes from.
 """
 import html
+import os
 import re
-
 
 ORDER = 26
 TITLE = "What you've built"
-QUESTION = "Which parts of the harness have you built, which do you only use from others, and did what you built run lately?"
-QUESTION_MEMBER = "Which parts of your setup did you build yourself, and did they run in the last 30 days?"
+QUESTION = "What they built for their agent, and whether it got used in the last 30 days."
+QUESTION_MEMBER = "What you built for your agent, and whether it got used in the last 30 days."
 PROXIFY_ONLY = False
 
-# state -> (icon, word, the group's heading, kind of the left edge)
-STATE = {"built and used": ("●", "Yours, in use", "Yours, and in use in the last 30 days", "yes"),
-         "built, not used lately": ("◐", "Yours, not used lately", "Yours, but nothing shows it running in the last 30 days", "idle"),
-         "uses others'": ("⇄", "In use, made by others", "In use, made by others or built into Claude Code", "others"),
-         "not seen": ("○", "Not seen", "Not seen on this laptop", "none"),
-         "can't tell": ("?", "Couldn't tell", "Couldn't tell from the logs", "unk")}
-ORDER_OF_STATES = list(STATE)
+TOP = 8  # things shown per kind before "Show all"
 
-# row id -> (what the part is, why it matters). One sentence each, to the person, in the field's terms (labs/CLAUDE.md).
-ABOUT = {
-    "cap-skills-own": ("Instructions you wrote for a task you repeat. Claude loads one only when the task comes up.",
-                       "Know-how you would otherwise paste in stays out of every session until it is needed."),
-    "cap-skills-installed": ("Skills and plugins someone else wrote, installed here.",
-                             "Each one adds its name and description to the start of every session, so the ones you never call still take room."),
-    "cap-instructions": ("The files Claude reads at the start of a session in a project, such as CLAUDE.md.",
-                         "This is where the agent learns what it can't work out from the code. Without them you type it again."),
-    "cap-hooks": ("Scripts that run by themselves at set moments of a session: before a tool call, or when the agent stops.",
-                  "A hook makes a rule hold every time. An instruction only asks."),
-    "cap-mcp": ("Connections that give Claude tools for other systems, such as a database, Slack or a browser.",
-                "The agent fetches what it needs, so you don't paste it in. Each server also adds its tool list to the start of every session."),
-    "cap-subagents": ("Agent roles you defined, each with its own instructions, tools and model.",
-                      "Searching and reading long output happen in the sub-agent's context, so the main session stays clean."),
-    "cap-teams": ("Several agents working on one job and messaging each other.",
-                  "It fits a job whose parts need to talk to each other. It costs more than sub-agents."),
-    "cap-workflows": ("Scripts that spread one job over many sub-agents.",
-                      "A big sweep, such as an audit or a migration, gets done without filling one session's context."),
-    "cap-parallel": ("More than one session at a time, each in its own worktree (a separate working copy of the repo).",
-                     "Two pieces of work run at once and their edits don't collide."),
-    "cap-memory": ("Notes kept in files between sessions, which later sessions read.",
-                   "A new session starts knowing what the last one learned, without you explaining it again."),
-    "cap-model-routing": ("Choosing which model does which step: by typing /model, or in a sub-agent's own file.",
-                          "A fast, cheap model for searching and reading and the strongest one for judgment gives the same result for less cost and waiting."),
-    "cap-permissions": ("Rules in your settings for what Claude may do alone, must ask about, or may never do.",
-                        "Routine steps stop interrupting you, and the risky ones still wait for you."),
-    "cap-event-runs": ("Agent runs that a schedule or an event starts, not your typing.",
-                       "Work gets done while you are away."),
-    "cap-evals": ("Evals: a saved set of test cases for your own skills, sub-agents or hooks, run again after a change.",
-                  "They show whether a change to your setup made it better or worse, so you don't have to guess."),
-    "cap-own-rig": ("A script of yours that starts Claude and hands it work (a headless run: claude -p).",
-                    "The agent works through a list or a pipeline without you at the keyboard."),
-    "cap-plugins-own": ("Your skills, hooks and sub-agents packaged so they install together.",
-                        "Your setup moves to another machine, or to a teammate, in one step."),
-    "cap-sdk": ("Code of yours that runs agents through the Agent SDK.",
-                "You decide what the agent gets, when it stops and what happens with its result."),
-    "cap-mcp-write": ("An MCP server whose code is yours.",
-                      "You gave the agent a tool that didn't exist, shaped for your work."),
-    "cap-output-styles": ("A saved way for Claude to write its answers.",
-                          "Answers come in the shape you read fastest, in every session."),
-    "cap-telemetry": ("A record of what your sessions cost and did.",
-                      "You can see which runs were worth their cost."),
-}
+# kind -> (board row, the tile's words after its number, section title, what it is in one line, what a use is called)
+KINDS = [
+    ("skills", "cap-skills-own", "skills you wrote", "Skills",
+     "Instructions you wrote for a task you repeat. Claude loads one only when the task comes up.", "uses"),
+    ("commands", "cap-skills-own", "commands you wrote", "Commands",
+     "Prompts you saved to start with /name.", "uses"),
+    ("rules", "cap-instructions", "rule files in your {n} busiest projects", "Rule files",
+     "Files such as CLAUDE.md that Claude reads before you type, in the project or the folder they sit in.", "sessions"),
+    ("agents", "cap-subagents", "sub-agents you defined", "Sub-agents",
+     "Agent roles you defined, each with its own instructions, tools and model.", "launches"),
+    ("hooks", "cap-hooks", "hooks you set up", "Hooks",
+     "Scripts that run by themselves at set moments of a session. A hook makes a rule hold every time; an instruction only asks.", "runs"),
+    ("plugins", "cap-plugins-own", "plugins you wrote", "Plugins",
+     "Your skills, hooks and sub-agents packaged so they install together.", "uses"),
+    ("tools", "cap-mcp-write", "tools you built for the agent", "Tools you built for the agent",
+     "Each is an MCP server of yours: a program that gives the agent tools it didn't have.", "calls"),
+    ("programs", "cap-own-rig", "projects that script the agent", "Programs that run the agent",
+     "Scripts of yours that start Claude and hand it work, with nobody typing (headless runs).", "runs"),
+    ("evals", "cap-evals", "sets of evals you keep", "Evals",
+     "Saved test cases for your skills, sub-agents or hooks, run again after a change.", "runs"),
+    ("memory", "cap-memory", "memory stores you keep", "Memory",
+     "Notes kept in files between sessions, which later sessions read.", "reads"),
+    ("workflows", "cap-workflows", "workflows you saved", "Workflows",
+     "Scripts that spread one job over many sub-agents.", ""),
+]
+USED_WORD = {"skills": "used", "commands": "used", "agents": "launched", "hooks": "ran", "plugins": "in use",
+             "tools": "called", "programs": "ran the agent", "evals": "ran", "memory": "read", "workflows": "used"}
+# a skill's step, from board.skill_depth: how far it goes when it is used. Never a level of the person.
+STEPS = ["Reads one file", "Opens more files when needed", "Runs code", "Tested automatically"]
+STEP_TIP = ["Its SKILL.md is read whole; nothing else of it is opened.",
+            "Its own reference files are opened only in the uses that need them.",
+            "A script of its own runs after it loads, or its SKILL.md runs a command when it loads.",
+            "Evals were seen running it."]
+# a session's life, left to right; a moment is drawn only when a hook of theirs fires there, the main six always
+MOMENTS = [("Session starts", ("SessionStart",), True), ("You send a message", ("UserPromptSubmit", "UserPromptExpansion"), True),
+           ("Before a tool runs", ("PreToolUse", "PermissionRequest"), True), ("After it runs", ("PostToolUse", "PostToolUseFailure"), True),
+           ("A sub-agent starts or stops", ("SubagentStart", "SubagentStop"), False), ("Claude waits for you", ("Notification",), False),
+           ("Agent stops", ("Stop",), True), ("Before compaction", ("PreCompact",), False), ("Session ends", ("SessionEnd",), True)]
+STATE_WORD = {"built and used": "Yours, in use", "built, not used lately": "Yours, not used lately", "uses others'": "In use, made by others",
+              "not seen": "Not seen", "can't tell": "Couldn't tell"}
+# what each kind would give, for the parts not seen on this laptop (one sentence each, to the person)
+GIVES = {"cap-skills-own": "Know-how you would otherwise paste in stays out of every session until it is needed.",
+         "cap-hooks": "A hook makes a rule hold every time. An instruction only asks.",
+         "cap-subagents": "Searching and reading long output happen in the sub-agent's context, so the main session stays clean.",
+         "cap-teams": "Several agents on one job, messaging each other. It costs more than sub-agents.",
+         "cap-workflows": "A big sweep, such as an audit or a migration, gets done without filling one session's context.",
+         "cap-parallel": "Two pieces of work run at once, each in its own worktree, and their edits don't collide.",
+         "cap-memory": "A new session starts knowing what the last one learned, without you explaining it again.",
+         "cap-evals": "They show whether a change to your setup made it better or worse.",
+         "cap-own-rig": "The agent works through a list or a pipeline without you at the keyboard.",
+         "cap-plugins-own": "Your setup moves to another machine, or to a teammate, in one step.",
+         "cap-mcp-write": "You give the agent a tool that didn't exist, shaped for your work.",
+         "cap-event-runs": "Work gets done while you are away.", "cap-permissions": "Routine steps stop interrupting you.",
+         "cap-output-styles": "Answers come in the shape you read fastest.", "cap-instructions": "The agent learns what it can't work out from the code.",
+         "cap-mcp": "The agent fetches what it needs from other systems.", "cap-skills-installed": "Skills others wrote, installed here.",
+         "cap-model-routing": "A fast model for reading and the strongest one for judgment.", "cap-telemetry": "You see what your sessions cost.",
+         "cap-sdk": "You decide what the agent gets and when it stops."}
+
+_SVG = ('<svg class="{c}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+        'stroke-linejoin="round" aria-hidden="true">{d}</svg>')
+CHEV = _SVG.format(c="bt-chev", d='<path d="M6 4l4 4-4 4"/>')
 
 CSS = """
-.v-built .blede{font-size:16px;line-height:1.55;color:#15172F;max-width:68ch;margin:0 0 24px}
-.v-built h3.bgrp{display:flex;align-items:baseline;gap:8px;margin:24px 0 8px;font-size:14px;font-weight:600;color:#15172F}
-.v-built h3.bgrp i{font-style:normal;display:inline-block;width:1.2em}
-.v-built h3.bgrp span{font-weight:400;color:#667085}
-.v-built ul.brows{list-style:none;margin:0;padding:0;background:#FFFFFF;border:1px solid #EAECF0;border-radius:12px}
-.v-built .brow{padding:14px 16px;border-top:1px solid #EAECF0;border-left:3px solid #D0D5DD}
-.v-built .brow:first-child{border-top:0;border-radius:12px 12px 0 0}
-.v-built .brow:last-child{border-radius:0 0 12px 12px}
-.v-built .brow:only-child{border-radius:12px}
-.v-built .brow.yes{border-left-color:#039855}.v-built .brow.idle{border-left-color:#DC6803}
-.v-built .brow.others{border-left-color:#999AFD}.v-built .brow.unk{border-left-color:#667085}
-.v-built .bhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
-.v-built .bnm{margin:0;font-size:14px;font-weight:600;color:#15172F}
-.v-built .bct{font-size:13px;color:#475467}
-.v-built .bwhat{margin:4px 0 0;color:#344054;max-width:76ch}
-.v-built .bsaw{margin:4px 0 0;font-size:13px;color:#344054;max-width:76ch;overflow-wrap:anywhere}
-.v-built .bmat{margin:4px 0 0;font-size:13px;color:#475467;max-width:76ch}
-.v-built .bmat b,.v-built .bsaw b{font-weight:600;color:#15172F;margin-right:6px}
-.v-built details.bex{margin-top:6px}
-.v-built details.bex>summary{font-size:12px;color:#3C3ED4;width:max-content}
-.v-built .bsrc{font-size:12px;color:#667085;margin:4px 0 0;overflow-wrap:anywhere}
-.v-built details.bnone{margin:24px 0 0}
-.v-built details.bnone>summary{font-size:14px;font-weight:500;color:#3C3ED4;width:max-content}
-.v-built details.bnone>p{margin:8px 0;color:#475467;max-width:76ch}
-.v-built .bsk{margin:10px 0 0;font-size:13px;color:#344054}
-.v-built .bsk .ssum{margin:0 0 4px;font-weight:600;color:#15172F}
-.v-built .bsk .skey{margin:0 0 8px;font-size:12px;color:#667085}
-.v-built .bsk ul{list-style:none;margin:0;padding:0}
-.v-built .bsk li.sk{padding:6px 0;border-top:1px solid #EAECF0}
-.v-built .bsk .skh{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}
-.v-built .bsk .skn{font-weight:600;color:#15172F;overflow-wrap:anywhere;min-width:120px}
-.v-built .bsk .skd{white-space:nowrap;font-weight:500}
-.v-built .bsk .skd i{font-style:normal;letter-spacing:.1em;margin-right:6px;color:#3C3ED4}
-.v-built .bsk .skw{margin:2px 0 0;font-size:12px;color:#667085;overflow-wrap:anywhere}
-.v-built .bsk .skflag{margin:2px 0 0;font-size:12px;color:#B54708}
-.v-built .bsk .skflag b{font-weight:600}
-.v-built .bsk details.sknu{margin-top:8px}
-.v-built .bsk details.sknu>summary{font-size:12px;color:#3C3ED4;width:max-content;cursor:pointer}
+.v-built{font-variant-numeric:normal}
+.v-built p{margin:0}
+.v-built .bt-num,.v-built .it .u,.v-built .hk-chip b,.v-built .rf .u{font-variant-numeric:tabular-nums}
+.v-built summary{list-style:none}.v-built summary::-webkit-details-marker{display:none}
+.v-built .bt-chev{width:14px;height:14px;color:#3C3ED4;transition:transform .15s ease;flex:none}
+.v-built details[open]>summary .bt-chev{transform:rotate(90deg)}
+.v-built .bt-more>summary,.v-built .bt-fold>summary{display:inline-flex;align-items:center;gap:6px;color:#3C3ED4;font-size:13px;font-weight:500;margin-top:10px}
+
+/* at a glance */
+.v-built .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));gap:12px}
+.v-built .tile{display:grid;gap:6px;align-content:start;background:#FFFFFF;border:1px solid #EAECF0;border-radius:16px;padding:16px 18px;
+  text-decoration:none;color:inherit;transition:border-color .15s ease,box-shadow .15s ease}
+.v-built .tile:hover{border-color:#999AFD;box-shadow:0 4px 12px -6px rgba(82,88,251,.35)}
+.v-built .bt-num{font-size:36px;font-weight:600;line-height:1;letter-spacing:-.02em;color:#15172F}
+.v-built .tile .lab{font-size:13.5px;color:#475467;line-height:1.35;min-height:2.7em}
+.v-built .tile .gap{height:6px;margin-top:6px}
+.v-built .meter{height:6px;border-radius:999px;background:#EEEFFE;overflow:hidden;margin-top:6px}
+.v-built .meter i{display:block;height:100%;border-radius:999px;background:#5258FB}
+.v-built .tile .used{font-size:12.5px;color:#344054;line-height:1.4}
+.v-built .tile .used b{font-weight:600;color:#15172F}
+
+/* each kind */
+.v-built .kd{margin-top:48px;scroll-margin-top:136px}
+.v-built .kd-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.v-built .kd-h h3{font-size:18px;font-weight:600;margin:0;color:#15172F}
+.v-built .kd-h .ct{font-size:13px;color:#667085}
+.v-built .kd-what{color:#667085;margin:4px 0 14px !important;max-width:80ch}
+.v-built .lst{list-style:none;margin:0;padding:0;background:#FFFFFF;border:1px solid #EAECF0;border-radius:14px;overflow:hidden}
+.v-built .it{display:grid;grid-template-columns:minmax(140px,220px) minmax(0,1fr) auto 96px;gap:16px;align-items:center;padding:10px 16px;min-height:48px}
+.v-built .lst.nostep .it{grid-template-columns:minmax(140px,260px) minmax(0,1fr) 96px}
+.v-built .it+.it{border-top:1px solid #EAECF0}
+.v-built .it .nm{font-weight:600;color:#15172F;overflow-wrap:anywhere}
+.v-built .it .nm small{font-weight:500;font-size:11px;color:#667085;margin-left:6px;white-space:nowrap}
+.v-built .it .ab{font-size:13px;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-built .it .u{text-align:right;font-size:13px;color:#344054;white-space:nowrap}
+.v-built .it .u b{font-weight:600;color:#15172F}
+.v-built .it .u.zero{color:#949BAD}
+.v-built .step{display:flex;align-items:center;gap:8px;font-size:12px;color:#475467;white-space:nowrap;width:212px}
+.v-built .step .seg{display:flex;gap:3px}
+.v-built .step .seg i{width:14px;height:6px;border-radius:2px;background:#EAECF0}
+.v-built .step .seg i.on{background:#5258FB}
+.v-built .step.none{color:#949BAD}
+.v-built .bt-fold .lst{margin-top:8px}
+.v-built .bt-more .lst{margin-top:8px}
+.v-built .names{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.v-built .names span{font-size:12px;color:#475467;background:#FFFFFF;border:1px solid #EAECF0;border-radius:6px;padding:2px 8px}
+.v-built .note{font-size:13px;color:#667085;margin-top:10px !important;max-width:80ch}
+
+/* hooks: a session's life */
+.v-built .hk{background:#FFFFFF;border:1px solid #EAECF0;border-radius:16px;padding:24px 20px 20px;overflow-x:auto}
+.v-built .hk ol{list-style:none;margin:0;padding:0;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);position:relative}
+.v-built .hk ol::before{content:"";position:absolute;left:12px;right:12px;top:7px;height:2px;background:#D5D5FE;border-radius:2px}
+.v-built .hk li{position:relative;padding:0 4px;min-width:0}
+.v-built .hk .dot{display:block;width:16px;height:16px;border-radius:50%;background:#FFFFFF;border:2px solid #999AFD;margin-left:4px;position:relative}
+.v-built .hk li.has .dot{background:#5258FB;border-color:#5258FB}
+.v-built .hk .mo{display:block;font-size:13px;font-weight:600;color:#15172F;margin:10px 0 8px;line-height:1.3;min-height:2.6em}
+.v-built .hk li:not(.has) .mo{color:#949BAD;font-weight:500}
+.v-built .hk .mo small{display:block;font-size:11px;font-weight:500;color:#667085}
+.v-built .hk-chips{display:grid;gap:6px}
+.v-built .hk-chip{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:12px;color:#344054;background:#F5F5FF;
+  border:1px solid #DDDEFE;border-radius:8px;padding:4px 8px;min-width:0}
+.v-built .hk-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v-built .hk-chip b{font-weight:600;color:#3C3ED4}
+.v-built .hk-chip.idle{background:#FFFFFF;border-style:dashed;border-color:#D0D5DD;color:#667085}
+.v-built .hk-chip.idle b{color:#949BAD;font-weight:500}
+
+/* rule files, the rest */
+.v-built .rf .it{grid-template-columns:minmax(140px,240px) minmax(0,1fr) 120px}
+.v-built .rf .ab{white-space:normal}
+.v-built .also{margin-top:48px;display:grid;gap:10px}
+.v-built .also>div{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:#475467}
+.v-built .also b.k{font-weight:600;color:#15172F;margin-right:4px}
+.v-built .also span.c{background:#FFFFFF;border:1px solid #EAECF0;border-radius:999px;padding:3px 10px;color:#344054}
+.v-built .bt-fold.none>summary{color:#475467}
+.v-built .bt-fold ul.gv{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.v-built .bt-fold ul.gv li{font-size:13px;color:#475467}.v-built .bt-fold ul.gv b{color:#15172F;font-weight:600}
+.v-built .src{font-size:12px;color:#667085;overflow-wrap:anywhere}
+
+@media (max-width:720px){
+  .v-built .tiles{grid-template-columns:1fr 1fr;gap:8px}
+  .v-built .tile{padding:14px}
+  .v-built .bt-num{font-size:28px}
+  .v-built .tile .lab{font-size:13px}
+  .v-built .kd{margin-top:40px}
+  .v-built .it,.v-built .lst.nostep .it,.v-built .rf .it{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:10px 14px}
+  .v-built .it .ab{grid-column:1/-1;grid-row:2;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .v-built .it .step{grid-column:1/-1;grid-row:3;width:auto}
+  .v-built .it .u{grid-column:2;grid-row:1}
+  .v-built .hk{padding:16px}
+  .v-built .hk ol{grid-auto-flow:row;grid-auto-columns:auto;min-width:0;gap:14px}
+  .v-built .hk ol::before{left:7px;right:auto;top:8px;bottom:8px;width:2px;height:auto}
+  .v-built .hk li{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:12px;padding:0}
+  .v-built .hk .dot{margin:2px 0 0}
+  .v-built .hk .mo{margin:0 0 6px;min-height:0}
+  .v-built .hk .mo,.v-built .hk-chips{grid-column:2}
+  .v-built .hk-chips{display:flex;flex-wrap:wrap}
+}
 """
 
 
-def _count(r):
-    """A row's numbers in plain words: how many of their own things, and how often they ran. Numbers only, no names."""
-    bits = []
-    if r.get("items"):
-        bits.append(f'{r["items"]:,} of yours' if r.get("kind") == "build" else f'{r["items"]:,} set up')
-    if r.get("calls"):
-        bits.append(f'{r["calls"]:,} {r.get("unit") or "uses"} in the last 30 days')
-    return " · ".join(bits)
+def _n(x):
+    return f"{x:,}" if isinstance(x, int) else str(x)
 
 
-def _saw(r):
-    """The board's own sentence for the row, which carries its numbers ("5 deny or ask rules of yours; they applied in
-    588 sessions"). "The window" is the tool's word for the days of logs it read."""
-    return re.sub(r"\bin the window\b", "in the last 30 days", str(r.get("why") or "")).strip()
+def _rows(ctx):
+    b = (ctx.get("v15_result") or {}).get("board") or {}
+    return {r.get("id"): r for r in b.get("rows") or [] if isinstance(r, dict) and r.get("id")}
 
 
-# depth -> word. Depth is read from how the skill was used, never a level of the person.
-DEPTH_WORD = {1: "reads one file", 2: "progressive disclosure", 3: "runs code", 4: "evals seen running it"}
-DEPTH_KEY = ("Depth is how far a skill goes when it is used. 1 one file read whole · 2 progressive disclosure (its own files opened only in the uses that need them) · "
-             "3 runs code (a script of its own run after it loaded, or a !`command` that runs when it loads) · "
-             "4 evals seen running it (an evals run, or a headless run given a prompt from a test file).")
-_FILE_IN_PARENS = re.compile(r"\s*\((?!\d+x\)|!`)[^)]*\)")  # "(refs/a.md)" -> dropped; "(2x)" and "(!`...`)" stay
-_SCRIPT_NAME = re.compile(r"\bits script .+? (?=was run after it loaded)")
+def _items(row, kind):
+    row = row or {}
+    if row.get("list") is None and kind == "skills" and isinstance(row.get("skills"), list):
+        # a run made before the board's `list`: the per-skill depth it already had, with no count of uses
+        return [{"name": x["name"], "kind": "skill", "step": x.get("depth"), "used": x.get("used"), "why": x.get("why", "")}
+                for x in row["skills"] if isinstance(x, dict) and x.get("name")]
+    items = [x for x in row.get("list") or [] if isinstance(x, dict) and x.get("name")]
+    if kind in ("skills", "commands"):
+        items = [x for x in items if (x.get("kind") or "skill") == kind[:-1]]
+    return items
+
+
+def _in_use(x):
+    """In use in the window: the board's own flag where it gave one (a skill: a name an installed skill also has was loaded,
+    whoever's it was, and counts as in use, as on the Review's card), else a use counted."""
+    return x.get("used") is not False if "used" in x else bool(x.get("uses"))
+
+
+def _short(path):
+    home = os.path.expanduser("~")
+    path = str(path or "")
+    return "~" + path[len(home):] if path.startswith(home + os.sep) else path
+
+
+def _masked_names(kind, items):
+    stem = {"skills": "skill", "commands": "command", "agents": "sub-agent", "hooks": "hook", "plugins": "plugin",
+            "tools": "tool", "programs": "project", "evals": "evals", "memory": "memory", "workflows": "workflow"}[kind]
+    return {id(x): f"own-{stem}-{i + 1}" for i, x in enumerate(items)}
+
+
+def _rule_files(ctx):
+    """Rule files where the count holds: the projects the setup read mapped (setup-map.json), each with how many load in
+    every session, how many in their folder, and how many docs it opens when needed. None when the map isn't there."""
+    m = ctx.get("setup_map") if isinstance(ctx.get("setup_map"), dict) else None
+    if not m:
+        return None
+    projects = []
+    for p in m.get("projects") or []:
+        t = p.get("totals") if isinstance(p, dict) and isinstance(p.get("totals"), dict) else {}
+        always, scoped = int(t.get("always_files") or 0), int(t.get("scoped_files") or 0)
+        if always + scoped:
+            projects.append({"name": os.path.basename(str(p.get("root") or "").rstrip("/")) or "project", "always": always,
+                             "scoped": scoped, "docs": int(t.get("on_demand_files") or 0), "sessions": p.get("typed_sessions")})
+    u = (m.get("user") or {}).get("totals") or {}
+    return {"projects": projects, "user": int(u.get("always_files") or 0) + int(u.get("scoped_files") or 0)}
+
+
+def _plural(n, word):
+    return f"{_n(n)} {word}{'' if n == 1 else 's'}"
+
+
+# ------------------------------------------------------------------ at a glance
+
+def _kinds(ctx):
+    """The kinds they have: (kind, row, items, number, used count, tile's used line). A kind with nothing of theirs has none."""
+    rows, out = _rows(ctx), []
+    for kind, rid, label, title, what, unit in KINDS:
+        row = rows.get(rid) or {}
+        if kind == "rules":
+            rf = _rule_files(ctx)
+            if not rf or not rf["projects"]:
+                continue
+            n = sum(p["always"] + p["scoped"] for p in rf["projects"])
+            sessions = sum(int(p["sessions"] or 0) for p in rf["projects"])
+            out.append((kind, row, rf, n, None, f"<b>{_n(sessions)}</b> sessions ran with them" if sessions else "",
+                        label.format(n=len(rf["projects"])) if len(rf["projects"]) > 1 else "rule files in your busiest project"))
+            continue
+        if row.get("state") not in ("built and used", "built, not used lately"):
+            continue
+        items = _items(row, kind)
+        if kind == "commands" and not items:
+            continue
+        if kind == "programs":
+            n = len(items) or row.get("projects") or 0
+        else:
+            n = len(items) if row.get("list") is not None or items else (row.get("items") or 0)
+        if not n:
+            continue
+        used = sum(1 for x in items if _in_use(x))
+        if kind == "workflows" or not items:
+            line = f"used <b>{_n(row.get('calls') or 0)}</b> times this month" if row.get("calls") else "not used this month"
+            used = None
+        elif kind == "programs":
+            line = f"<b>{_n(row.get('calls') or 0)}</b> runs this month" if used else "none ran it this month"
+        else:
+            line = f"<b>{used}</b> {USED_WORD[kind]} this month"
+        out.append((kind, row, items, n, used, line, label))
+    return out
+
+
+def _tiles(ctx, kinds):
+    tiles = []
+    for kind, row, items, n, used, line, label in kinds:
+        meter = (f'<span class="meter" role="img" aria-label="{used} of {n} {USED_WORD[kind]} this month">'
+                 f'<i style="width:{max(2, round(100 * used / n)) if used else 0}%"></i></span>') if used is not None and n else '<span class="gap"></span>'
+        tiles.append(f'<a class="tile" href="#built-{kind}"><span class="bt-num">{_n(n)}</span><span class="lab">{label}</span>'
+                     f'{meter}<span class="used">{line}</span></a>')
+    return f'<div class="tiles">{"".join(tiles)}</div>'
+
+
+# ------------------------------------------------------------------ per kind
+
+def _step(esc, x, masked):
+    s = x.get("step")
+    if s not in (1, 2, 3, 4):
+        return '<span class="step none"><span class="seg">' + "<i></i>" * 4 + "</span>—</span>"
+    why = _mask_why(x.get("why")) if masked else str(x.get("why") or "")
+    tip = STEP_TIP[s - 1] + (f" Here: {why}." if why else "")
+    return (f'<span class="step" title="{esc(tip)}"><span class="seg" aria-hidden="true">'
+            + "".join(f'<i class="{"on" if k < s else ""}"></i>' for k in range(4)) + f"</span>{STEPS[s - 1]}</span>")
+
+
+def _item(esc, kind, x, name, unit, masked, with_step):
+    copies = x.get("copies") or 1
+    about = "" if masked else x.get("about") or ""
+    if kind == "programs":
+        k = x.get("scripts") or 0
+        about = f'{_plural(k, "script")} of yours {"starts" if k == 1 else "start"} the agent here'
+    if kind == "plugins" and x.get("on") is False and not about:
+        about = "Switched off"
+    if kind == "agents" and x.get("model") and not masked:
+        about = (about + " · " if about else "") + f"runs on {x['model']}"
+    if kind == "memory" and not masked:
+        # a store reads as the project it sits in, then where in it: ~/shop/.agents/memory -> "shop", ".agents/memory"
+        bits = _short(name).lstrip("~/").split("/")
+        name, about = (bits[0], "/".join(bits[1:])) if len(bits) > 1 else (bits[0], about)
+    uses = x.get("uses")
+    if kind == "workflows" or "uses" not in x:
+        u = '<span class="u"></span>'
+    elif uses is None:
+        u = '<span class="u zero" title="An installed skill has the same name, so its uses can\'t be told apart">can\'t tell</span>'
+    else:
+        u = f'<span class="u{" zero" if not uses else ""}"><b>{_n(uses)}</b> {unit}</span>'
+    return (f'<li class="it"><span class="nm">{esc(name)}'
+            + (f'<small title="{copies} copies on this laptop, counted once">×{copies}</small>' if copies > 1 else "") + "</span>"
+            f'<span class="ab" title="{esc(about)}">{esc(about)}</span>'
+            + (_step(esc, x, masked) if with_step else "") + u + "</li>")
+
+
+def _list(ctx, kind, items, unit):
+    esc, masked = ctx["esc"], bool(ctx.get("masked"))
+    names = _masked_names(kind, items) if masked else {id(x): str(x["name"]) for x in items}
+    with_step = kind == "skills"
+    cls = "lst" + ("" if with_step else " nostep")
+
+    def ul(xs):
+        return f'<ul class="{cls}">' + "".join(_item(esc, kind, x, names[id(x)], unit, masked, with_step) for x in xs) + "</ul>"
+    if kind == "workflows":
+        return ul(items)
+    used = sorted([x for x in items if _in_use(x)],
+                  key=lambda x: (x.get("uses") is None, -(x.get("uses") or 0), str(x["name"])))
+    idle = sorted([x for x in items if x not in used], key=lambda x: str(x["name"]))
+    out = ul(used[:TOP]) if used else ""
+    if len(used) > TOP:
+        out += f'<details class="bt-more"><summary>{CHEV}Show all {len(used)}</summary>{ul(used[TOP:])}</details>'
+    if idle:
+        word = {"hooks": "Set up, didn't run in 30 days", "plugins": "Not used in 30 days"}.get(kind, "Not used in 30 days")
+        out += (f'<details class="bt-fold"><summary>{CHEV}{word} ({len(idle)})</summary>'
+                f'<div class="names">{"".join(f"<span>{esc(names[id(x)])}</span>" for x in idle)}</div></details>')
+    return out
+
+
+def _hooks(ctx, items):
+    """A session's life as a line, each hook pinned where it fires, with how often it did there."""
+    esc, masked = ctx["esc"], bool(ctx.get("masked"))
+    names = _masked_names("hooks", items) if masked else {id(x): str(x["name"]) for x in items}
+    # Claude Code's records count a hook's runs at some moments only; elsewhere a hook is drawn where it is set up, with
+    # no number, and the moment says its runs aren't counted (a "—" there would read as "never ran")
+    counted = {e for x in items for e in (x.get("runs_at") or {})}
+    cols = []
+    for label, events, always in MOMENTS:
+        here = []
+        for x in items:
+            hit = [e for e in x.get("events") or [] if e in events]
+            if hit:
+                runs = sum(int((x.get("runs_at") or {}).get(e) or 0) for e in hit)
+                here.append((runs, x))
+        if not here and not always:
+            continue
+        here.sort(key=lambda t: (-t[0], names[id(t[1])]))
+        known = any(e in counted for e in events)
+
+        def chip(runs, x):
+            whose = f" (plugin {esc(x['plugin'])})" if x.get("plugin") and not masked else ""
+            if not known:
+                return (f'<span class="hk-chip" title="{esc(names[id(x)])}{whose}: set up here; runs at this moment aren\'t counted">'
+                        f'<span>{esc(names[id(x)])}</span></span>')
+            return (f'<span class="hk-chip{"" if runs else " idle"}" title="{esc(names[id(x)])}{whose}: '
+                    f'{_n(runs) + " runs here" if runs else "set up here, no run in 30 days"}">'
+                    f'<span>{esc(names[id(x)])}</span><b>{_n(runs) if runs else "0"}</b></span>')
+        cols.append(f'<li class="{"has" if here else ""}"><span class="dot" aria-hidden="true"></span><span class="mo">{label}'
+                    + ("" if known or not here else '<small>runs not counted</small>') + "</span>"
+                    f'<span class="hk-chips">{"".join(chip(r, x) for r, x in here)}</span></li>')
+    return (f'<div class="hk" role="group" aria-label="When your hooks run in a session"><ol>{"".join(cols)}</ol></div>'
+            '<p class="note">Each hook sits at the moment it fires, with how often it did there in the last 30 days. '
+            'A dashed one is set up there and didn\'t run.</p>')
+
+
+def _rules(ctx, rf):
+    esc, masked = ctx["esc"], bool(ctx.get("masked"))
+    rows = []
+    for i, p in enumerate(rf["projects"]):
+        name = f"project-{i + 1}" if masked else p["name"]
+        where = [f'{p["always"]} load in every session' if p["always"] else "", f'{p["scoped"]} load in their folder' if p["scoped"] else ""]
+        about = " · ".join(x for x in where if x) + (f' · {_plural(p["docs"], "doc")} opened when needed' if p["docs"] else "")
+        rows.append(f'<li class="it"><span class="nm">{esc(name)}</span><span class="ab">{esc(about)}</span>'
+                    f'<span class="u"><b>{_n(p["sessions"] or 0)}</b> sessions</span></li>')
+    user = f' Plus {_plural(rf["user"], "file")} in your user folder, read in every project.' if rf["user"] else ""
+    return (f'<div class="rf"><ul class="lst">{"".join(rows)}</ul></div>'
+            f'<p class="note">Counted in your busiest projects only.{user} Elsewhere the scan can\'t yet tell rule files you '
+            'wrote from copies and files your tools generate, so it doesn\'t guess.</p>')
+
+
+def _section(ctx, kind, row, items, n, unit, title, what, member):
+    esc = ctx["esc"]
+    if not items and kind != "rules":
+        ex = [] if ctx.get("masked") else row.get("examples") or []
+        body = f'<div class="names">{"".join(f"<span>{esc(x)}</span>" for x in ex)}</div>' if ex else ""
+    elif kind == "hooks":
+        placed = [x for x in items if x.get("events")]
+        body = _hooks(ctx, placed) if placed else ""
+        loose = [x for x in items if not x.get("events")]
+        if loose:   # a hook whose moment no record names: listed, not pinned
+            names = _masked_names(kind, items) if ctx.get("masked") else {id(x): str(x["name"]) for x in items}
+            body += (f'<details class="bt-fold"><summary>{CHEV}Moment not recorded ({len(loose)})</summary><div class="names">'
+                     + "".join(f'<span>{ctx["esc"](names[id(x)])}</span>' for x in loose) + "</div></details>")
+    elif kind == "rules":
+        body = _rules(ctx, items)
+    else:
+        body = _list(ctx, kind, items, unit)
+    src = "" if member or not row.get("source") else (
+        f'<details class="bt-fold"><summary>{CHEV}How we know</summary><p class="src">{ctx["esc"](row["source"])}</p></details>')
+    count = "" if kind == "rules" else f'<span class="ct">{_n(n)}</span>'
+    return (f'<section class="kd" id="built-{kind}"><div class="kd-h"><h3>{title}</h3>{count}</div>'
+            f'<p class="kd-what">{what}</p>{body}{src}</section>')
+
+
+# ------------------------------------------------------------------ the rest
+
+def _also(ctx, rows, member):
+    esc, out = ctx["esc"], []
+    mine = []
+    for rid, say in (("cap-output-styles", lambda r: f'{_plural(r["items"], "output style")}'
+                      + (", one switched on" if r.get("state") == "built and used" else "")),
+                     ("cap-permissions", lambda r: _plural(r["items"], "permission rule")),
+                     ("cap-model-routing", lambda r: f'{_n(r["items"])} sub-agents with their own model')):
+        r = rows.get(rid)
+        if r and r.get("state") in ("built and used", "built, not used lately") and r.get("items"):
+            mine.append(say(r))
+    if mine:
+        out.append('<div><b class="k">Also yours</b>' + "".join(f'<span class="c">{esc(x)}</span>' for x in mine) + "</div>")
+    others = []
+    for r in rows.values():
+        if r.get("state") == "uses others'":
+            others.append(f'{r.get("name")}' + (f' · {_n(r["calls"])} {r.get("unit") or "uses"} this month' if r.get("calls") else ""))
+    if others:
+        out.append('<div><b class="k">In use, made by others</b>' + "".join(f'<span class="c">{esc(x)}</span>' for x in others) + "</div>")
+    folds = []
+    for state, word in (("not seen", "Not seen on this laptop"), ("can't tell", "Couldn't tell from the logs")):
+        rs = [r for r in rows.values() if r.get("state") == state]
+        if rs:
+            lis = "".join(f'<li><b>{esc(r.get("name"))}</b>: '
+                          + esc(r.get("why") if state == "can't tell" and not ctx.get("masked") else GIVES.get(r.get("id"), "")) + "</li>"
+                          for r in rs)
+            folds.append(f'<details class="bt-fold none"><summary>{CHEV}{word} ({len(rs)})</summary><ul class="gv">{lis}</ul></details>')
+    if not out and not folds:
+        return ""
+    return '<section class="also">' + "".join(out) + "".join(folds) + "</section>"
+
+
+def render(ctx):
+    ctx = {**ctx, "esc": ctx.get("esc") or html.escape}
+    rows = _rows(ctx)
+    if not rows:
+        return '<p class="empty">not in this run</p>'
+    member = ctx.get("member")
+    kinds = _kinds(ctx)
+    out = []
+    if kinds:
+        out.append(_tiles(ctx, kinds))
+    else:
+        out.append('<p class="note">Nothing on this laptop shows a part of the setup that you built yourself yet.</p>')
+    meta = {k: (t, w, u) for k, _, _, t, w, u in KINDS}
+    for kind, row, items, n, used, line, label in kinds:
+        title, what, unit = meta[kind]
+        out.append(_section(ctx, kind, row, items, n, unit, title, what, member))
+    out.append(_also(ctx, rows, member))
+    return "".join(out)
 
 
 def _mask_why(why):
     """A skill's `why` on the masked copy: the files it names are dropped (board.py puts a file only inside parentheses or after
     "its script"), so no skill or file name of theirs leaves the laptop. Words of the sentence are never matched against skill names:
     a skill called `file` or `run` would damage the sentence."""
-    return _SCRIPT_NAME.sub("its script ", _FILE_IN_PARENS.sub("", str(why or ""))).strip()
-
-
-def _skill(esc, sk, n, masked):
-    d = sk.get("depth")
-    name = f"own-skill-{n}" if masked else sk.get("name") or ""
-    why = _mask_why(sk.get("why")) if masked else str(sk.get("why") or "")
-    if d in DEPTH_WORD:
-        depth = f'<span class="skd"><i aria-hidden="true">{"●" * d}{"○" * (4 - d)}</i>Depth {d} · {esc(DEPTH_WORD[d])}</span>'
-    else:
-        depth = '<span class="skd"><i aria-hidden="true">?</i>Depth not told</span>'
-    flag = ""
-    if sk.get("too_big_one_file"):
-        flag = (f'<p class="skflag"><b><span aria-hidden="true">⚠</span> Flag:</b> {int(sk.get("lines") or 0):,} lines in one file '
-                f'with nothing else. Try next: {esc(sk.get("try_next") or "")}.</p>')
-    note = f'<p class="skw">{esc(sk["evals_note"])}</p>' if sk.get("evals_note") else ""
-    return (f'<li class="sk"><div class="skh"><span class="skn">{esc(name)}</span>{depth}</div>'
-            f'<p class="skw">{esc(why)}</p>{flag}{note}</li>')
-
-
-def _plain_summary(skills, items):
-    """The summary in plain words, counted from the list itself (his 11-06: "depth 4 0 · 3 2" read like code). The row's
-    count holds skills AND commands, so the line says how many of them are skills."""
-    used = [sk for sk in skills if sk.get("used") is True]
-    by = {d: sum(1 for sk in used if sk.get("depth") == d) for d in (4, 3, 2, 1)}
-    unsure = sum(1 for sk in skills if sk.get("used") is None)
-    parts = [f"{by[4]} with evals seen running it" if by[4] else "",
-             f"{by[3]} run code" if by[3] else "",
-             f"{by[2]} use progressive disclosure" if by[2] else "",
-             f"{by[1]} read one file" if by[1] else ""]
-    head = f"{len(skills)} skills" + (f" (the rest of the {items:,} are commands)" if items and items > len(skills) else "")
-    line = f"{head}; {len(used)} used in the last 30 days: " + (" · ".join(x for x in parts if x) or "none with a depth told")
-    flagged = sum(1 for sk in skills if sk.get("too_big_one_file"))
-    evals_idle = sum(1 for sk in skills if sk.get("has_evals_not_seen_running"))
-    extra = [f"{unsure} can't tell apart from an installed skill with the same name" if unsure else "",
-             f"{flagged} too big for one file" if flagged else "",
-             f"{evals_idle} with evals never seen running" if evals_idle else ""]
-    return line + "".join(f"; {x}" for x in extra if x) + "."
-
-
-def skills_block(esc, row, masked):
-    """The per-skill depth under the skills row. Old run (no fields) or the can't-tell row: nothing. Skills that go deeper than
-    one file are listed; the ones that read one file and the unused ones fold away (his 11-06: 21 depth-1 rows were a wall)."""
-    summary, skills = row.get("skills_summary"), row.get("skills") or []
-    if not summary:
-        return ""
-    numbered = [(i + 1, sk) for i, sk in enumerate(skills) if isinstance(sk, dict)]
-    if not numbered:
-        return f'<div class="bsk"><p class="ssum">{esc(summary)}</p></div>'
-    out = [f'<div class="bsk"><p class="ssum">{esc(_plain_summary([sk for _, sk in numbered], row.get("items") or 0))}</p>',
-           f'<p class="skey">{esc(DEPTH_KEY)}</p>']
-    used = [x for x in numbered if x[1].get("used") is not False]
-    deep = [x for x in used if (x[1].get("depth") or 0) >= 2 or x[1].get("too_big_one_file")]
-    flat = [x for x in used if x not in deep and x[1].get("depth") == 1]
-    unsure = [x for x in used if x not in deep and x not in flat]   # used: null, a name an installed skill also has
-    idle = [x for x in numbered if x[1].get("used") is False]
-    if deep:
-        out.append('<ul>' + "".join(_skill(esc, sk, n, masked) for n, sk in deep) + '</ul>')
-    if flat:
-        out.append(f'<details class="sknu"><summary>Show {len(flat)} that read one file</summary>'
-                   '<ul>' + "".join(_skill(esc, sk, n, masked) for n, sk in flat) + '</ul></details>')
-    if unsure:
-        out.append(f'<details class="sknu"><summary>Show {len(unsure)} we can\'t tell apart</summary><p class="skey">An installed '
-                   'skill has the same name, so its uses can\'t be told apart from yours.</p>'
-                   '<ul>' + "".join(_skill(esc, sk, n, masked) for n, sk in unsure) + '</ul></details>')
-    if idle:
-        out.append(f'<details class="sknu"><summary>Show {len(idle)} not used</summary><p class="skey">Not used in the last 30 days.</p>'
-                   '<ul>' + "".join(_skill(esc, sk, n, masked) for n, sk in idle) + '</ul></details>')
-    out.append("</div>")
-    return "".join(out)
-
-
-def _lede(tally):
-    """The tab's first sentence: how much of the setup is theirs, how much of that ran, how much they use from others."""
-    used, idle, others = tally["built and used"], tally["built, not used lately"], tally["uses others'"]
-    part = lambda n: f"{n} part{'' if n == 1 else 's'}"  # noqa: E731
-    if used + idle:
-        s = f"You built {part(used + idle)} of your setup yourself"
-        if not idle:
-            s += f", and {'it' if used == 1 else 'all of them' if used > 2 else 'both'} ran in the last 30 days."
-        elif used:
-            s += f"; {used} of them ran in the last 30 days."
-        else:
-            s += ", and nothing shows them running in the last 30 days."
-    else:
-        s = "Nothing on this laptop shows a part of the setup that you built yourself yet."
-    if others:
-        s += f" {part(others).capitalize()} you use as others made them."
-    return s
-
-
-def _row(esc, r, member, masked):
-    icon, word, _, cls = STATE[r["state"]]
-    what, matters = ABOUT.get(r.get("id"), ("", ""))
-    out = [f'<li class="brow {cls}"><div class="bhead"><h4 class="bnm">{esc(r["name"])}</h4>']
-    saw = _saw(r)
-    if masked:
-        # the copy that leaves the laptop: numbers only; a can't-tell row keeps its reason (board.py's hold no name)
-        out.append(f'<span class="bct">{esc(_count(r))}</span></div>')
-        if r["state"] == "can't tell" and saw:
-            out.append(f'<p class="bsaw">{esc(saw)}</p>')
-    else:
-        out.append("</div>")
-    if what:
-        out.append(f'<p class="bwhat">{esc(what)}</p>')
-    if not masked and (saw or r.get("examples")):
-        eg = f' For example: {esc(", ".join(r["examples"]))}.' if r.get("examples") else ""
-        out.append(f'<p class="bsaw"><b>On this laptop</b>{esc(saw[:1].upper() + saw[1:])}{"." if saw and saw[-1] not in ".!?" else ""}{eg}</p>')
-    if matters and r["state"] != "can't tell":
-        out.append(f'<p class="bmat"><b>Why it matters</b>{esc(matters)}</p>')
-    if not member and r.get("source"):
-        out.append(f'<details class="bex"><summary>how we know</summary><p class="bsrc">{esc(r["source"])}</p></details>')
-    if r.get("id") == "cap-skills-own":
-        out.append(skills_block(esc, r, masked))
-    out.append("</li>")
-    return "".join(out)
-
-
-def render(ctx):
-    esc = ctx.get("esc") or html.escape
-    b = (ctx.get("v15_result") or {}).get("board") or {}
-    rows = [r for r in b.get("rows") or [] if r.get("state") in STATE]
-    if not rows:
-        return '<p class="empty">not in this run</p>'
-    member, masked = ctx.get("member"), bool(ctx.get("masked"))
-    tally = {s: sum(1 for r in rows if r["state"] == s) for s in ORDER_OF_STATES}
-    out = [f'<p class="blede">{esc(_lede(tally))}</p>']
-    for state in ORDER_OF_STATES:
-        mine = [r for r in rows if r["state"] == state]
-        if not mine:
-            continue
-        icon, word, heading, _ = STATE[state]
-        if state == "not seen":
-            # one line, not a wall of "Not seen": what each part is and what it would give them is one click away
-            names = ", ".join(r["name"] for r in mine)
-            out.append(f'<details class="bnone"><summary><span aria-hidden="true">{icon}</span> {len(mine)} '
-                       f'part{"" if len(mine) == 1 else "s"} not seen on this laptop</summary>'
-                       f'<p>We looked in your files and logs for each of these and found none: {esc(names)}. '
-                       "None of them is required. Each is here with what it would give you.</p>"
-                       f'<ul class="brows">{"".join(_row(esc, r, member, masked) for r in mine)}</ul></details>')
-            continue
-        out.append(f'<h3 class="bgrp"><i aria-hidden="true">{icon}</i>{esc(heading)} <span>{len(mine)}</span></h3>'
-                   f'<ul class="brows">{"".join(_row(esc, r, member, masked) for r in mine)}</ul>')
-    return "".join(out)
+    return re.sub(r"\bits script .+? (?=was run after it loaded)", "its script ",
+                  re.sub(r"\s*\((?!\d+x\)|!`)[^)]*\)", "", str(why or ""))).strip()

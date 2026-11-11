@@ -131,7 +131,6 @@ main.rp-wrap{padding-top:32px;padding-bottom:96px}
 .view h2{font-size:24px;font-weight:600;line-height:1.3;letter-spacing:-.01em;margin:0}
 .view .q{color:#475467;margin:4px 0 0}
 .rp-note{font-size:12px;color:#667085;margin:8px 0 0}
-.rp-key{font-size:12px;color:#667085;margin:-16px 0 24px}
 .empty{color:#667085}
 @media (max-width:760px){.rp-wrap{padding-left:16px;padding-right:16px}.rp-bar{gap:12px}main.rp-wrap{padding-top:24px}}
 """
@@ -226,7 +225,7 @@ def window_line(meta):
 
 
 def build(run, out, member=False, level=True, masked=False):
-    """member=True renders the member's copy: only the views in MEMBER_GROUPS (never one marked PROXIFY_ONLY), no level key,
+    """member=True renders the member's copy: only the views in MEMBER_GROUPS (never one marked PROXIFY_ONLY),
     no side panel and no finder (both open practice cards, which that copy no longer has a tab for). level=False drops
     every view marked LEVEL_VIEW, for the copy with no level at all. masked=True hides the names of the person's own
     things (a skill is own-skill-N): for a copy made to leave the laptop. The person's own page names them."""
@@ -274,8 +273,9 @@ def build(run, out, member=False, level=True, masked=False):
             sections.append(f'<section class="view v-{n}" id="v-{n}" data-group="{gid}"><header{head}><h2>{esc(v.TITLE)}</h2>'
                             f'<p class="q">{esc(getattr(v, "QUESTION_MEMBER", v.QUESTION) if member else v.QUESTION)}</p>{note}</header>{body}</section>')
     finder_views = [(n, TAB.get(n, by_name[n].TITLE), gtitle) for _, gtitle, names in groups for n in names]
-    level_key = "" if member else ('<p class="rp-key" title="What each practice level means">Levels: ' + " · ".join(
-        f"{k} {w[0].lower() + w[1:]}" for k, w in sorted(common.RUNG_WORD.items())) + "</p>")
+    # no level key above the tabs (11-11): its practice words ("L4 runs without you") sat above the Review's level, named
+    # by things ("Builds the harness around the agent"), so the staff page showed two names for one level. The words stay
+    # in common.RUNG_WORD for the tabs that show a practice's level.
     # the side panel (a practice's card) and the ⌘K finder (practices, problems, terms): Proxify's copy only, where the
     # substrate, call sheet and internal tabs open practice and problem cards
     lab = "" if member else (f"{panel_kit.ASIDE}{panel_kit.data_script(ctx)}{panel_kit.JS}\n"
@@ -291,7 +291,7 @@ def build(run, out, member=False, level=True, masked=False):
 {getattr(by_name.get("share"), "BUTTON", "")}{"" if member else finder_kit.BUTTON}{theme.SWITCH}</div>
 <nav class="rp-tabs" aria-label="Report sections">{"".join(tabs)}</nav></div></header>
 {lab}
-<main class="rp-wrap">{level_key}{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""
+<main class="rp-wrap">{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""
     if member:  # a check's text can point at another check by its level code ("see L4#2"); the member's copy never names a level
         page = re.sub(r"\bL[1-4]#\d+\b", "another check", page)
     page = theme.apply(page, switch=False)
