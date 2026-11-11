@@ -1,0 +1,168 @@
+# Substrate v15 · signals: which raw count from the laptop is evidence for which practice, at which rung.
+#
+# The scan's who_did_it block (setup-snapshot/experiments/2026-11-02-evidence/inventory.py) counts what happened, grouped
+# by who made it happen. This file says what each count means for a practice. Code turns it into evidence rows next to
+# the AI pass's rows (setup-snapshot/experiments/2026-11-02-cheap/signals.py); the higher rung wins and both reasons stay.
+#
+# Rules (his 11-04 calls: the level is about who made it happen; raw stats first, scoring after):
+# - Only records Claude Code writes for everyone. Never a count that rests on one person's own tools, their names or
+#   their text (his ruling 11-04): on another laptop it reads 0, so it rewards his tool by name. Each signal will carry a
+#   `from:` line to the Claude Code built-in it rests on (substrate claude-code.yaml, session proxify-6e, in progress).
+# - `id` is the scan's own id for the count (who_did_it.groups[].items[].id, "<group>.<name>"). The group before the
+#   dot is who did it. A label may be reworded; an id never is. When an item moves group its id changes and this map must
+#   follow: a signal whose id the scan doesn't have sets no rung, and signals.py says so.
+# - The rung follows the group (`cap`): `you` (Claude Code writes the record only when a person acts) can show L2,
+#   `setup` (a mode, hook, agent or rule file of theirs did it unasked) can show L3. L4 stays with the AI pass, which
+#   reads what they built. `probably`, `cant` and `claude` never set a rung, so they have no entry here.
+# - `enough` is how much makes it a habit rather than a one-off: at least `n` times, in at least `chats` chats
+#   (skipped when the scan has no chat count), and at least `share` of the total the scan gives (`of`).
+# - `says` is the sentence on the page. {n}, {chats}, {of} and {pct} are filled from the count.
+#
+# Counts left out on purpose (each needs a ruling before it counts):
+# - you.sessions_as_named_agent: which practice running a main chat as your own agent shows is not ruled.
+# - setup.hook_text_chats: mixes your hooks with installed ones (installed = L1).
+# - you.most_chats_in_10_min: a peak, not a habit on its own.
+# - you.orchestrate_switched_on, setup.orchestrate_helpers, setup.orchestrate_helpers_with_reminder: a slash command and
+#   its reminder text from one person's own plugin, not Claude Code's. Unmapped 11-04.
+# - setup.past_work_reached_early (and its split, setup.past_work_loaded_by_hook / cant.past_work_looked_up_early): the
+#   scan finds "notes" by the text and names of one person's own memory tools. Unmapped 11-04 until the scan reads notes by a general rule.
+# - you.typed_messages: the base the others sit on. programs.*: no rung from a count alone; L4 is the AI pass's.
+version: 1
+cap: {you: L2, setup: L3}
+signals:
+- id: you.btw_side_questions
+  enough: {n: 5, chats: 3}
+  counts_for:
+  - practice: isolate-side-work
+    rung: L2
+    says: You asked {n} side questions with /btw in {chats} sessions.
+- id: you.subtask_forks
+  enough: {n: 5, chats: 3}
+  counts_for:
+  - practice: isolate-side-work
+    rung: L2
+    says: You started {n} forked sub-agents with /subtask or /btw, in {chats} sessions.
+- id: you.helper_mentions
+  enough: {n: 5, chats: 3}
+  counts_for:
+  - practice: isolate-side-work
+    rung: L2
+    says: You @-mentioned a sub-agent by name {n} times in {chats} sessions.
+- id: you.goals_set
+  enough: {n: 3, chats: 3}
+  counts_for:
+  - practice: step-in-on-signals
+    rung: L2
+    says: You set a goal with /goal {n} times in {chats} sessions.
+  - practice: bound-the-task
+    rung: L2
+    says: You set a goal with /goal {n} times in {chats} sessions.
+- id: you.plans_asked
+  enough: {n: 3, chats: 3}
+  counts_for:
+  - practice: settle-the-approach-first
+    rung: L2
+    says: You asked for a plan with /plan {n} times in {chats} sessions.
+- id: you.plan_mode_switched_on
+  # only the runs he switched on himself (Shift+Tab); Claude's EnterPlanMode and chats opened in plan mode are cant.*
+  enough: {n: 3, chats: 3}
+  counts_for:
+  - practice: settle-the-approach-first
+    rung: L2
+    says: You switched plan mode on yourself {n} times in {chats} sessions.
+- id: you.chats_split_off
+  enough: {n: 3, chats: 3}
+  counts_for:
+  - practice: reset-with-a-handoff
+    rung: L2
+    says: You typed /fork or /branch {n} times in {chats} sessions.
+- id: you.sessions_backgrounded
+  # sessions Claude Code marks as background (sessionKind "bg"): /bg typed, or started in the background
+  enough: {n: 3}
+  counts_for:
+  - practice: runs-start-without-you
+    rung: L2
+    says: '{n} of the {of} sessions you typed in ran in the background (/bg).'
+- id: you.skill_mentions
+  enough: {n: 5, chats: 3}
+  counts_for:
+  - practice: put-rules-where-they-apply
+    rung: L2
+    says: You named a skill with a slash (/skill-name) {n} times in {chats} sessions.
+- id: you.file_mentions
+  enough: {n: 5, chats: 3}
+  counts_for:
+  - practice: let-the-agent-fetch
+    rung: L2
+    says: You @-mentioned {n} files in {chats} sessions.
+- id: you.ultracode_requests
+  enough: {n: 3, chats: 3}
+  counts_for:
+  - practice: lead-a-team-of-agents
+    rung: L2
+    says: You typed "ultracode" to ask for a workflow {n} times in {chats} sessions.
+  - practice: parallel-work-kept-apart
+    rung: L2
+    says: You typed "ultracode" to ask for a workflow {n} times in {chats} sessions.
+- id: you.esc_interrupts
+  enough: {n: 5, chats: 3}
+  counts_for:
+  - practice: reword-the-ask
+    rung: L2
+    says: You interrupted Claude (Esc) {n} times in {chats} sessions.
+- id: you.steps_refused
+  enough: {n: 5, chats: 3}
+  counts_for:
+  - practice: ask-before-what-cant-be-undone
+    rung: L2
+    says: You rejected {n} tool calls in {chats} sessions.
+  - practice: reword-the-ask
+    rung: L2
+    says: You rejected {n} tool calls in {chats} sessions.
+- id: you.helpers_stopped_by_hand
+  enough: {n: 3, chats: 3}
+  counts_for:
+  - practice: step-in-on-signals
+    rung: L2
+    says: You stopped {n} sub-agents by hand.
+- id: you.manual_compactions
+  enough: {n: 3}
+  counts_for:
+  - practice: compact-on-purpose
+    rung: L2
+    says: You ran /compact by hand {n} times.
+- id: you.chats_at_once
+  enough: {n: 20, share: 0.1}
+  counts_for:
+  - practice: parallel-work-kept-apart
+    rung: L2
+    says: '{pct} of your messages ({n} of {of}) were typed while 3 or more of your sessions were active.'
+  - practice: step-in-on-signals
+    rung: L2
+    says: '{pct} of your messages ({n} of {of}) were typed while 3 or more of your sessions were active.'
+- id: setup.chats_opened_in_plan_by_settings
+  # a settings file of theirs (ownership.py) sets defaultMode "plan" and wins for the folder; the same act as switching it
+  # on by hand, done by their setup (11-06: a tester with plan as her default was credited 13 sessions of 3-4 a day)
+  enough: {n: 3, chats: 3}
+  counts_for:
+  - practice: settle-the-approach-first
+    rung: L2
+    says: Your own settings opened {n} of the {of} sessions you typed in in plan mode (defaultMode "plan").
+- id: setup.own_agent_launches
+  enough: {n: 10}
+  counts_for:
+  - practice: isolate-side-work
+    rung: L3
+    says: Claude started sub-agents you wrote {n} times.
+- id: setup.hook_blocks
+  enough: {n: 3, chats: 2}
+  counts_for:
+  - practice: enforce-fixed-rules-in-code
+    rung: L3
+    says: Your hooks blocked {n} tool calls in {chats} sessions.
+- id: setup.subfolder_rules_reached
+  enough: {n: 10}
+  counts_for:
+  - practice: put-rules-where-they-apply
+    rung: L3
+    says: A rule file you wrote, in a subfolder, was loaded into context in {n} sessions, when Claude worked in that folder.

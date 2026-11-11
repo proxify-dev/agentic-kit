@@ -1,0 +1,610 @@
+# Substrate v15 · discipline: Prompt engineering. Drafted and checked 2026-11-02 (workflow wf_346397c1-980: opus draft, sonnet check). Model + rules: ../README.md
+discipline:
+  id: prompt
+  name: Prompt engineering
+  question: 'How do you hand work to the agent: the task, the approach, and the words you use when it misses?'
+  scope_note: 'This discipline covers how work is handed over and the words used for it: the task, the approach agreed before any code, what finished looks like, how a miss is corrected, and the prompts
+    a person keeps and reuses (saved prompts, skills, commands and sub-agent instructions they wrote). The vocabulary files goal drift under context; it is drafted here because most of its fix is in the
+    hand-over. Out of scope: what loads into every session (prompt bloat and instruction stacking go to context), checking the result (verification), and running many agents (orchestration). Four terms
+    are dropped as model-level because a person can''t fix them: majority label / recency / common token bias, alignment tax, exaggerated safety, and lobotomized (model). His 10-27 ruling sets the tone:
+    ''everybody plans work… our focus shouldn''t be on plan driven strategies''. So no practice here reads a level from planning or plan mode alone.'
+challenges:
+- id: wish-not-task
+  name: The ask is a wish, so the agent guesses
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: The ask says what they want but not where it lives, what finished looks like or what to leave alone. The agent picks its own place to work and its own finish line, and they find out what
+    it decided only by reading the result.
+  handled_by:
+  - bound-the-task
+  also_handled_in: []
+  ask: Read me the last thing you handed the agent, word for word. How did it know where to work and when it was finished?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'Calls: naming one ticket fired 15/36, naming the exact file 8/36; the L1 answer is the wish, then ''how do I check all 800 changes?''.'
+- id: does-more-than-asked
+  name: The agent does more than was asked
+  term: overeagerness
+  grade: emerging
+  source: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+  vocab:
+  - overeagerness
+  what_goes_wrong: The agent adds files, abstractions, options, tests or docs nobody asked for. The change gets bigger and harder to check than the task needed.
+  handled_by:
+  - bound-the-task
+  - settle-the-approach-first
+  also_handled_in: []
+  ask: 'Tell me about the last time the agent did more than you asked: what did it add, and what did you do?'
+  call_signs:
+  - '''It made like 800 file changes.'''
+  - '''It added tests, docs and a config option nobody asked for.'''
+  - 'L2: ''I tell it: only this, and list anything else you''d change at the end.'''
+  laptop_signs:
+  - 'Hand read on the one laptop (goal_drift.py): 8 of 38 early step-ins were the agent going off what was asked or agreed, and 2 of 14 step-ins after a ''done'' reply were it taking on more than asked.'
+  - 'Not measured: files the agent changed that the ask never named.'
+  detector: null
+  aliases:
+  - overeagerness
+  seen_in: 'Calls: scope limits such as ''don''t touch types.ts, other modules depend on it'' fired 7/36.'
+- id: wanders-off
+  name: The agent drifts away from what was asked
+  term: goal drift
+  grade: emerging
+  source: https://arxiv.org/abs/2505.02709
+  vocab:
+  - goal-drift
+  what_goes_wrong: As the run goes on, the agent solves a nearby problem, rewrites more than the one part, or stops at something that only looks finished.
+  handled_by:
+  - bound-the-task
+  - settle-the-approach-first
+  - reword-the-ask
+  also_handled_in: []
+  ask: 'Tell me about the last time the agent ended up somewhere other than where you meant it to go: what had you told it at the start, and when did you notice?'
+  call_signs:
+  - '''It rewrote the whole handler when I wanted one branch.'''
+  - 'L1: ''I drop the ticket title in and let it fill in the rest.'''
+  - 'L1: ''It writes a plan file at the end that reads like a changelog, not something I agreed to first.'''
+  - 'L2: ''I stop it the moment it heads somewhere we didn''t agree, and say why.'''
+  laptop_signs:
+  - 'Stepping in early in a session (goal_drift.py): Esc while it works, a tool call they rejected, or a message that opens like a correction. On the one laptop read, that was 7.9% of messages 2 to 10.
+    In a hand read of 38, 17 were the agent going off the ask or misreading it, and 19 were the person changing the ask or a message that wasn''t theirs.'
+  - 'Whether ''done'' was set before the session got going (goal_drift.py): a goal or plan command, plan mode, a long first message, or a plan or spec file named. On that laptop 86 of 445 sessions did this,
+    with no fewer step-ins (4.5% against 4.9%).'
+  - 'Not countable yet: the agent claiming done when it wasn''t (0 of 14 hand-read step-ins after a ''done'' reply were that).'
+  detector: goal_drift.py
+  aliases:
+  - goal-drift
+  pitfall:
+    title: I ask for too much at once
+    fix: 'One change at a time: say where it lives, what done looks like and what to leave alone, and ask it to list extras at the end instead of doing them. Cut the work into steps you can read and commit
+      each. When stages hand over, write each stage''s output to a file the next one reads.'
+    order: 10
+    why: As a run goes on, the agent moves away from what was asked. It solves a nearby problem, rewrites more than the one part, or stops at something that only looks finished.
+  seen_in: 'Laptop read: about half of the early step-ins that looked like drift were the person changing the ask, not the agent drifting.'
+- id: told-not-shown
+  name: The agent works from their summary instead of the real thing
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: They describe the error or the behaviour in their own words instead of handing over the error, the log, the output or the exact fields. The agent fixes what the summary says, which is
+    not always what is broken.
+  handled_by:
+  - bound-the-task
+  also_handled_in: []
+  ask: Read me the last thing you handed the agent, word for word. How did it know where to work and when it was finished?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'Calls: asks in exact technical terms (the model, its fields, the real error) fired 7/36.'
+- id: wrong-design-found-late
+  name: On a bigger change, the disagreement shows up in the code
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: A bigger change starts without an agreed approach. The agent picks a design they would have rejected, and they find out only in the diff, after the work is done.
+  handled_by:
+  - settle-the-approach-first
+  also_handled_in: []
+  ask: Show me a plan or spec from a recent bigger change. Where did you disagree with it, and what did you change before code was written?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'Calls: asking for a plan before code fired 15/36 (the strongest prompt cue against the survey); a written spec before starting 10/36.'
+- id: louder-not-clearer
+  name: A miss gets repeated louder instead of fixed
+  term: fighting the weights
+  grade: single-source
+  source: https://www.dbreunig.com/2025/11/11/don-t-fight-the-weights.html
+  vocab:
+  - fighting-the-weights
+  - aggressive-prompt-language
+  - pink-elephant-problem
+  - don-t-get-few-shotted
+  what_goes_wrong: When the result is wrong they regenerate, repeat the same instruction in capitals, add another 'don't', or quietly fix it by hand. Nothing in the ask changes, so the same miss comes back.
+  handled_by:
+  - reword-the-ask
+  also_handled_in: []
+  ask: 'Tell me about the last time you had to tell the agent the same thing several times: what finally worked?'
+  call_signs:
+  - '''I''ve told it five times now, in capitals.'''
+  - '''It just won''t stop doing that, whatever I write.'''
+  - 'L2: ''I stopped repeating it, broke the step down and gave it the reason.'''
+  - IMPORTANT, MUST and NEVER in capitals in their asks or instruction files.
+  - '''Now it does it everywhere, even where it shouldn''t.'''
+  - 'L2: ''I wrote it in plain words with the reason and it stopped overdoing it.'''
+  - '''I told it not to add comments and it added comments.'''
+  - 'L2: ''I say what I want instead of what I don''t.'''
+  - '''I gave it one example and it copied the names and the comments too.'''
+  - '''By the tenth file it did all of them the same way, even the ones that differ.'''
+  - 'L2: ''I give it two different examples and say what has to stay the same.'''
+  laptop_signs:
+  - 'Corrections close together in one session (context_poisoning.py, which belongs to the context discipline): two step-ins within 5 messages. On the one laptop read, this happened in 19 of 445 sessions,
+    and 6 of the 18 hand-read were the same correction again.'
+  - 'Not measured: the same instruction typed again with more capitals or more ''must''.'
+  - 'Not measured: capitals and must/never in their typed asks, and in the instruction files and skills they wrote. The files are on disk, but today the scan reads their size, not their wording.'
+  - Not measured.
+  detector: null
+  aliases:
+  - fighting-the-weights
+  - aggressive-prompt-language
+  - pink-elephant
+  - few-shotted
+  seen_in: 'Calls: naming the defect when sending it back fired 12/36, blaming their own wording only 4/36; the L1 answer is ''it hallucinated'' or ''I hit regenerate''.'
+- id: patched-prompts
+  name: Reused prompts collect patches until each fix breaks something else
+  term: prompt debt
+  grade: emerging
+  source: https://www.dbreunig.com/2026/06/22/the-problem-is-prompt-debt.html
+  vocab:
+  - prompt-debt
+  - whack-a-mole
+  what_goes_wrong: A prompt they keep and reuse gets one more line after every miss. It grows long and fragile, and a fix for one case starts breaking another.
+  handled_by:
+  - reword-the-ask
+  also_handled_in: []
+  ask: 'Tell me about a prompt or instruction you reuse that has grown through quick fixes: when did you last rewrite it instead of adding to it?'
+  call_signs:
+  - '''Every time it breaks I add another line to the prompt.'''
+  - '''Nobody wants to touch that one; it''s a wall of special cases.'''
+  - 'L3: ''Last month I rewrote it from scratch and cut half of it.'''
+  - '''I fixed that and then it started doing the other thing.'''
+  - '''I keep patching the prompt and it never gets better.'''
+  - 'L4: ''Before I change it, I rerun the cases that broke before.'''
+  laptop_signs:
+  - Size and trim history of their own always-loaded instruction files, read from git (prompt_bloat.py; the context discipline owns that reading).
+  - 'Not measured: growth, trims and rewrites of the skills, commands and sub-agent instructions they wrote. The files are on disk and in git, but no check reads their history.'
+  - Not measured. It could be read as an edit to one of their kept prompts followed, in later sessions, by corrections about a different behaviour.
+  - Evals they wrote are seen (no_backpressure.py), but not tied to the prompt they test.
+  detector: null
+  aliases:
+  - prompt-debt
+  - whack-a-mole
+  seen_in: 'Calls: reusing prompts from a kept folder fired 4/36; the playbook itself teaches ''add a rule after every correction'' (v15 open question).'
+- id: agrees-with-your-guess
+  name: The agent agrees with the guess in the question
+  term: sycophancy
+  grade: standard
+  source: https://arxiv.org/abs/2310.13548
+  vocab:
+  - sycophancy
+  - anchoring-bias-in-llms
+  what_goes_wrong: They put their own guess about the cause into the ask. The agent confirms it instead of looking elsewhere, and flips its answer the moment they push back.
+  handled_by:
+  - ask-without-leading
+  also_handled_in: []
+  ask: 'Tell me about the last time the agent agreed with you and you turned out to be wrong: how did you find out?'
+  call_signs:
+  - '''It said I was absolutely right and changed it back.'''
+  - '''It agrees with whatever I suggest.'''
+  - 'L2: ''I don''t tell it which option I like, and I ask for the case against.'''
+  - '''I told it I thought it was the cache and it spent an hour in the cache.'''
+  - 'L2: ''I give it the symptom and ask for a few possible causes before I say mine.'''
+  laptop_signs:
+  - 'Not measured. The logs carry the agent''s replies, so a few things could be counted: an agreeing reply right after the person pushes back, followed by the agent undoing its own work.'
+  - Not measured.
+  detector: null
+  aliases:
+  - sycophancy
+  - anchoring-bias
+  seen_in: 'Calls: the L1 answer is ''it agreed with me, so I went with it''; the L2 answer is ''be critical, push back, we need hard evidence''.'
+- id: prompt-overfitting
+  name: A prompt tuned on a few cases fails on the next one
+  term: prompt overfitting
+  grade: emerging
+  source: https://arxiv.org/html/2309.03409
+  vocab:
+  - prompt-overfitting
+  what_goes_wrong: A reused prompt, or its examples, gets tuned on the few cases someone tried. It does well on those and worse on new ones. This mostly bites people who keep prompts (skills, sub-agent
+    instructions) and reuse them on new work.
+  handled_by:
+  - reword-the-ask
+  also_handled_in:
+  - verification:retest-agent-setup
+  ask: 'Tell me about the last time a prompt you reuse worked on the cases you tried and then failed on a new one: what had you tried it on?'
+  call_signs:
+  - '''It worked on my three examples and fell over on the client''s data.'''
+  - 'L4: ''I keep some cases aside that I never tune on.'''
+  laptop_signs:
+  - Not measured.
+  - Evals they wrote are seen (no_backpressure.py). Whether they keep cases aside is not.
+  detector: null
+  retired: true
+practices:
+- id: bound-the-task
+  name: 'Hand over a bounded task: where it is, what done means, what to leave alone'
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: Before handing work over they say what to do, where it lives, why, how to tell it is done and what to leave alone, and they give the real error, log or output rather than their summary of
+    it. The size of the task is set by what matters, not by a rule of one task per chat; a big task is split, proven on one piece, then finished.
+  handles:
+  - wish-not-task
+  - does-more-than-asked
+  - wanders-off
+  - told-not-shown
+  also_handles: []
+  ladder:
+    L1: They hand over a wish and learn where the agent worked and when it decided it was done only by reading the result.
+    L2: Each ask names the task, where it lives, what done looks like and what to leave alone, with the real error or output in it, typed by hand every time.
+    L3: A task template they wrote supplies those parts, so their next ask and a teammate's carry them without anyone retyping.
+    L4: They built their own step that turns a ticket into a bounded ask and sends back any ask missing the place or the finish line before it reaches the agent, keep tuning it as their tickets change,
+      and rerunning past tickets through it checks that every part still comes out.
+  techniques:
+  - tool: any
+    how: 'Write the ask in five parts: what, where, why, how to check it is done, what to leave alone.'
+    laptop_signal: Share of typed asks that name a file or path, and share that say what 'done' looks like (scan.py prompts_naming_a_file, prompts_stating_done; the 'done' words are an English word list).
+  - tool: any
+    how: Paste the real error, stack trace, failing output or payload, or point to where the agent can read it, instead of describing it.
+    laptop_signal: Share of typed asks that paste code or an error (scan.py prompts_with_code_or_error).
+  - tool: any
+    how: Ask the agent to list extras at the end instead of doing them, and to stop and report if the task turns out bigger than described.
+    laptop_signal: null
+  - tool: any
+    how: For a big change, prove it on one piece first, then ask for the rest.
+    laptop_signal: null
+  - tool: any
+    how: 'Have another model draft the brief from the ticket, then edit it before handing it over (still L2: they carry it).'
+    laptop_signal: null
+  - tool: Claude Code
+    how: '@-mention the files the task is about.'
+    laptop_signal: '@-mentions count as naming a file (scan.py PATH_RE).'
+  - tool: Claude Code
+    how: /goal with the finish line as the condition it works toward.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A slash command or skill they wrote that turns a ticket into the five-part ask (L3).
+    laptop_signal: Own skills and commands, decided by git (scan-coverage table 1, 'What they built'). What they do is not read.
+  call_evidence: Read me the last thing you handed the agent, word for word. How did it know where to work and when it was finished?
+  laptop_evidence: The scan reads prompt length, the share of asks that name a file, paste an error or say what 'done' means (English word list), and /goal use. The v13 reading of this practice is stuck
+    at 'partly' for everyone (scan-coverage table 6). On the one laptop read (goal_drift.py), sessions that set out 'done' first had 4.5% early step-ins against 4.9% for the rest, with the project and session
+    length held fixed. No payoff shows there yet. An L3 template shows only as 'an own skill or command', not as what it asks for. history.jsonl, which holds every typed prompt, is not read.
+  learn:
+  - kind: playbook
+    ref: /patterns/invocation-quality
+    title: Invocation Quality
+  - kind: playbook
+    ref: /patterns/autonomous-tasks
+    title: Autonomous Task Patterns
+  - kind: playbook
+    ref: /reference/common-pitfalls
+    title: Common Pitfalls
+  rulings:
+  - 'Level guide, not in the map: ''Pointing Claude at the right file is Level 2.'''
+  - 'Ruling 4: writing your own skills is "L3". A task-template skill or command they wrote is the L3 level. One someone else wrote is a basic: "Using them is a L1 basic thing."'
+  - 'L4 needs building that changes how the agent runs, plus evals, period: whether the agent can edit them is not part of the bar (11-02, replaces 10-09/10-13).'
+  - A practice that wasn't asked about is the interviewer's choice of where to stop, never a gap (11-02).
+  practice_card:
+    title: Give it the evidence, not your summary of it
+    text: 'Be explicit enough that the agent doesn''t have to guess: the screenshot, the logs, the failing output, or a precise description of the behaviour when nothing else shows it. Point it at where
+      to read more instead of pasting it all.'
+    order: 7
+  authors_note: 'No vocabulary term names this move. It merges the vocabulary''s fixes for overeagerness (''a minimal-solution prompt'', ''state the boundaries: mention extras at the end instead of doing
+    them'', ''a stop-and-report prompt'') and for fighting the weights (''smaller task steps''), the playbook''s ''invocation quality'', and v13''s prompt-precision cues (exact location, one task, technical
+    wording, scope limits).'
+  ladder_short:
+    L2: Spells out where, what done means and what to avoid each time
+    L3: 'Writes a task template that bounds every ask, theirs or a teammate''s'
+    L4: Builds, tunes and tests a step that turns tickets into bounded asks
+  short_name: Hand over a bounded task
+  entry_rules: '1 seen: pr-narrow-brief 15/36, pr-point-location 8/36 · 2 a person writes the ask · 3 their own work.'
+- id: settle-the-approach-first
+  name: Agree what to build and how before code, when the change is big enough to need it
+  term: spec-driven development (SDD)
+  grade: standard
+  source: https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html
+  vocab:
+  - spec-driven-development
+  audience: uses-agents
+  what_you_do: Before a bigger change they have the agent explain the code they don't know, ask its questions and propose a plan, and they push back until the loose ends are covered. The agreed plan is
+    what the work is held to. They skip this for a small fix; knowing when it is worth it is the skill, not planning every time.
+  handles:
+  - wrong-design-found-late
+  - wanders-off
+  - does-more-than-asked
+  also_handles: []
+  ladder:
+    L1: On a bigger change they say go, or skim the plan and approve it, and find the design they disagree with in the diff.
+    L2: Before a bigger change they work the approach through with the agent and change the plan before any code, and can say what they changed; they skip it for small fixes.
+    L3: The agreed plan or spec is a file the next session and their teammates work from and keep current, so the approach outlives the chat it was made in.
+    L4: They built their own step that turns a ticket into a spec with the open questions answered before code starts, without anyone running it by hand, keep tuning it as changes go wrong in new ways,
+      and checking it on past changes that went wrong shows it would have caught them.
+  techniques:
+  - tool: any
+    how: Type 'plan this first, no code yet, ask me your questions first'; this counts the same as any planning mode.
+    laptop_signal: A /plan command near the start (goal_drift.py 'goal_or_plan_command'). The typed words themselves are not read.
+  - tool: any
+    how: In code they don't know, have the agent explain how it works and where things live, check that against the code, then ask for the change.
+    laptop_signal: The agent read or searched before its first code edit (scan.py explored_before_first_edit).
+  - tool: any
+    how: 'Write the spec as a file before code: in scope, out of scope, the files, the existing pattern to copy, an example of the shape wanted.'
+    laptop_signal: A plan, spec, brief or handoff file named in the first message (goal_drift.py 'names_a_plan_file').
+  - tool: any
+    how: Treat a first pass as exploration, then say 'scrap that and build it cleanly' with what was learned.
+    laptop_signal: null
+  - tool: Claude Code
+    how: 'Plan mode: nothing is edited until they approve; decline the plan with feedback to send it back.'
+    laptop_signal: null
+  - tool: any
+    how: Spec tools someone else built are a basic (L1 per ruling 4); the practice is the spec and the push-back.
+    laptop_signal: null
+  call_evidence: Show me a plan or spec from a recent bigger change. Where did you disagree with it, and what did you change before code was written?
+  laptop_evidence: 'The scan reads the plan-mode share, a /plan command near the start, a plan file named in the first message, and whether the agent explored before its first edit. Not read yet: whether
+    they pushed back on a plan (plan_mode_reentry, declined plan dialogs) and the plan text in ~/.claude/plans/. On the one laptop read, plan-mode sessions had 6.0% early step-ins against 4.7% without,
+    so plan mode is no sign on its own. Sessions that named a plan file had none (0 of 44 messages, only 8 sessions). Whether the next session works from the plan file is not read either; that is the context
+    discipline''s ''starts from zero'' reading.'
+  learn:
+  - kind: playbook
+    ref: /patterns/workflow-patterns
+    title: Workflow Patterns
+  - kind: playbook
+    ref: /patterns/prompting-craft
+    title: Prompting Craft
+  rulings:
+  - 'Ruling 8: "Why do we teach plan-first development in L3? It doesn''t make sense". Planning first is a Level 2 habit.'
+  - '10-27: "everybody plans work. I think our focus shouldn''t be on plan driven strategies." Planning or plan mode alone reads no level.'
+  - 'SCOPE: plan mode is one way to plan; typing ''plan this'' counts the same.'
+  - 'Ruling 11: dynamic workflows (ultracode) are L2. Building your own program that walks the plan is L4.'
+  - Using a spec tool or plugin someone else wrote is a basic ("Using them is a L1 basic thing"); the practice is the spec itself.
+  practice_card:
+    title: On bigger changes, settle the approach before any code
+    text: 'Planning still pays on larger work; the skill is knowing when. Many changes or unfamiliar code: plan first. A one-line fix: don''t. Keep the agent from editing while you plan (plan mode, or a
+      read-only ask mode), let it ask its questions, push back on the plan, then build in steps you can read.'
+    order: 1
+  authors_note: 'Merges spec-driven development (a structured spec as the source of truth for them and the agent) with plan mode, which is one technique among several. The vocabulary says both fix ''solving
+    the wrong problem'', which has no entry of its own, and vibe coding. Ruling 10-27: planning alone is what everybody does. What reads a level is the push-back and where the plan lives afterwards.'
+  ladder_short:
+    L2: Works the plan through with the agent before bigger changes
+    L3: Saves the agreed plan as a file later sessions and teammates follow
+    L4: Builds, tunes and tests a step that settles the spec before code
+  short_name: Settle the approach first
+  entry_rules: '1 seen: pr-plan-first 15/36, pr-spec-doc 10/36 · 2 a person agrees the plan · 3 their own work.'
+- id: reword-the-ask
+  name: Name what went wrong and change the words that caused it
+  term: right altitude
+  grade: single-source
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  vocab:
+  - right-altitude
+  audience: uses-agents
+  what_you_do: 'When the result is wrong or heads off course, they stop it, name exactly what is wrong and what the agent wasn''t told, and change the ask: add the missing fact, give the reason for the rule, say what to do instead of what not to do, make the step smaller or vary the example. When the same miss repeats, they rewrite the template or standing instruction that caused it and remove what the fix replaces, instead of adding another line.'
+  handles:
+  - louder-not-clearer
+  - patched-prompts
+  - wanders-off
+  also_handles: []
+  ladder:
+    L1: They regenerate, repeat it louder or fix it quietly by hand, and the same miss comes back next time.
+    L2: Each time it misses they stop it, name the defect and what it wasn't told (or branch the chat and ask which instruction led it there), and reword what caused it.
+    L3: When a miss repeats, they rewrite the template or standing instruction that caused it and cut what the fix replaces, so the next session and a teammate don't hit it.
+    L4: They built their own tooling that traces each repeated miss to the part of the hand-over that caused it and proposes the fix at the source without them digging, keep refining it as new misses appear,
+      and the asks that used to fail run as cases that show the fix holds.
+  techniques:
+  - tool: any
+    how: 'Send it back with the defect named: what is wrong, where, and what it wasn''t told.'
+    laptop_signal: Corrections (English word list that catches about 7%; scan.py CORRECTION_RE). Corrections repeated within 5 messages, and what followed (context_poisoning.py).
+  - tool: any
+    how: Plain wording plus the reason instead of capitals and MUST; say what to do instead of what not to do.
+    laptop_signal: null
+  - tool: any
+    how: When it keeps resisting, make the step smaller, reshape the ask, or try another model.
+    laptop_signal: null
+  - tool: any
+    how: Give two or three varied examples and say what must stay the same, instead of one example it will copy.
+    laptop_signal: null
+  - tool: Claude Code
+    how: Esc to stop it mid-run, or reject the tool call and type the reason.
+    laptop_signal: null
+  - tool: Claude Code
+    how: /rewind or fork the session to before the wrong turn and reword, instead of piling corrections on top; in the fork, ask which instruction made it do that.
+    laptop_signal: null
+  - tool: Claude Code
+    how: Edit the command, skill or agent file they wrote at the line that caused the miss, and delete what it replaces.
+    laptop_signal: null
+  call_evidence: Tell me about the last time the agent got it wrong. What did you say back, and what in your own ask had caused it?
+  laptop_evidence: 'The scan reads corrections (English list, about 7% caught and 0 of 20 once translated), Esc and tool calls they rejected, runs of corrections and what followed. On the one laptop read
+    (context_poisoning.py), 19 of 445 sessions had two corrections within 5 messages, and only 2 of those were followed by starting over. Not read yet: the words given with a refusal (userFeedback), which
+    are the defect named in the moment; the wording of kept prompts (capitals, ''don''t''); and the rewrite history of skills and sub-agent instructions. The v13 reading is stuck at ''ask'' for everyone
+    (scan-coverage table 6).'
+  learn:
+  - kind: playbook
+    ref: /patterns/prompting-craft
+    title: Prompting Craft
+  - kind: playbook
+    ref: /reference/common-pitfalls
+    title: Common Pitfalls
+  rulings:
+  - 'Ruling 4: writing your own skills is "L3". Kept prompts rewritten in place are the L3 level.'
+  - 'Ruling 5: a Claude-written rules file counts "if the way it writes CLAUDE.mds is supervised and doesn''t just grow into context rot / pollution". The same test applies to kept prompts the agent edits
+    for them.'
+  - 'Level guide row l3-s-06: an ignored rule is a wording or context problem, not a cue for a hook ("Stop saying a written rule gets ignored = it becomes a hook. Nobody''s doing that."). So L4 here is
+    evals, not a hook.'
+  - 'L4 needs evals, period: whether the agent can edit them is not part of the bar (11-02, replaces the 10-09/10-13 ''evals the agent can''t edit'').'
+  - '''Right altitude'' is a single-source term: it names this practice but never anchors a level (README rule 1).'
+  authors_note: 'Merges right altitude (between brittle hard rules and vague guidance; explain why a rule exists; a few varied examples instead of a list of edge cases) with several of the vocabulary''s
+    fixes: ''normal wording plus the reason'' (aggressive prompt language), ''state what to do instead'' (Pink Elephant), ''smaller task steps'' (fighting the weights), ''diverse examples'' (few-shotted),
+    ''prune and rewrite the prompt instead of appending'' and ''one patch per run'' (whack-a-mole), and ''dead-clause audits'' and ''treat prompts as perishable'' (prompt debt). It also takes in v13''s
+    prompt accountability.'
+  ladder_short:
+    L2: Stops the agent, names what went wrong, and rewords the ask
+    L3: Rewrites the saved template or instruction behind a repeated miss
+    L4: Builds, tunes and tests tooling that traces repeated misses to their cause
+  short_name: Reword the ask
+  entry_rules: '1 seen: pr-name-defect 12/36, pr-own-wording 4/36 · 2 a person rewords · 3 their own work.'
+- id: ask-without-leading
+  name: Ask without giving away the answer you hope for
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: They describe the symptom, not their guess, and ask for options or the case against before choosing. They treat quick agreement as a reason to check, not as confirmation. A sceptical-reviewer
+    stance helps; a role on its own ('act as an expert') does not count.
+  handles:
+  - agrees-with-your-guess
+  also_handles: []
+  ladder:
+    L1: They put their guess in the question and take the agent's agreement as proof.
+    L2: Each time they give the symptom without their guess, ask for options or the case against, and check again when it agrees too fast.
+    L3: Their standing instructions tell every session to disagree with evidence, give options and say when it is unsure, so they don't have to ask.
+    L4: They built their own hand-over step so a guess never reaches the agent as fact, it works without them remembering to phrase things carefully, they keep tuning it as their work changes, and a test
+      with a planted wrong guess shows the agent still pushes back.
+  techniques:
+  - tool: any
+    how: Describe the symptom and ask for possible causes before naming yours.
+    laptop_signal: null
+  - tool: any
+    how: Ask for options with trade-offs, or 'three ways this could break', before choosing.
+    laptop_signal: null
+  - tool: any
+    how: Give the agent a sceptical-reviewer stance; a role alone is not counted.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A line in CLAUDE.md, or a reviewer sub-agent they wrote, telling it to push back with evidence and flag what it is unsure of (L3).
+    laptop_signal: Own agents and skills, by git (scan-coverage table 1). Their wording is not read.
+  call_evidence: When the agent agrees with you, how do you know it isn't just agreeing?
+  laptop_evidence: Nothing is read today. The logs carry the agent's replies, so 'agrees right after the person pushes back, then undoes its own work' could be counted. Standing instructions and reviewer
+    sub-agents show up only as files, not their wording.
+  learn:
+  - kind: playbook
+    ref: /patterns/prompting-craft
+    title: Prompting Craft
+  rulings:
+  - Using a reviewer plugin or skill someone else wrote is L1 ("Using them is a L1 basic thing"). A reviewer sub-agent or standing instruction they wrote is L3 (ruling 4).
+  - A practice that wasn't asked about is never a gap (11-02).
+  authors_note: 'No vocabulary term names the move. The vocabulary lists it only as a fix: ''neutral prompt phrasing without your own opinion'' for sycophancy, and ''gathering hints from comprehensive angles''
+    for anchoring bias. Role prompting (persona prompting) merges in as one technique. There is no L4 level: the built version (a reviewer that never sees their opinion, or evals) is verification''s generator/evaluator
+    loop.'
+  ladder_short:
+    L2: Gives the symptom, not their guess, and asks for the case against
+    L3: Tells every session, in standing instructions, to push back with evidence
+    L4: Builds, tunes and tests a step that keeps guesses out of asks
+  short_name: Ask without leading
+  entry_rules: '1 seen: L1/L2 answers on calls (''it agreed with me''; ''be critical, push back'') · 2 a person asks · 3 their own work.'
+crosswalk:
+- v13: prompt-11
+  to: settle-the-approach-first
+  why: 'It is the same move, renamed without the tool. Plan mode becomes one technique, and typing ''plan this'' counts the same. Planning alone no longer reads a level (ruling 8: an L2 habit; 10-27: ''everybody
+    plans work''). The levels read the push-back and where the plan lives afterwards.'
+- v13: pr-plan-first
+  to: settle-the-approach-first
+  why: Asking for a plan before code is the L2 level. It is heard as evidence only when they say what they changed in the plan.
+- v13: pr-spec-doc
+  to: settle-the-approach-first
+  why: A spec written before code is the spec-driven technique. It reads L3 when the next session or a teammate works from the file.
+- v13: pr-spec-snippet
+  to: settle-the-approach-first
+  why: An example of the shape wanted, inside the spec (one technique; fired 1/36).
+- v13: pr-ask-orientation
+  to: settle-the-approach-first
+  why: Asking how the code works and where things live before asking for a change is the 'agent explains it first' step of settling the approach (level guide row l2-s-04).
+- v13: prompt-12
+  to: bound-the-task
+  why: '''Prompt precision'' is a virtue. The parts of a bounded ask that you can see (one task, where, the finish line, what to leave alone, the real error) become the practice. The role, metaprompt and
+    orientation cues move to the practices they belong to.'
+- v13: pr-point-location
+  to: bound-the-task
+  why: 'Where the work lives (file, method, endpoint) is one part of the bounded ask. It is L2 by the level guide: ''Pointing Claude at the right file is Level 2.'''
+- v13: pr-narrow-brief
+  to: bound-the-task
+  why: One task per ask, one of the bounded-ask parts.
+- v13: pr-spec-voice
+  to: bound-the-task
+  why: Technical wording and the real error pasted in ('show it the real thing') are part of the bounded ask.
+- v13: pr-prohibit
+  to: bound-the-task
+  why: Scope limits ('don't touch types.ts') are the 'what to leave alone' part and the vocabulary's fix for overeagerness. Behaviour bans ('don't put logging in') carry the Pink Elephant risk, and reword-the-ask
+    replaces them with 'say what to do instead'. Splitting the two needs a ruling (see open questions).
+- v13: pr-metaprompt
+  to: bound-the-task
+  why: Having another model draft the brief is a technique for writing the ask. It stays L2 because they still carry it.
+- v13: pr-prompt-library
+  to: bound-the-task
+  why: Saved task prompts pasted with the details changed are L2, carried by hand. The same prompt as a command or skill they wrote is L3 (ruling 4).
+- v13: pr-role-prefix
+  to: ask-without-leading
+  why: Role prompting becomes a technique. A persona alone shows no accuracy gain in studies, so it is never a sign (v13 also rated it weak). It counts only as the stance that invites disagreement, such
+    as a sceptical reviewer.
+- v13: prompt-13
+  to: reword-the-ask
+  why: '''Prompt accountability'' is a virtue. The move you can see is naming the defect and changing the words that caused it. The scanner''s reading was stuck at ''ask'' for everyone. The 11-02 problems
+    draft mapped it to context poisoning, which this practice also handles (context:context poisoning).'
+- v13: pr-own-wording
+  to: reword-the-ask
+  why: Finding what in their own ask caused the miss is the L2 level.
+- v13: pr-name-defect
+  to: reword-the-ask
+  why: Naming the defect when sending it back is the L2 level, and the README's own example of a practice.
+open_questions:
+- Ruling needed on planning. The 10-27 ruling says 'our focus shouldn't be on plan driven strategies', but SCOPE keeps plan mode and spec-driven development as a practice. Does settle-the-approach-first
+  read a level through its levels (push-back at L2, a plan file the next session works from at L3), or is it evidence only? On the one laptop read, saying what 'done' is up front showed no payoff (4.5%
+  against 4.9% early step-ins), and plan-mode sessions had more step-ins (6.0% against 4.7%).
+- 'Ruling needed on ''tell it what not to do'' (v13 pr-prohibit counted it as a plus). Draft position: scope limits (''don''t touch types.ts'') count for bound-the-task, while behaviour bans (''don''t put
+  logging in'') are the Pink Elephant risk. Two playbook pages teach the opposite of the vocabulary''s fix: /patterns/robots-first (''What NOT to do'' sections) and /patterns/self-improving-loop (''add
+  them as explicit Don''t do X rules''). Fix the pages or rule the split.'
+- 'Content conflict: /patterns/prompting-craft and /patterns/system-evolution teach ''Update CLAUDE.md so you don''t make that mistake again'' after every correction. That is append-per-correction, which
+  the vocabulary names as the cause of whack-a-mole and instruction stacking (its fix is to rewrite and prune). Ruling 5 (''supervised… doesn''t just grow into context rot'') covers part of this. Should
+  the pages change?'
+- Unsourced links, ours rather than the vocabulary's. The vocabulary's fixes for goal drift are recitation, context reset, instruction hierarchy and agent harness. Its links to bound-the-task, settle-the-approach-first
+  and reword-the-ask come from SCOPE's framing and the 11-02 problems draft. The Arike et al. definition is about long runs drifting as the context grows, so reading it as a hand-over problem is our interpretation.
+  The same goes for overeagerness → settle-the-approach-first (only the playbook claims it) and context poisoning → reword-the-ask.
+- 'Content gaps, with no playbook page or hands-on station that teaches them: asking without leading (sycophancy, anchoring); rewriting kept prompts instead of appending, and rerunning past cases when a prompt
+  or the model changes (prompt debt, whack-a-mole, prompt overfitting, prompt drift); varied examples (few-shotted). No hands-on station covers any prompt practice; the only two are 1.1-first-claude-md and
+  1.2-fetch-jobs-skill. The learning material for those challenges is outside sources only.'
+- 'Laptop gaps. The v13 readings of prompt precision and prompt accountability are stuck at ''partly'' and ''ask'' (scan-coverage table 6). Signals already logged but never read would help: the words typed
+  when they rejected a tool call (userFeedback, which is the defect named), going back into planning (plan_mode_reentry), the plan text (~/.claude/plans/), and every typed prompt (history.jsonl). There
+  is no check for sycophancy (agreeing after push-back, then undoing its own work), overeagerness (files changed that the ask never named), shouting (capitals and must/never in their asks and kept prompts),
+  or the Pink Elephant problem.'
+- Where does steering live (level guide row l2-s-05, 'stopping it when it goes off track')? This draft puts 'stop it and reword' in reword-the-ask L2. Orchestration's human-on-the-loop may claim it too,
+  so it needs a cross-discipline decision.
+- 'context-9 badge mismatch. v13 practices.yaml labels context-9 ''badge: prompt'' (08-22: ''mostly prompt engineering techniques''), but SCOPE assigns it to context. Its cues ctx-paste-files, ctx-screenshot
+  and ctx-outside-data are ''show it the real thing'', which is a bound-the-task technique here. The context drafter should crosswalk them, possibly to prompt:bound-the-task.'
+- Should 'solving the wrong problem' become a challenge (term none)? The vocabulary lists it as what plan mode and spec-driven development fix, but it has no entry of its own. Today settle-the-approach-first
+  hangs on goal drift and overeagerness, which are unsourced links.
+- Confirm the L2/L3 border for kept prompts. A folder of saved prompts pasted by hand (pr-prompt-library) is L2, and the same prompt as a command or skill they wrote is L3 (ruling 4). Does a skill count
+  at L3 only when its wording is kept healthy (rewritten, not appended), by analogy with ruling 5?
+- 'Prompt overfitting, prompt drift and few-shotted mostly bite people who keep and reuse prompts, which happens from L3 up. Should a page show these challenges to someone with no kept prompts? Draft position:
+  no, an unasked or irrelevant challenge is never a gap (11-02).'
+- Role prompting is kept as a technique only and never counted as a sign; studies find no accuracy gain from a persona alone. Confirm.
+checker_changes:
+- v13's three prompt practices (plan-first, precision, accountability) become four practices named for what a person does. 'Precision' and 'accountability' were virtues.
+- Twelve sourced challenges now hang under the discipline; v13 named none of them.
+- Plan mode is now a technique, never a test, and planning alone reads no level (rulings 8 and 10-27).
+- 'Kept prompts (the skills, commands and sub-agent instructions they wrote) are now part of the hand-over: rewriting them instead of appending is the L3 level of reword-the-ask, and rerunning past cases
+  is its L4.'
+- Sycophancy and anchoring bias get a prompt-side practice (ask-without-leading). Role prompting becomes a technique only.
+- 'CHECKER: prompt-overfitting.also_handled_in: removed ''verification:evals''. The vocabulary''s ''Fixed by'' for prompt overfitting is error analysis, a held-out test set, and a larger training set with
+  fewer optimisation steps; evals is not named for it (evals list prompt debt, whack-a-mole and prompt drift, not overfitting). Rule 2: links must agree with the sourced ''Fixed by''.'
+- 'CHECKER: settle-the-approach-first.rulings[0]: moved the full stop outside the quoted ruling 8 so the quote matches the level guide word for word (it has no full stop). Ruling 8 quoted as enforced: ''Why
+  do we teach plan-first development in L3? It doesn''t make sense''.'
+- 'CHECKER: everything else passed and is unchanged. Checked: term, grade and source of all 12 challenges and of right altitude and spec-driven development against the vocabulary list; handled_by/handles
+  are symmetric and point to existing ids; no tool name or virtue in the 4 practice names; all 13 v13 cues (pr-plan-first, pr-spec-doc, pr-point-location, pr-narrow-brief, pr-spec-voice, pr-prohibit, pr-spec-snippet,
+  pr-role-prefix, pr-metaprompt, pr-prompt-library, pr-ask-orientation, pr-own-wording, pr-name-defect) and the 3 practices (prompt-11, 12, 13) are in the crosswalk once; all playbook learn refs are in
+  the materials index (and the pages say what the draft claims) and all outside refs are vocabulary source URLs; all 12 challenge terms SCOPE assigns here, plus right altitude, role prompting, plan mode
+  and spec-driven development, are covered; the 10-27 quote exists in the manager memory; no member names. Rulings 4, 5, 11, row l3-s-06 and ''Pointing Claude at the right file'' match the level guide.'

@@ -1,0 +1,462 @@
+# Substrate v15 · claude-code: what Claude Code itself writes, the same way on every laptop. The setup scan may count
+# only what this file lists. A person's own tools (their modes, plugins, memory or search tools) are never matched by
+# name or by the text they print: they are credited through `own:` below, by what git says the person wrote.
+#
+# Why (his ruling 11-04): "we cannot fine-tune this tool against my own personal setup that others wouldn't have unless
+# it's a built-in from Claude Code." The scan had matched the reminder text of one person's own plugins
+# (an orchestration command, memory and session-search tools) and those tools' names.
+# On any other laptop those count 0.
+#
+# How "built in" is decided: by the Claude Code program, not by one laptop's logs. Commands are the ones the program
+# registers (`{type:"local"|"local-jsx"|"prompt", name:…}`), agent types the ones it marks `source:"built-in"`, texts the
+# fixed sentences found inside it. Read from ~/.local/share/claude/versions/2.1.318 on 2026-11-04. A name the program
+# doesn't contain is a plugin's or a person's. Regenerate the lists at the bottom, and check every `match:` text above is
+# still inside the program: `uv run python -I labs/v15/tools/claude_code_builtins.py` (`--check` only reports).
+#
+# Fields:
+#   match     how the scan spots it in the logs; code reads the pattern from here instead of typing its own
+#   means     what it is, in plain words; `not` = what it gets mistaken for
+#   who_acts  who makes it happen: person (Claude Code writes it only when a person acts) · claude · setup (a hook, rule
+#             file or agent did it; whose is decided by `own:`) · either. A card's group must agree with it.
+#   checked   a real record was looked at: by whom and where. null = no card may count it yet.
+#   seen_in   the Claude Code versions it was found in. Members run older versions: an entry missing from theirs reads
+#             "can't tell", never 0.
+version: 1
+read_from: {claude_code: 2.1.318, date: '2026-11-04', how: names registered inside the program}
+
+# ---------------------------------------------------------------- records and attachments the cards count
+records:
+- id: rec.user_typed
+  kind: record
+  match: {type: user, not: [isMeta, tool_result, isSidechain]}
+  means: A message a person typed in an interactive session.
+  who_acts: person
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: rec.entrypoint
+  kind: field
+  match: {field: entrypoint}
+  means: How the session was started (cli, vscode, jetbrains, desktop, sdk-cli, sdk-py, sdk-ts).
+  not: sdk-* is a program, not a person typing.
+  who_acts: either
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.agent_mention
+  kind: attachment
+  match: {attachment_type: agent_mention}
+  means: The person @-mentioned a sub-agent by name.
+  who_acts: person
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.skill_mention
+  kind: attachment
+  match: {attachment_type: skill_mention}
+  means: The person typed /skill-name inside a message.
+  not: An @-mention. Claude Code writes no skill record for @.
+  who_acts: person
+  checked: {by: card audit 11-04, session: 4cbb3ff3, commit: dd76d2e8}
+- id: att.file
+  kind: attachment
+  match: {attachment_type: file, minus: att.compact_file_reference}
+  means: A file attached to the person's message, after leaving out the files /compact re-attaches.
+  not: Every file attachment. 159 of 178 on his laptop were re-attached after /compact.
+  who_acts: person
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.compact_file_reference
+  kind: attachment
+  match: {attachment_type: compact_file_reference}
+  means: A file Claude Code put back into context after a compaction.
+  who_acts: claude
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.workflow_keyword_request
+  kind: attachment
+  match: {attachment_type: workflow_keyword_request}
+  means: The person typed the workflow keyword ("ultracode").
+  not: That a workflow ran.
+  who_acts: person
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.hook_additional_context
+  kind: attachment
+  match: {attachment_type: hook_additional_context}
+  means: A hook put text into Claude's context. Whose hook is decided by own.hook, never by the text.
+  who_acts: setup
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.hook_blocking_error
+  kind: attachment
+  match: {attachment_type: hook_blocking_error}
+  means: A hook blocked a tool call.
+  not: The person's own hook. Installed plugins block too; own.hook decides.
+  who_acts: setup
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.nested_memory
+  kind: attachment
+  match: {attachment_type: nested_memory}
+  means: A rule file from a subfolder (CLAUDE.md below the repo root) loaded because Claude worked there.
+  not: The person's own rule file; own.rule_file decides.
+  who_acts: setup
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.plan_mode
+  kind: attachment
+  match: {attachment_type: [plan_mode, plan_mode_exit]}
+  means: Plan mode was on for a turn, or was left.
+  who_acts: either
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: rec.permission_mode
+  kind: record
+  match: {type: permission-mode}
+  means: The session's permission mode changed (default, plan, acceptEdits, auto…).
+  who_acts: either
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: rec.agent_setting
+  kind: record
+  match: {type: agent-setting}
+  means: The session runs as a named agent (claude --agent …).
+  who_acts: person
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: sys.compact_boundary
+  kind: system
+  match: {subtype: compact_boundary, field: compactMetadata.trigger}
+  means: A compaction; trigger says manual (the person typed /compact) or auto.
+  who_acts: either
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: sys.scheduled_task_fire
+  kind: system
+  match: {subtype: scheduled_task_fire}
+  means: A Claude Code scheduled task started a turn.
+  who_acts: setup
+  checked:
+- id: fld.is_fork
+  kind: field
+  match: {field: isFork, without: toolUseId}
+  means: A sub-agent the person forked (/subtask, /fork, /btw); Claude's own sub-agent calls carry toolUseId.
+  who_acts: person
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: fld.run_in_background
+  kind: field
+  match: {tool_input: run_in_background}
+  means: Claude left a shell command or a sub-agent running in the background.
+  not: requestShape, which the scan used before 11-04.
+  who_acts: claude
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: fld.background_task
+  kind: field
+  match: {field: toolUseResult.backgroundTaskId, on: tool.bash}
+  means: A background shell command got a task id; Claude Code writes a <task-notification> with the task's final status when it ends.
+  not: A background command Claude never came back to, or that TaskStop killed.
+  who_acts: claude
+- id: fld.tool_denial_kind
+  kind: field
+  match: {field: toolDenialKind, value: user-rejected}
+  means: The person rejected a tool call Claude asked to make.
+  who_acts: person
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: fld.permission_mode
+  kind: field
+  match: {field: permissionMode, on: rec.user_typed}
+  means: The permission mode in force when the person typed each message (plan, default, acceptEdits, auto…).
+  who_acts: either
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: fld.session_kind_bg
+  kind: field
+  match: {field: sessionKind, value: bg}
+  means: A session sent to the background (/bg, /background).
+  who_acts: person
+  checked: {by: card audit 11-04, commit: e7f46e7d}
+- id: meta.subagent
+  kind: field
+  match: {file: subagents/*.meta.json, fields: [toolUseId, isFork, teamName, spawnDepth, stoppedByUser, 
+        spawnedWithWorktree]}
+  means: "A sub-agent's own record: who started it (toolUseId = Claude's call; isFork without it = the person), its team,
+    how deep, whether the person stopped it, whether it got its own worktree."
+  who_acts: either
+  checked: {by: card audit 11-04, commit: dd76d2e8}
+- id: att.hook_success
+  kind: attachment
+  match: {attachment_type: hook_success}
+  means: "A hook ran and its output went into Claude's context: {command, hookName, stdout}. The only record that ties context
+    text to a script."
+  not: The person's own hook; own.hook decides.
+  who_acts: setup
+  checked: {by: proxify-d4 (who-did-it-rebuild), session: 3399b2bd}
+- id: att.instructions
+  kind: attachment
+  match: {attachment_type: instructions}
+  means: 'The rule files loaded at session start: files[{path, type, content}].'
+  not: The person's own rule files; own.rule_file decides.
+  who_acts: setup
+  checked: {by: proxify-d4 (who-did-it-rebuild), session: 4d38c535}
+- id: rec.history_command
+  kind: record
+  match: {history_display_starts_with: /}
+  means: 'A command the person typed: history.jsonl entries whose display starts with /.'
+  not: "Built in: the command may be a plugin's or their own; own.command decides."
+  who_acts: person
+  checked: {by: proxify-d4 (who-did-it-rebuild), session: 8c7fd67b}
+- id: os.scheduler
+  kind: os
+  match: {crontab_or_launchagent_mentions: claude}
+  means: A crontab or LaunchAgents entry that starts Claude Code.
+  not: "Claude Code's own: the operating system's scheduler, the same on every Mac and Linux."
+  who_acts: setup
+  checked:
+
+# ---------------------------------------------------------------- tool calls the cards count (Claude's own tools)
+tools:
+- id: tool.agent
+  name: [Agent, Task]
+  means: Claude started a sub-agent; subagent_type says which, model and isolation how.
+  who_acts: claude
+- id: tool.send_message
+  name: SendMessage
+  means: Claude sent a message to a sub-agent, a teammate or another session.
+  who_acts: claude
+- id: tool.task_stop
+  name: TaskStop
+  means: Claude stopped background work (a shell, a sub-agent or a workflow; the call doesn't say which).
+  who_acts: claude
+- id: tool.enter_plan_mode
+  name: EnterPlanMode
+  means: Claude asked to switch plan mode on.
+  who_acts: claude
+- id: tool.bash
+  name: Bash
+  means: Claude ran a shell command, in the foreground or (run_in_background) the background.
+  who_acts: claude
+- id: tool.monitor
+  name: Monitor
+  means: Claude watched a job until it ended.
+  who_acts: claude
+
+# ---------------------------------------------------------------- fixed sentences Claude Code writes
+- id: tool.read
+  name: Read
+  means: Claude read a file.
+  who_acts: claude
+- id: tool.write
+  name: [Write, Edit, MultiEdit, NotebookEdit]
+  means: Claude wrote or edited a file.
+  who_acts: claude
+texts:
+- id: text.interrupted
+  match: '[Request interrupted by user'
+  means: The person pressed Esc while Claude worked.
+  who_acts: person
+- id: text.cross_session
+  match: ['Another Claude session sent a message', '<teammate-message', '<cross-session-message']
+  means: A message from another session or a teammate arrived in this session.
+  not: idle_notification and shutdown notices, which say nothing.
+  who_acts: either
+
+# ---------------------------------------------------------------- Claude Code's own folders
+folders:
+- {id: dir.agent_memory, match: [agent-memory, agent-memory-local, agent-memory-project], means: "Claude Code's memory folders
+    for an agent (.claude/agent-memory*/)."}
+- {id: dir.memory_md, match: MEMORY.md, means: "Claude Code's memory index file."}
+- {id: dir.plugin_evals, match: [evals/, case.yaml], means: "The layout `claude plugin eval` reads. A run ledger (runs.jsonl)
+    is not Claude Code's: the agentic kit's."}
+
+# ---------------------------------------------------------------- what's the person's own: rules, never names
+own:
+- id: own.hook
+  rule: A hook in their settings whose script sits in a repo where git shows their commits.
+- id: own.rule_file
+  rule: A CLAUDE.md, AGENTS.md or CLAUDE.local.md git shows they wrote.
+- id: own.settings
+  rule: A settings file (~/.claude/settings.json, a project's .claude/settings*.json) that ownership.py says is theirs; a teammate's committed file and managed settings are not.
+- id: own.agent
+  rule: An agent file (.claude/agents/*.md, a plugin's agents/) in a repo where git shows their commits.
+- id: own.plugin
+  rule: A plugin from their own marketplace. A plugin's source copy inside a kit repo is left out.
+- id: own.command
+  rule: A command or skill file they wrote (git). Counted as "a command of theirs", never by its name.
+
+# ---------------------------------------------------------------- every card on the page → what it counts
+# One line per who_did_it card in setup-snapshot/experiments/2026-11-02-evidence/inventory.py (ids as of e7f46e7d).
+# `claude_code_builtins.py --check` fails when a card in inventory.py is missing here, a `from:` id isn't defined above,
+# or a card counts from an entry with `checked: null`. A card the page may show has status ok.
+# status: ok (counts only what's above) · rework (matches one person's tool; must not show until rebuilt) · check (partly)
+- id: own.folder
+  rule: A folder in a repo where git shows their commits.
+cards:
+  you.typed_messages: {from: [rec.user_typed, rec.entrypoint], status: ok}
+  you.btw_side_questions: {from: [cmd.btw], status: ok}
+  you.subtask_forks: {from: [meta.subagent, cmd.subtask, cmd.btw], status: ok}
+  you.goals_set: {from: [cmd.goal], status: ok}
+  you.plans_asked: {from: [cmd.plan], status: ok}
+  you.clears_typed: {from: [cmd.clear, rec.user_typed], status: ok}
+  you.chats_split_off: {from: [cmd.fork, cmd.branch], status: ok}
+  you.sessions_backgrounded: {from: [cmd.background, fld.session_kind_bg], status: ok}
+  you.helper_mentions: {from: [att.agent_mention], status: ok}
+  you.skill_mentions: {from: [att.skill_mention], status: ok}
+  you.file_mentions: {from: [att.file, att.compact_file_reference], status: ok}
+  you.ultracode_requests: {from: [att.workflow_keyword_request], status: ok}
+  you.esc_interrupts: {from: [text.interrupted], status: ok}
+  you.steps_refused: {from: [fld.tool_denial_kind], status: ok}
+  you.helpers_stopped_by_hand: {from: [meta.subagent], status: ok}
+  you.manual_compactions: {from: [sys.compact_boundary], status: ok}
+  you.plan_mode_switched_on: {from: [fld.permission_mode], status: ok}
+  you.chats_at_once: {from: [rec.user_typed], status: ok}
+  you.most_chats_in_10_min: {from: [rec.user_typed], status: ok}
+  setup.chats_opened_in_plan_by_settings: {from: [fld.permission_mode, own.settings], status: ok}
+  setup.own_agent_launches: {from: [tool.agent, own.agent], status: ok}
+  setup.hook_blocks: {from: [att.hook_blocking_error, att.hook_success, own.hook], status: ok, checked: {by: proxify-d4 
+        (who-did-it-rebuild), session: d27b6013}}
+  setup.sessions_as_named_agent: {from: [rec.agent_setting], status: ok}
+  setup.subfolder_rules_reached: {from: [att.nested_memory, own.rule_file], status: ok, checked: {by: proxify-d4 
+        (who-did-it-rebuild), session: d27b6013}}
+  setup.hook_text_chats: {from: [att.hook_additional_context], status: ok}
+  programs.runs_started_by_code: {from: [rec.entrypoint], status: ok}
+  programs.runs_unattended: {from: [rec.entrypoint, rec.user_typed], status: ok}
+  programs.scheduled_jobs: {from: [os.scheduler], status: check, why: 0 jobs on his machine; scheduled_task_fire left 
+      out because /loop wakeups write it too}
+  probably.helpers_after_ask: {from: [tool.agent, rec.user_typed], status: ok, checked: {by: proxify-d4 
+        (who-did-it-rebuild), session: d27b6013}}
+  probably.worktree_mentions: {from: [rec.user_typed], status: ok}
+  probably.corrections: {from: [rec.user_typed], status: ok, note: English words only; other languages read "can't 
+      tell".}
+  cant.helper_calls_unattributed: {from: [tool.agent, rec.user_typed, att.hook_success, att.instructions, 
+        att.nested_memory, own.hook, own.rule_file, own.agent], status: ok, checked: {by: proxify-d4 
+        (who-did-it-rebuild), session: d27b6013}}
+  cant.messages_to_own_helpers: {from: [tool.send_message], status: ok}
+  cant.messages_to_other_sessions: {from: [tool.send_message], status: ok}
+  cant.messages_from_other_sessions: {from: [text.cross_session], status: ok}
+  cant.teammates: {from: [meta.subagent], status: ok}
+  cant.helpers_started_by_helpers: {from: [meta.subagent], status: ok}
+  cant.helpers_own_worktree: {from: [meta.subagent], status: ok}
+  cant.helpers_stopped_by_claude: {from: [tool.task_stop], status: ok}
+  cant.helper_calls_with_model: {from: [tool.agent], status: ok}
+  cant.plan_mode_entered_by_claude: {from: [tool.enter_plan_mode], status: ok}
+  cant.chats_opened_in_plan_mode: {from: [fld.permission_mode], status: ok}
+  claude.jobs_watched: {from: [tool.monitor, fld.background_task, tool.bash], status: ok}
+  claude.background_shell: {from: [fld.run_in_background], status: ok}
+  claude.background_helpers: {from: [fld.run_in_background, tool.agent], status: ok}
+  claude.auto_compactions: {from: [sys.compact_boundary], status: ok}
+  claude.automemory_at_start: {from: [att.instructions], status: ok}
+  you.own_commands_typed: {from: [rec.history_command, own.command], status: ok, checked: {by: proxify-d4 
+        (who-did-it-rebuild), session: d27b6013}}
+  setup.subagents_after_own_context: {from: [tool.agent, att.hook_success, att.instructions, att.nested_memory, own.hook,
+      own.rule_file], status: check, why: "word match over the whole hook/rule text: his own SessionStart hooks mention delegation
+      in 612 sessions, so 1,321 of 1,667 calls land here, near-automatic as L3 evidence. Sharper general rule proposed: count
+      a call only when its subagent_type is named in the person's own hook or rule text."}
+  setup.own_hook_context_at_start: {from: [att.hook_success, own.hook], status: ok, checked: {by: proxify-d4 
+        (who-did-it-rebuild), session: d27b6013}}
+  programs.own_eval_folders_changed: {from: [dir.plugin_evals, own.folder], status: ok, checked: {by: proxify-d4 
+        (who-did-it-rebuild), session: d27b6013}}
+  cant.early_reads_of_earlier_work: {from: [tool.read, tool.write, rec.user_typed], status: ok, checked: {by: proxify-d4
+        (who-did-it-rebuild), session: d27b6013}}
+
+# >>> generated by labs/v15/tools/claude_code_builtins.py — everything below is rewritten on each run; edit above only
+generated_from: {claude_code: 2.1.318}
+
+# built-in sub-agent types (marked source:"built-in"; Plan by its own agentType)
+agent_types: [Explore, Plan, claude, claude-code-guide, comment-thread-analyst, fork, general-purpose, statusline-setup, web-fetch, worker, workflow-subagent]
+
+# hook events the program knows
+hook_events: [ConfigChange, CwdChanged, Elicitation, ElicitationResult, FileChanged, InstructionsLoaded, Notification, PermissionDenied, PermissionRequest, PostCompact, PostToolUse, PostToolUseFailure, PreCompact, PreToolUse, SessionEnd, SessionStart, Setup, Stop, StopFailure, SubagentStart, SubagentStop, TaskCompleted, TaskCreated, TeammateIdle, UserPromptExpansion, UserPromptSubmit, WorktreeCreate, WorktreeRemove]
+
+# built-in commands. kind: local (runs in Claude Code) · local-jsx (opens a screen) · prompt (sends a prompt)
+commands:
+- {id: cmd.add-dir, kind: local, name: /add-dir, says: Add a new working directory}
+- {id: cmd.advisor, kind: local-jsx, name: /advisor, says: Let Claude consult a stronger model at key moments}
+- {id: cmd.agents, kind: local, name: /agents, says: '(removed) Ask Claude to create/manage subagents, or edit .claude/agents/'}
+- {id: cmd.artifacts, kind: local-jsx, name: /artifacts, says: Browse your published and shared artifacts}
+- {id: cmd.auto-mode-setup, kind: local, name: /auto-mode-setup, says: 'Teach auto mode about your environment, plus optional rule tweaks'}
+- {id: cmd.autocompact, kind: local-jsx, name: /autocompact, says: Set how full the context gets before auto-summarizing}
+- {id: cmd.autofix-pr, kind: local-jsx, name: /autofix-pr, says: Monitor and autofix any issues with the current PR}
+- {aliases: [/bg], id: cmd.background, kind: local-jsx, name: /background, says: Send this session to the background and free the terminal}
+- {id: cmd.branch, kind: local-jsx, name: /branch, says: Create a branch of the current conversation at this point}
+- {id: cmd.brief, kind: local-jsx, name: /brief, says: Toggle brief-only mode}
+- {id: cmd.btw, kind: local-jsx, name: /btw, says: Ask a quick side question without interrupting the main conversation}
+- {aliases: [/share], id: cmd.bug, kind: local-jsx, name: /bug, says: Report a bug or share your conversation}
+- {id: cmd.cd, kind: local-jsx, name: /cd, says: Move this session to a new working directory}
+- {id: cmd.chrome, kind: local-jsx, name: /chrome, says: Open Claude in Chrome settings}
+- {aliases: [/reset, /new], id: cmd.clear, kind: local, name: /clear, says: Start a new session with empty context; previous session stays on disk (resumable with /resume)}
+- {id: cmd.cloud-plugins, kind: local-jsx, name: /cloud-plugins, says: Choose whether cloud sessions use the plugins enabled on this machine}
+- {id: cmd.color, kind: local-jsx, name: /color, says: Set the prompt bar color for this session}
+- {id: cmd.compact, kind: local, name: /compact, says: Free up context by summarizing the conversation so far}
+- {aliases: [/settings], id: cmd.config, kind: local-jsx, name: /config, says: Open settings}
+- {id: cmd.context, kind: local-jsx, name: /context, says: Visualize current context usage as a colored grid}
+- {id: cmd.copy, kind: local-jsx, name: /copy, says: Copy Claude's last response to clipboard (or /copy N for the Nth-latest)}
+- {id: cmd.daemon, kind: local-jsx, name: /daemon, says: Manage background services and routines}
+- {id: cmd.design-consent, kind: local, name: /design-consent, says: Grant Claude agent access to your Design projects}
+- {id: cmd.design-login, kind: local-jsx, name: /design-login, says: Authorize design-system access for /design-sync with your claude.ai account}
+- {id: cmd.design-revoke, kind: local, name: /design-revoke, says: Revoke Claude agent access to your Design projects}
+- {aliases: [/app], id: cmd.desktop, kind: local-jsx, name: /desktop, says: Continue the current session in Claude Desktop}
+- {id: cmd.diff, kind: local-jsx, name: /diff}
+- {id: cmd.effort, kind: local-jsx, name: /effort, says: Set effort level for model usage}
+- {aliases: [/quit], id: cmd.exit, kind: local-jsx, name: /exit}
+- {id: cmd.export, kind: local-jsx, name: /export, says: Export the current conversation to a file or clipboard}
+- {id: cmd.extra-usage, kind: local-jsx, name: /extra-usage, says: Renamed to /usage-credits}
+- {id: cmd.fast, kind: local-jsx, name: /fast, says: 'Toggle fast mode (${Y4()})'}
+- {id: cmd.feedback, kind: local-jsx, name: /feedback, says: Send feedback to Anthropic or report a bug}
+- {id: cmd.focus, kind: local-jsx, name: /focus, says: 'Toggle focus view: just your prompt, summary, and response'}
+- {id: cmd.fork, kind: local-jsx, name: /fork, says: Spawn a background agent that inherits the full conversation}
+- {id: cmd.goal, kind: local-jsx, name: /goal, says: Set a goal Claude checks before stopping}
+- {id: cmd.heapdump, kind: local, name: /heapdump, says: 'Dump the JS heap to the Desktop; on Linux with no Desktop folder, the home directory'}
+- {id: cmd.help, kind: local-jsx, name: /help, says: Show help and available commands}
+- {id: cmd.hooks, kind: local-jsx, name: /hooks, says: View hook configurations for tool events}
+- {id: cmd.ide, kind: local-jsx, name: /ide, says: Manage IDE integrations and show status}
+- {id: cmd.import, kind: local-jsx, name: /import, says: Import config from another AI coding agent}
+- {id: cmd.init, kind: prompt, name: /init}
+- {id: cmd.insights, kind: prompt, name: /insights, says: Generate a report analyzing your Claude Code sessions}
+- {id: cmd.install, kind: local-jsx, name: /install, says: Install Claude Code native build}
+- {id: cmd.install-github-app, kind: local-jsx, name: /install-github-app, says: Set up Claude GitHub Actions for a repository}
+- {id: cmd.install-slack-app, kind: local, name: /install-slack-app, says: Install the Claude Slack app}
+- {id: cmd.keybindings, kind: local, name: /keybindings, says: Open your keyboard shortcuts file}
+- {aliases: [/peers], id: cmd.list-agents, kind: local, name: /list-agents, says: 'List subagents, teammates, and other Claude sessions you can message'}
+- {id: cmd.login, kind: local-jsx, name: /login}
+- {id: cmd.logout, kind: local-jsx, name: /logout, says: Sign out from your Anthropic account}
+- {id: cmd.loops, kind: local-jsx, name: /loops, says: 'List, create, and delete loops'}
+- {id: cmd.mcp, kind: local, name: /mcp, says: Manage MCP servers}
+- {id: cmd.memory, kind: local-jsx, name: /memory, says: Edit CLAUDE.md files and memory settings}
+- {aliases: [/ios, /android], id: cmd.mobile, kind: local-jsx, name: /mobile, says: Show QR code to download the Claude mobile app}
+- {id: cmd.model, kind: local, name: /model, says: Set the AI model for Claude Code}
+- {id: cmd.output-style, kind: local, name: /output-style, says: List output styles or switch to one}
+- {id: cmd.passes, kind: local-jsx, name: /passes}
+- {aliases: [/memory-pause, /toggle-memory], id: cmd.pause-memory, kind: local, name: /pause-memory}
+- {aliases: [/allowed-tools], id: cmd.permissions, kind: local-jsx, name: /permissions, says: Manage allow and deny tool permission rules}
+- {id: cmd.plan, kind: local-jsx, name: /plan, says: Enable plan mode or view the current session plan}
+- {aliases: [/plugins, /marketplace], id: cmd.plugin, kind: local-jsx, name: /plugin, says: Manage Claude Code plugins}
+- {id: cmd.powerup, kind: local-jsx, name: /powerup, says: Discover Claude Code features through quick interactive lessons}
+- {id: cmd.privacy-settings, kind: local-jsx, name: /privacy-settings, says: View and update your privacy settings}
+- {id: cmd.pro-trial-expired, kind: local-jsx, name: /pro-trial-expired, says: Options shown when the Pro plan Claude Code trial has ended}
+- {id: cmd.project, kind: local, name: /project, says: Set the claude.ai Project for this session's usage reports}
+- {id: cmd.radio, kind: local, name: /radio, says: Listen to Claude FM lo-fi radio}
+- {id: cmd.rate-limit-options, kind: local-jsx, name: /rate-limit-options, says: Manage usage limits and upgrade options}
+- {id: cmd.recap, kind: local, name: /recap, says: Generate a one-line session recap now}
+- {id: cmd.release-notes, kind: local-jsx, name: /release-notes, says: View release notes}
+- {id: cmd.reload-plugins, kind: local, name: /reload-plugins, says: Activate pending plugin changes in the current session}
+- {id: cmd.reload-skills, kind: local, name: /reload-skills, says: Pick up skills added or changed on disk during this session}
+- {aliases: [/rc], id: cmd.remote-control, kind: local-jsx, name: /remote-control}
+- {id: cmd.remote-env, kind: local-jsx, name: /remote-env, says: Choose the default environment for cloud agents}
+- {aliases: [/name], id: cmd.rename, kind: local-jsx, name: /rename, says: Rename the current conversation}
+- {aliases: [/update], id: cmd.restart, kind: local, name: /restart}
+- {aliases: [/continue], id: cmd.resume, kind: local-jsx, name: /resume, says: Resume a previous conversation}
+- {aliases: [/checkpoint, /undo], id: cmd.rewind, kind: local, name: /rewind, says: Restore the code and/or conversation to a previous point}
+- {id: cmd.sandbox, kind: local-jsx, name: /sandbox}
+- {id: cmd.scroll-speed, kind: local-jsx, name: /scroll-speed, says: Adjust mouse wheel scroll speed}
+- {aliases: [/remote], id: cmd.session, kind: local-jsx, name: /session, says: Show cloud session URL and QR code}
+- {id: cmd.setup-bedrock, kind: local-jsx, name: /setup-bedrock, says: 'Reconfigure Amazon Bedrock authentication, region, or model pins'}
+- {id: cmd.setup-vertex, kind: local-jsx, name: /setup-vertex, says: 'Reconfigure Google Vertex AI authentication, project, region, or model pins'}
+- {id: cmd.skill-doctor, kind: local-jsx, name: /skill-doctor, says: Show which loaded skills are unused and costing context}
+- {id: cmd.skills, kind: local-jsx, name: /skills, says: List available skills}
+- {id: cmd.status, kind: local-jsx, name: /status, says: 'Show Claude Code status including version, model, account, API connectivity, and tool statuses'}
+- {id: cmd.statusline, kind: prompt, name: /statusline, says: Set up Claude Code's status line UI}
+- {id: cmd.stickers, kind: local, name: /stickers, says: Order Claude Code stickers}
+- {id: cmd.stop, kind: local-jsx, name: /stop, says: Stop this background session; transcript and worktree are kept}
+- {id: cmd.subtask, kind: local-jsx, name: /subtask, says: Send a subagent off with your full context; its result comes back here}
+- {aliases: [/bashes], id: cmd.tasks, kind: local-jsx, name: /tasks, says: View and manage everything running in the background}
+- {id: cmd.team-onboarding, kind: prompt, name: /team-onboarding, says: Help teammates ramp on Claude Code with a guide from your usage}
+- {aliases: [/tp], id: cmd.teleport, kind: local-jsx, name: /teleport, says: 'Send this session to the cloud, or resume one from claude.ai'}
+- {id: cmd.terminal-setup, kind: local-jsx, name: /terminal-setup}
+- {id: cmd.theme, kind: local-jsx, name: /theme, says: Change the theme}
+- {id: cmd.tui, kind: local-jsx, name: /tui, says: Set the terminal UI renderer (default | fullscreen)}
+- {id: cmd.ultraplan, kind: local-jsx, name: /ultraplan, says: 'Draft an editable plan in a cloud session (${Gar().timeEstimate}) \xB7 See ${rke}'}
+- {id: cmd.ultrareview, kind: local-jsx, name: /ultrareview}
+- {id: cmd.upgrade, kind: local-jsx, name: /upgrade, says: Upgrade your plan for higher rate limits and more Opus}
+- {aliases: [/cost, /stats], id: cmd.usage, kind: local-jsx, name: /usage, says: 'Show session cost, plan usage, and activity stats'}
+- {id: cmd.usage-credits, kind: local-jsx, name: /usage-credits, says: Configure usage credits or request them from your admin when you hit a limit}
+- {id: cmd.use-case, kind: local-jsx, name: /use-case, says: Choose the Life Sciences use case that applies to your requests}
+- {id: cmd.version, kind: local-jsx, name: /version, says: Show this session's version (autoupdate may have a newer one)}
+- {id: cmd.voice, kind: local, name: /voice, says: Toggle voice mode}
+- {id: cmd.web-setup, kind: local-jsx, name: /web-setup, says: Set up cloud sessions with your GitHub account}
+- {aliases: [/breaks, /break-reminder, /downtime], id: cmd.wellbeing, kind: local-jsx, name: /wellbeing, says: Configure optional break reminders and quiet-hours nudges}
+- {id: cmd.workflow-launch-exec, kind: local, name: /workflow-launch-exec, says: Execute a server-launched workflow handoff (workflow_launch event sessions only)}
+- {id: cmd.workflows, kind: local-jsx, name: /workflows, says: Browse running and completed workflows}

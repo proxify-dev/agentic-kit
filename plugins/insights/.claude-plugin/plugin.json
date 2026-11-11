@@ -1,10 +1,10 @@
 {
   "name": "insights",
-  "description": "How you really work with Claude Code, rebuilt from the files it keeps on your machine: sessions and helpers, what the agent knows before it starts, how you hand work over, check it and correct it, what you built for yourself. /insights:my-agentic-setup writes a private page for you with two tabs, how you work and what to try next (with a brief your own agent can follow, pull requests only), and only on your yes a masked report you can choose to share. No levels, no scores. Reads only; sends nothing. python3 stdlib, needs no other plugin.",
-  "version": "0.5.0",
-  "visibility": "public",
+  "description": "How you really work with Claude Code, rebuilt from the files it keeps on your machine. /insights:my-agentic-setup scans your sessions, settings, plugins, skills, hooks and the git repos Claude Code ran in, runs one AI pass through your own Claude Code session, and writes one local page: what you do, what you built, part by part, and what to try next. Shows the level your laptop reads, as a starting point a call confirms or raises (AGENTIC_SETUP_MEMBER=1 leaves it out). Reads only; nothing leaves the machine unless you press Send on the page. Python 3.12+ or uv.",
+  "version": "0.6.0",
   "author": {
     "name": "teocns"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "visibility": "public"
 }

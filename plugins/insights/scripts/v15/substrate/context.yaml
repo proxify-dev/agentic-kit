@@ -1,0 +1,1289 @@
+# Substrate v15 · discipline: Context engineering. Drafted and checked 2026-11-02 (workflow wf_346397c1-980: opus draft, sonnet check). Model + rules: ../README.md
+discipline:
+  id: context
+  name: Context engineering
+  question: 'When the agent starts work, does it already know what it needs (and nothing it doesn''t), without you carrying it in each time?'
+  scope_note: 'Everything the agent works from: rules, project facts, docs, notes, tool definitions and the session itself. Also how all of it stays right as sessions grow, end and restart, and as the work
+    spreads to a team. Context is any knowledge the agent works from, not only facts about the project (ruling 10). ''Context engineering'' is the name of the discipline, and ''write, select, compress,
+    isolate'' names its four buckets. Neither is a practice. Write = rules and notes kept outside the session (write-down-what-it-cannot-know, notes-the-next-chat-reads). Select = load only where it applies,
+    fetch when needed (put-rules-where-they-apply, let-the-agent-fetch). Compress = compact and trim (compact-on-purpose, keep-always-loaded-small). Isolate = sub-agents and fresh sessions (isolate-side-work,
+    reset-with-a-handoff). Prompt bloat and instruction stacking live here, not in prompt, because they are about what loads every turn. Outside this discipline: the ask itself and goal drift (prompt),
+    whether the work is right (verification), permissions and guardrails (harness), several agents at once and work that runs without the person (orchestration). Hooks are a technique here, not a practice.
+    The Level 2 to Level 3 border runs through this discipline: who carries the context. Either the person does, session by session (L2), or a setup they engineered does (L3). Every level is checked the
+    same way: a fresh session that never saw the conversation shows what reached it. The automated form of that check, evals the agent can''t edit, lives in verification.'
+challenges:
+- id: starts-from-zero
+  name: A new session doesn't know yesterday's work
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: A fresh session knows nothing of yesterday's decisions, dead ends and progress, or the project facts it was already told. The person explains it all again, pastes a summary back in, or
+    the agent guesses.
+  handled_by:
+  - write-down-what-it-cannot-know
+  - notes-the-next-chat-reads
+  - share-the-setup-with-the-team
+  also_handled_in: []
+  ask: You open a new session on yesterday's task. What does the agent already know before you type anything, and how?
+  call_signs:
+  - Explains the background again at the start of each session
+  - Pastes a summary from the old session
+  - Names notes that the new session reads on its own
+  - Copies answers or context from one AI tool into another
+  laptop_signs:
+  - New sessions whose agent starts by reading notes an earlier session wrote, without being told to
+  - First messages that reach back to earlier work or name an earlier session
+  - Sessions in each project that write into a notes folder
+  detector: starts_from_zero.py
+  pitfall:
+  - title: I fix the same thing by hand in every session and never write it down
+    fix: 'The second time you correct something, put it where every new session reads it: one line in the project''s instructions, with the reason. If the code itself keeps teaching the agent the wrong
+      habit, fix the code instead of adding a rule.'
+    order: 3
+    why: A fresh session knows nothing of yesterday's decisions, dead ends and progress, or of the project's own facts and the corrections you already made. You explain it all again, or the agent guesses.
+  - title: Each AI tool has its own instructions, so I copy-paste between them
+    fix: Keep one shared instruction layer every tool reads (for example AGENTS.md, with each tool's own file pointing to it), so switching tools doesn't mean explaining the project again.
+    order: 12
+    why: Another AI tool keeps its own instructions, so you explain the project again or copy results from one tool into the next, and each tool works from a different, partial picture.
+    glance: Context is copied by hand from one tool to the next
+  - title: Everyone on the team sets up the agent alone
+    fix: Commit the shared setup (AGENTS.md or CLAUDE.md, shared settings, shared skills) and keep only personal preferences in local files, so every teammate's agent starts from the same ground.
+    order: 13
+    why: Each engineer sets the agent up alone. Good rules and fixes never reach teammates, the same mistakes get corrected in parallel, and a new teammate's agent starts from nothing.
+    audience: team
+    glance: Fixes never reach teammates, and a new teammate starts from nothing
+  seen_in: 'Calls: re-explaining the project or pasting old history at the start of every session, nearly always ''no time'' to write it down (common-pitfalls rank 3); laptops: first messages that name
+    a file or reach back to an earlier session.'
+- id: corrections-dont-stick
+  name: The agent repeats a mistake you already corrected
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: The person corrects the agent, it says 'you're right', and the same mistake comes back later in the session or in the next one, because the correction lived only in that chat.
+  handled_by:
+  - write-down-what-it-cannot-know
+  also_handled_in: []
+  ask: What was the last correction you gave the agent twice, and what happened after the second time? When did you last delete a line from your rules, and why?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'Calls: the same correction typed in every session (pitfalls rank 3); one of his three L3 questions, ''what happens when a correction occurs in-chat?'' (substrate-issues/levels.md).'
+- id: prompt-bloat
+  name: The instructions that load every time grow until parts get ignored
+  term: prompt bloat
+  grade: emerging
+  source: https://code.claude.com/docs/en/best-practices
+  vocab:
+  - prompt-bloat
+  - instruction-stacking
+  - context-confusion
+  - context-clash
+  - attention-budget
+  what_goes_wrong: The always-loaded file is generated in one go or gets a new line after every mistake, and nothing is merged or removed. It fills with things the agent could work out from the repo, rules
+    repeat or contradict each other, and the agent ignores the ones that matter. Always-on tools add to the weight.
+  handled_by:
+  - write-down-what-it-cannot-know
+  - put-rules-where-they-apply
+  also_handled_in: []
+  ask: What does the agent read before it starts, and when did you last remove something from it?
+  call_signs:
+  - In their own words, the main file is 'several hundred lines' or 'too broad'
+  - '''It ignores half of it'''
+  - Can say what loads every time and why each part is there
+  - '''I add a line every time it gets something wrong'''
+  - Has never removed a rule
+  - Merges overlapping rules and deletes the ones whose cause is fixed
+  - Many connected tools switched on everywhere 'just in case'
+  - A rule meant for one part of the work shows up in another
+  - Switches tool connections on per project
+  - Names two rules that contradicted each other
+  - The same rule kept in two places that drifted apart
+  - Starts clean when the requirement changes instead of piling the change on top
+  - Can say what loads at the start of every session and roughly how big it is
+  - Treats token spend as a real limit that changes how they approach the work
+  laptop_signs:
+  - Length of the instruction files that load at the start of every session, per repo (median, top tenth, largest)
+  - Files they wrote that are over 200 lines
+  - 'Size history in git: trims, splits into subfolder files, files that grew back'
+  - Instruction files that only grow in git, compared with ones that also get trimmed
+  - Lines added compared with lines removed in the last 30 days
+  - Trimmed files that grew back
+  - Outside tool servers configured and used, per project
+  - How much instruction text loads at the start of every session
+  - Words of instructions loaded at the start of each session (median, top tenth, largest)
+  - Words loaded only when needed compared with words loaded in every session
+  detector: prompt_bloat.py
+  aliases:
+  - instruction-stacking
+  - context-confusion
+  - context-clash
+  - attention-budget
+  pitfall:
+    title: I let the AI write my CLAUDE.md and keep adding rules to it
+    fix: 'Treat the file as setup work for the codebase: time up front (15 minutes or an hour) writing down how this project is worked on, then let it grow only from real corrections. One line per thing
+      the agent can''t work out from the repo, with a reference to more. When a rule is ignored, look for the cause (too long, contradicted, the code teaches the opposite) before adding another, and delete
+      lines whose cause is fixed.'
+    order: 4
+  seen_in: 'Calls: generated, README-shaped instruction files in 8+ calls, files of roughly 300 to 600 lines, ''it ignores half of it'' (pitfalls rank 4); laptops: instruction files over 200 lines and files
+    that only grow in git.'
+- id: knowledge-doesnt-reach-the-agent
+  name: The agent misses the rule or doc that applies here, unless you hand it over
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: The rule for this module, the deploy steps or the right spec exist, but nothing tells the agent when to read them. So the person pastes paths and docs into every ask, or everything loads
+    everywhere and rules meant for one place leak into another.
+  handled_by:
+  - put-rules-where-they-apply
+  also_handled_in: []
+  ask: Show me where a rule that applies to only one module lives, and how the agent knows to read it there and only there.
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'Calls: specs and decision logs that no line points to, ''our biggest time drain is manually assembling context'' (pitfalls rank 10); his L3 question ''how do agents discover instructions and
+    rules, unprompted?''; laptops: prompts that name files.'
+- id: notes-pile-up
+  name: Notes, specs and memory files pile up and go stale
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: Notes, decision logs and memory files are added one at a time and never merged or retired. With no overview on top, the agent wades through all of them, misses the one that matters, or
+    follows one that is out of date as if it were current.
+  handled_by:
+  - put-rules-where-they-apply
+  - notes-the-next-chat-reads
+  also_handled_in: []
+  ask: How big is your notes or memory folder now, and when did you last merge or delete something in it?
+  call_signs:
+  - '''The memory folder just keeps growing'': decision logs or notes that are added to and never pruned'
+  - The agent used an out-of-date note or doc as if it were current
+  - Keeps a short overview on top that says which note to read for what, and retires settled entries
+  - The notes file is rewritten from scratch every session
+  - Adds to the notes in small edits instead of rewriting them
+  laptop_signs:
+  - Notes or memory files added compared with merged or removed in the last 30 days
+  - Whether an overview or index file exists and is read before the other notes
+  detector: null
+  aliases:
+  - context-collapse
+  pitfall:
+    title: 'My notes and memory only grow: more files, longer lists, nothing merged'
+    fix: 'Consolidate on a rhythm: merge overlapping notes, delete what is settled or wrong, and keep a short overview on top (an index the agent reads first that says which file to read for what), so it
+      never has to wade through every file. Merge with small edits; rewriting the whole store into one summary loses the detail.'
+    order: 9
+    why: Notes, decision logs, specs and memory files are added one at a time and kept for good. They turn into long lists of small files with no overview on top, so the agent wades through all of them,
+      misses the one that matters, or follows an entry that is out of date.
+  seen_in: 'Calls: memory folders and decision logs that only grow, a docs gate that read unmerged work as settled fact (pitfalls rank 10).'
+- id: context-rot
+  name: A long session gets worse the longer it runs
+  term: context rot
+  grade: standard
+  source: https://news.ycombinator.com/item?id=44310054
+  vocab:
+  - context-rot
+  - instruction-drift
+  - context-poisoning
+  - lost-in-the-middle
+  - dumb-zone
+  - lobotomization
+  - summary-drift
+  - trajectory-poisoning
+  - context-inertia
+  what_goes_wrong: As one session runs for hours or days, the agent forgets the goal and earlier decisions, repeats itself, follows its rules less, and keeps building on a wrong turn that is still in the
+    history. Each automatic compaction loses a little more.
+  handled_by:
+  - notes-the-next-chat-reads
+  - reset-with-a-handoff
+  - isolate-side-work
+  also_handled_in: []
+  ask: Tell me about the last time a long session started giving you worse answers. How did you notice, and what did you do?
+  call_signs:
+  - Says 'it forgets a lot of stuff' about a very long session
+  - Keeps one session going for days
+  - Late in a session the agent repeats itself or asks things already answered
+  - Can say how full the session is because they watch a meter
+  - '''It follows the rules at first, then forgets them'''
+  - The rule comes back at the moment it applies, not only at the start
+  - Starts fresh instead of repeating the rule louder
+  - Corrects the same wrong thing two or three times in one session
+  - Goes back to before the wrong turn, or starts over with the corrected fact up front
+  - Says a summary carried the mistake into the next session
+  - '''I told it that an hour ago'''
+  - Repeats the goal or the key rule near the end of a long session on purpose
+  - Keeps a plan or checklist that the agent rewrites as it goes
+  - Names a fill level where they stop trusting it
+  - Watches a meter of how full the session is
+  - Hands off to a fresh session before that point
+  - '''After it compacted, it forgot everything'''
+  - Turns off automatic compaction and compacts the session by hand
+  - Rules and state reload from files after a compaction
+  - A decision came back changed after a summary
+  - Says what the summary must keep
+  - Keeps key facts in a file instead of trusting the summary
+  - '''It kept saying I was right and then did it wrong again'''
+  - Stops correcting after the second miss and starts clean with what was learned
+  - The agent keeps defending its first theory of a bug
+  - Tests the other theory in a separate session or sub-agent
+  - Restarts with the new evidence written down
+  laptop_signs:
+  - How full sessions get at each typed message
+  - Stepping in (stopping the agent, refusing a tool call, a correction) by how full the session is and by position in the session
+  - 'Compactions: by hand or automatic, and how full the session was'
+  - Share of file reading done by sub-agents rather than in the main session
+  - Rule files from subfolders that reach the agent mid-session, when it works there
+  - Hooks that add context during a session
+  - 'Streaks: two or more step-ins within five typed messages in one session'
+  - 'What followed a streak: a fresh session, a clear, a fork, or carrying on'
+  - Step-ins in the next ten messages after each kind of response
+  - Stepping in by how full the session is
+  - How full the session was when they compacted or started fresh
+  - Automatic compactions compared with ones done by hand
+  - Stepping in over the 15 messages after a compaction, compared with the same points in sessions never compacted
+  - How many times one session was compacted (repeated summarising)
+  - Files carried into a compacted session. These are in the logs but not read yet.
+  - Correction streaks, and whether a fresh session or a clear followed them
+  detector: context_rot.py
+  aliases:
+  - instruction-drift
+  - context-poisoning
+  - lost-in-the-middle
+  - dumb-zone
+  - lobotomization
+  - summary-drift
+  - trajectory-poisoning
+  - context-inertia
+  pitfall:
+    title: When it goes wrong, I push harder in the same session
+    fix: After the second miss, stop. Fork the session and, in the side session, ask the agent which instruction or earlier text led it there; fix that. Then go back to before the wrong turn, or start fresh
+      with the corrected fact written first. Say what to do and why, not what not to do.
+    order: 8
+  seen_in: 'Calls: one chat kept for days or weeks on automatic compaction, hallucinations after repeated compactions, ''the AI forgets what is the main purpose'' (pitfalls rank 6); correcting a wrong turn
+    in place two or three times (rank 9).'
+- id: session-fills-with-noise
+  name: Side questions, dead ends and long output fill the session
+  term: context pollution
+  grade: emerging
+  source: https://www.philschmid.de/context-engineering-part-2
+  vocab:
+  - context-pollution
+  - kitchen-sink-session
+  - context-distraction
+  what_goes_wrong: Unrelated questions go into the working session, and big file reads, logs and test runs land in it whole. The session fills with material that has nothing to do with the task, and the
+    work drags.
+  handled_by:
+  - reset-with-a-handoff
+  - isolate-side-work
+  also_handled_in: []
+  ask: When a session is full of dead ends from things you tried, what do you do before you carry on?
+  call_signs:
+  - '''The context is full of failed attempts'''
+  - Saves what worked and starts clean
+  - Sends the trial and error to a side session or a sub-agent
+  - One session a day for everything
+  - One session per scope, with side questions in a side session or a sub-agent
+  - '''It keeps doing the same kind of step it did earlier'''
+  - Starts a fresh session for each new phase of the work
+  - Keeps big tool output out of the session
+  laptop_signs:
+  - Compactions and fresh sessions
+  - Sub-agents' share of the reading
+  - Forks and side sessions opened from a working session
+  - Sub-agents started for side questions
+  - Session length and fullness, compactions, and fresh sessions in the same folder. These are read for context rot and not separated from it today.
+  detector: null
+  aliases:
+  - context-pollution
+  - kitchen-sink-session
+  - context-distraction
+  pitfall:
+    title: I keep unrelated work in one session and lean on auto-compaction
+    fix: 'Keep one session per scope. Related tasks that need the same background can share a session; work that needs different background gets its own. When something must carry over, hand it off: a written
+      handoff the next session reads, a hand-off to another agent, or a snapshot into memory the next session loads. Compact only inside one scope, say what must survive, and check the summary.'
+    order: 5
+  seen_in: 'Calls: ''analyze the whole project'' asked in the main session, one session a day for everything (pitfalls practice card 5); laptops: share of file reading done in the main session versus sub-agents.'
+- id: setup-stays-on-one-laptop
+  name: What one agent was taught never reaches teammates or other tools
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: Each engineer sets the agent up alone and keeps the files local. Good rules never reach teammates, the same mistakes get corrected in parallel, a new teammate's agent starts from nothing,
+    and each AI tool has its own instructions so context is copied between them by hand.
+  handled_by:
+  - share-the-setup-with-the-team
+  also_handled_in: []
+  ask: If a new teammate cloned the repo and opened the agent today, what would it know, and whose agent besides yours reads your rules?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'Calls: about 9 people configure agents alone with no shared repo setup (common-pitfalls review, ''not shortlisted but supported''); copying between AI tools (v15 pitfall order 12).'
+- id: real-context-size
+  name: The part of the window that works is smaller than the advertised window
+  term: real context size (claimed versus effective context length)
+  grade: standard
+  source: https://github.com/NVIDIA/RULER
+  vocab:
+  - real-context-size
+  what_goes_wrong: 'A model keeps its quality only up to some length, often far below the context size it claims. Filling the advertised window means working past the point where it holds up. The linked
+    practices come from its sibling, the dumb zone: keep use low. Its own source names only evals.'
+  handled_by:
+  - compact-on-purpose
+  - reset-with-a-handoff
+  also_handled_in:
+  - verification:retest-agent-setup
+  ask: How full do you let a session get before you act, and how did you settle on that point?
+  call_signs:
+  - Names a point well below the full window where they act
+  - Assumes the whole window is safe because it is advertised
+  laptop_signs:
+  - How full the session was when they compacted or started fresh (median)
+  - Whether stepping in rises as sessions fill up
+  detector: null
+  retired: true
+practices:
+- id: write-down-what-it-cannot-know
+  name: Turn a repeated correction into a line every session reads, and keep those lines few
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: When the agent gets a fact wrong that it can't work out from the repo, or the same correction comes a second time, they write one line, with its reason, where every new session reads it.
+    If the code itself keeps teaching the wrong habit, they fix the code instead. They decide what earns a line, cut what the agent does anyway, settle rules that clash, and remove a rule once its cause
+    is fixed, so the always-loaded part stays short.
+  handles:
+  - corrections-dont-stick
+  - starts-from-zero
+  - prompt-bloat
+  also_handles: []
+  ladder:
+    L1: They correct the same mistake again in every session, or work from a long generated file nobody reads or trims.
+    L2: They retype the fact or correction into the session each time it is needed, and trim the file only when it visibly bites.
+    L3: After the second time, the fact or correction is one line in a file every new session loads, the file stays short enough that they can say why each line is there, and an ignored rule sends them
+      looking for the cause, not for louder wording.
+    L4: They built their own tooling that turns repeated corrections into proposed rules and flags oversize, duplicate or dead ones with nobody asking, keep tuning it as their projects change, and re-running
+      an old failure in a fresh session checks that each rule still holds.
+  techniques:
+  - tool: Claude Code
+    how: A CLAUDE.md or AGENTS.md at the repo root that every session loads, CLAUDE.local.md for what is only theirs; /memory to edit what loads and /context to see it.
+    laptop_signal: Instruction files per repo and their size, and which of them load at the start of a session
+  - tool: Claude Code
+    how: 'After a correction, ask the agent to add the line under a written rule: one line, the reason, no README text. An agent-written file counts only when supervised this way.'
+    laptop_signal: null
+  - tool: any
+    how: Fix the naming or code that keeps misleading the agent instead of writing a rule against it.
+    laptop_signal: null
+  - tool: any
+    how: Write rules as what to do, with the reason; keep emphasis for a rule that is actually being skipped; delete lines whose cause is fixed.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A review that compares the rules with recent sessions (ignored rules, corrections not yet captured), or a CI check that fails on size limits and repeated rules.
+    laptop_signal: null
+  call_evidence: What was the last correction you gave the agent twice, and what happened after the second time? When did you last delete a line from your rules, and why?
+  laptop_evidence: Instruction files in the repos they work in, which of them load at the start of a session, who wrote them (git), and edits to them right after a correction in the same session. That last
+    signal is a lead, not proof.
+  learn:
+  - kind: playbook
+    ref: /setup/claude-md
+    title: Writing CLAUDE.md
+  - kind: playbook
+    ref: /patterns/system-evolution
+    title: System Evolution
+  - kind: playbook
+    ref: /patterns/self-improving-loop
+    title: The Self-Improving Loop
+  - kind: playbook
+    ref: /reference/common-pitfalls
+    title: Common Pitfalls
+  rulings:
+  - 'Ruling 5: ''It does count, if the way it writes CLAUDE.mds is supervised and doesn''t just grow into context rot / pollution.'''
+  - 'Level guide: ''Having a CLAUDE.md is not Level 3 on its own. A team''s file counts only if they can say what it does and how.'''
+  - 'L2 to L3 border (10-23): who carries the context, them or a setup they engineered.'
+  practice_card:
+    title: Do it once together, then turn the correction into a rule or a skill
+    text: After you steer the agent, ask where the instruction should live so the next session finds it (root file, nested file, skill). After a repeated task that was slow, ask it to turn the process into
+      a skill (add a script if the steps are fixed). When it goes wrong, paste the failed session into a fresh session and ask why it chose that path and what instruction would have prevented it, then fix
+      the file the answer points to. Prune what no longer applies.
+    order: 3
+  authors_note: The field names the files (CLAUDE.md, AGENTS.md) but not the act. The nearest name is harness engineering in its narrow sense (every time the agent errs, engineer a fix so it never happens
+    again). The substrate already uses that as a discipline name.
+  ladder_short:
+    L2: Retypes the same correction by hand in each new session
+    L3: Turns a repeated correction into one short line every session loads
+    L4: Builds, tunes and tests tooling that drafts and prunes the rules
+  short_name: Turn corrections into standing rules
+  entry_rules: '1: pitfalls ranks 3 and 4 plus his ''correction sticks'' L3 question; 2: deciding what earns a line is a person''s act; 3: about their own working agent.'
+- id: put-rules-where-they-apply
+  name: Scope each rule to where it applies, and load deeper docs only when the task needs them
+  term: progressive disclosure
+  grade: emerging
+  source: https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
+  vocab:
+  - progressive-disclosure
+  audience: uses-agents
+  what_you_do: 'They put each rule in the narrowest place that still reaches where it is needed: the client folder, the repo, a module. Deeper docs, specs and repeated procedures sit behind a pointer that
+    names when to open them (''before changing how data is stored, read the decisions folder''), so the agent finds them on its own and the detail loads only when the task calls for it. Only the outside
+    connections a project needs are switched on.'
+  handles:
+  - knowledge-doesnt-reach-the-agent
+  - prompt-bloat
+  - notes-pile-up
+  also_handles: []
+  ladder:
+    L1: Everything sits in one file or nowhere, and the agent works without the rule or doc that applies.
+    L2: 'They carry the knowledge in by hand each session: they say which part''s rules apply, point at the files, or paste the doc.'
+    L3: Rules are split by repo or folder and load only there, and pointers name the situation that sends the agent to a deeper doc or a repeated procedure, so it opens them unprompted.
+    L4: They built their own delivery that puts the right rule or doc in front of the agent the moment a matching file, command or task comes up, with no pointer to maintain, keep tuning it as the work
+      changes, and a test shows it fires when it should and stays quiet otherwise.
+  techniques:
+  - tool: Claude Code
+    how: CLAUDE.md files in subfolders and path-scoped rule files under .claude/rules/; a parent-folder file shared by related repos.
+    laptop_signal: null
+  - tool: any
+    how: 'A short router file: hard rules plus one-line triggers (''working on X, read Y''). Test it by asking the agent to work on a module and watching which files it opens.'
+    laptop_signal: null
+  - tool: Claude Code
+    how: 'Skills they wrote: the description always loads, the body only when the task matches (ruling 4: L3).'
+    laptop_signal: Own skills, decided by git
+  - tool: Claude Code
+    how: MCP servers connected per project (.mcp.json) instead of globally; tool search keeps definitions out until needed.
+    laptop_signal: Outside tool servers configured and used
+  - tool: Claude Code
+    how: A hook that adds a rule or doc when a matching file or command comes up.
+    laptop_signal: Hooks that add context, and own hooks, decided by git
+  call_evidence: Show me where a rule that applies to only one module lives, and how the agent knows to read it there and only there.
+  laptop_evidence: Words loaded at the start of every session compared with words loaded only when needed; subfolder files that reached the agent and in how many sessions; own skills (git); tool servers
+    per project.
+  learn:
+  - kind: playbook
+    ref: /patterns/distribution
+    title: Context Distribution
+  - kind: playbook
+    ref: /setup/skills-stack
+    title: Composing a Skills Stack
+  - kind: playbook
+    ref: /setup/claude-md
+    title: Writing CLAUDE.md
+  - kind: playbook
+    ref: /setup/mcp-wiring
+    title: MCP Wiring
+  rulings:
+  - 'Ruling 4: writing skills is ''L3'', part of the Level 3 picture, not a ticket into it.'
+  - 'Ruling 2: ''Setting up claude''s behavior via hooks tooling or anything else, is mostly L4.'''
+  - 'v13 precision ruling, kept: opening the agent from one narrow folder decides nothing; what the instruction layer does decides everything.'
+  practice_card:
+    title: A short router CLAUDE.md, with the detail in folders and skills
+    text: 'The top file holds only what or when, then where: hard rules and one-line triggers like ''working on X, read Y''. Detail sits in nested per-folder files, index files, skills or a parent-folder
+      file shared by related repos (Claude also reads parent folders'' CLAUDE.md). Test the routing by asking the agent to work on a module and checking which files it opens.'
+    order: 4
+  authors_note: Merges progressive disclosure, tool loadout and deferred tool loading (Tool Search Tool).
+  ladder_short:
+    L2: Tells each session by hand which rules and docs apply
+    L3: Splits rules by folder, with pointers saying when to open deeper docs
+    L4: Builds, tunes and tests tooling that loads each rule as it applies
+  short_name: Load rules where they apply
+  trusted_checks:
+  - 'put-rules-where-they-apply L3 #0'
+  entry_rules: '1: pitfalls rank 10 and practice card 4 (the interviewer''s most repeated advice), laptop check for folder-scoped rules; 2: placing knowledge is a person''s design; 3: their own repos.'
+- id: notes-the-next-chat-reads
+  name: Keep what the work has learned in notes the next session reads on its own
+  term: context offloading
+  grade: emerging
+  source: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+  vocab:
+  - context-offloading
+  audience: uses-agents
+  what_you_do: 'They keep decisions, dead ends, progress and the plan in files outside the session, in a shape they chose: an overview plus a few files, a plan file per feature, a dated decisions log. The
+    agent updates them in small edits as it goes, and a fresh session reads them before they type. Settled or wrong notes are merged or retired so the store stays usable. Who types the notes doesn''t matter;
+    who decided their shape does.'
+  handles:
+  - starts-from-zero
+  - notes-pile-up
+  - context-rot
+  also_handles: []
+  ladder:
+    L1: Each session starts from nothing, or a built-in memory 'just remembers' and they can't say what it holds.
+    L2: They paste a summary into the new session, or tell each new session which notes file to open.
+    L3: A fresh session knows yesterday before they type, because their setup sends it to notes in a shape they designed, which the agent keeps current and which they keep pruned.
+    L4: They built their own tooling that writes, prunes and loads the notes without them and blocks work from landing until the record is written, keep reshaping it as their work changes, and a check shows
+      the notes stay right instead of drifting.
+  techniques:
+  - tool: any
+    how: A notes folder with an index file, and a line in the always-loaded file telling the agent to read the index first.
+    laptop_signal: null
+  - tool: any
+    how: A plan or progress file per feature that the agent updates as it works and the next session reads.
+    laptop_signal: Writes to files named like memory, status, plan or handoff (matched by name)
+  - tool: Claude Code
+    how: Auto-memory or a sub-agent memory folder, counted only with a structure they designed and actually read.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A session-start hook that loads the notes; a blocking hook that refuses to finish until the record is written.
+    laptop_signal: null
+  call_evidence: You open a new session on yesterday's task. What does the agent know before you type anything, and how did it get there?
+  laptop_evidence: 'Per project: the share of new sessions that start by reading notes an earlier session wrote without being told, sessions that write into a notes folder, and first messages that reach
+    back to earlier work or name an earlier session (the person carrying it). Memory is matched by folder or file name, so a notes file with another name scores zero.'
+  learn:
+  - kind: playbook
+    ref: /patterns/session-management
+    title: Session Management
+  - kind: playbook
+    ref: /explore/memory
+    title: Memory & Context
+  - kind: playbook
+    ref: /onboarding
+    title: Client onboarding
+  rulings:
+  - '10-19: ''Who writes the notes doesn''t matter: what matters is how their setup is structured and the disciplines they keep.'''
+  - '10-16: ''everybody has some sort of notes that carry over sessions... but it''s more about, did they engineer the context?'' Built-in features measure the tool, not the person.'
+  - 'Level guide row 8: building memory systems is where Level 4 starts (''the program doesn''t teach'').'
+  authors_note: Merges context offloading (the file system as context), structured note-taking (agentic memory), and recitation (a plan or todo file the agent rewrites so the goal stays in view).
+  ladder_short:
+    L2: Points each new session at the notes, or pastes a summary in
+    L3: Designs and prunes notes that every new session reads unprompted
+    L4: Builds, tunes and tests tooling that writes, prunes and loads the notes
+  short_name: Keep notes between sessions
+  trusted_checks:
+  - 'notes-the-next-chat-reads L2 #0'
+  entry_rules: '1: pitfalls rank 6 and 10, members who cope move state into files, laptop check for first messages naming a file; 2: designing the notes'' shape is the person''s act (ruling 10-19); 3: their
+    own work, not an agent product''s memory.'
+- id: reset-with-a-handoff
+  name: Keep each session to one scope, and restart it with a handoff when it degrades
+  term: context reset
+  grade: single-source
+  source: https://www.anthropic.com/engineering/harness-design-long-running-apps
+  vocab:
+  - context-reset
+  audience: uses-agents
+  what_you_do: Related tasks that need the same background share a session; work that needs different background gets its own. They notice when a session has gone bad (it repeats itself, forgets decisions,
+    makes the same mistake again) and start clean, carrying over only the goal, what's done, what worked and what failed. They go back to before a wrong turn instead of correcting on top of it, and if they
+    compact, they do it inside one scope and say what must survive.
+  handles:
+  - context-rot
+  - session-fills-with-noise
+  also_handles: []
+  ladder:
+    L1: They keep one session going for days on automatic compaction, and push harder in the same session when it goes wrong.
+    L2: They spot a bad session and start clean by hand with a handoff, rewind to before a wrong turn, or compact at a point they chose with a list of what to keep.
+    L3: 'Starting clean costs them nothing: their setup writes the handoff in a fixed shape and the next session picks it up unprompted, and standing instructions decide what survives a compaction.'
+    L4: They built their own automation that resets or compacts a session at a threshold they set and reloads its state from files without them stepping in, keep tuning the threshold and the saved state
+      as their work changes, and a test shows the next session carries on correctly.
+  techniques:
+  - tool: Claude Code
+    how: /clear then a first message carrying the handoff; /rewind to a checkpoint before the wrong turn; /fork or /branch for a side idea; claude --resume for a still-good session.
+    laptop_signal: null
+  - tool: Claude Code
+    how: /compact with focus instructions ('keep the file list and open decisions'); a status line that shows how full the context is.
+    laptop_signal: null
+  - tool: any
+    how: 'A handoff file: goal, progress, what worked, what didn''t, next step.'
+    laptop_signal: First messages that name an earlier session or a handoff file
+  - tool: Claude Code
+    how: Their own handoff command or skill; compaction instructions in the always-loaded file.
+    laptop_signal: null
+  - tool: Claude Code
+    how: Hooks before a compaction and at the session start that follows, to save and reload state.
+    laptop_signal: null
+  call_evidence: How do you know a session has gone bad, and what does the next session start with?
+  laptop_evidence: Clears compared with compactions; correction streaks followed by a fresh session, a clear or a fork rather than carrying on, and whether step-ins dropped afterwards; forks; first messages
+    that hand over an earlier session. Answer quality isn't in the logs, only the person's reaction to it.
+  learn:
+  - kind: playbook
+    ref: /patterns/session-management
+    title: Session Management
+  - kind: playbook
+    ref: /patterns/context-management
+    title: Context Management
+  - kind: playbook
+    ref: /reference/common-pitfalls
+    title: Common Pitfalls
+  rulings:
+  - 'Ruling 3: session management is an ''L2 thing that carries over in L3''.'
+  - Level guide row 10 lists 'No hand-written handoff notes' in the Level 2 line, while the playbook teaches a handoff file. See open questions.
+  authors_note: Merges context reset, handoff, intentional compaction (distil into a progress file, then restart), gathering scattered requirements into one fresh ask, and 'keep the wrong stuff in' (the
+    failed approaches travel as notes, not as a poisoned session).
+  ladder_short:
+    L2: Spots a bad session and restarts clean by hand with a handoff
+    L3: Uses a fixed handoff format that the next session picks up unprompted
+    L4: Builds, tunes and tests automation that resets sessions and reloads their state
+  short_name: Restart sessions with a handoff
+  entry_rules: '1: pitfalls ranks 6 and 9, the compaction conflict in the 173-call review; 2: judging a session and choosing what carries over is a person''s act; 3: their own sessions.'
+- id: isolate-side-work
+  name: Keep exploration and long output out of the main session
+  term: sub-agent architectures (context isolation)
+  grade: 'standard (''context quarantine'' as a label: emerging)'
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  vocab:
+  - sub-agent-architectures
+  audience: uses-agents
+  what_you_do: When answering one question means reading a lot of code, logs or docs, they send that reading elsewhere, to a sub-agent with a short brief or to a fork of the session, and only the result comes back. Long output, such as a log or a test run, is filtered by a script before the agent reads it. They know a sub-agent starts blank and needs a brief, while a fork already knows everything the session knows.
+  handles:
+  - session-fills-with-noise
+  - context-rot
+  also_handles: []
+  ladder:
+    L1: 'Everything happens in the main session: ''analyze the whole project'', whole logs, side questions.'
+    L2: They send the digging to a sub-agent or a branch by hand when it comes up, with a short brief, or start a workflow that spreads the reading over many sub-agents.
+    L3: 'Their setup does it without them asking: sub-agents they defined get the exploration by default, and a standing rule filters big output before it is read.'
+    L4: They built their own filters and helper agents that keep bulky reading out of the main session without them asking, keep tuning them as their tasks change, and a test shows the main session stays
+      small on a task that used to flood it.
+  techniques:
+  - tool: Claude Code
+    how: The Agent tool with the built-in Explore sub-agent, or a custom agent in .claude/agents/ with its own tools and model.
+    laptop_signal: Sub-agents started (type, model), what each was sent to do, and the sub-agents' share of file reading
+  - tool: Claude Code
+    how: '/subtask or the fork sub-agent: a branch that knows the session and returns only the result; dynamic workflows over many sub-agents (ruling 11: L2).'
+    laptop_signal: null
+  - tool: any
+    how: Have the agent write a script (grep, jq, a small program) that reads the bulk and prints only what matters.
+    laptop_signal: null
+  call_evidence: When the agent needs to read a lot of code to answer one question, where does that reading happen, and what comes back?
+  laptop_evidence: Sub-agents started and what they were sent to do, the share of reading done in sub-agents rather than the main session, forks and branch sub-agents, and workflow runs. File reads through
+    shell commands in the main session are not counted as reading yet.
+  learn:
+  - kind: playbook
+    ref: /patterns/subagent-patterns
+    title: Subagent Patterns
+  - kind: playbook
+    ref: /patterns/invocation-quality
+    title: Invocation Quality
+  - kind: playbook
+    ref: /patterns/context-management
+    title: Context Management
+  rulings:
+  - 'Ruling 3: sending exploration to a sub-agent is an ''L2 thing that carries over in L3''.'
+  - 'Ruling 11: dynamic workflows are ''an L2 thing''. Building your own orchestration program that starts agents is still Level 4.'
+  - 'Badge validation: sub-agents the agent spawns on its own are not the person''s practice (no credit for sub-agents they didn''t ask for or define).'
+  authors_note: Merges sub-agent architectures (context isolation, context quarantine) and programmatic tool calling (big results are processed in code, outside the session).
+  ladder_short:
+    L2: Hands exploration to a sub-agent by hand, with a short brief
+    L3: Defines sub-agents that take exploration by default, and filters long output
+    L4: Builds, tunes and tests filters and sub-agents that keep the session small
+  short_name: Offload exploration to sub-agents
+  trusted_checks:
+  - 'isolate-side-work L2 #2'
+  entry_rules: '1: practice card 5 (''send side digging to a helper''), laptop check for workflow runs; 2: choosing what leaves the session is the person''s act (sub-agents the agent starts on its own don''t
+    count); 3: their own sessions.'
+- id: share-the-setup-with-the-team
+  name: 'Commit the agent''s rules and notes to the team repo, for every teammate and tool'
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: The rules, pointers and notes every agent on the repo needs are committed in the team's repository, kept apart on purpose from what is only theirs. One shared instruction layer is read by
+    every AI tool the team uses. Teammates' agents run on the same files and teammates add to them, so a new teammate who clones the repo has a productive first session.
+  handles:
+  - setup-stays-on-one-laptop
+  - starts-from-zero
+  also_handles: []
+  ladder:
+    L1: Their setup lives only on their laptop and in one tool, and each teammate starts from nothing.
+    L2: They pass tips and rules to teammates by hand, in a message or a session, and copy context between tools.
+    L3: The shared setup is committed in the team repo with personal parts kept apart, one layer serves every tool, and named teammates' agents use it and some teammates edit it.
+    L4: They built their own tooling that delivers the shared setup to every teammate's agent without anyone stepping in, keep refining it as the team and repo change, and a check on a fresh clone shows
+      a new teammate's agent starts with it.
+  techniques:
+  - tool: any
+    how: A committed AGENTS.md as the one file every tool reads, with CLAUDE.md and other tools' rule files pointing to it; CLAUDE.local.md (kept out of git) for what is personal.
+    laptop_signal: null
+  - tool: Claude Code
+    how: Project settings and .mcp.json committed so every developer gets the same connections.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A team plugin with shared skills, agents and hooks, installed by everyone.
+    laptop_signal: Own plugins (what they change is not read)
+  call_evidence: If a new teammate cloned the repo and opened the agent today, what would it know, and whose agent besides yours reads your rules?
+  laptop_evidence: Instruction files committed per repo, and how many authors edited them (git). Whether teammates' agents actually load them happens on their machines and can't be seen here.
+  learn:
+  - kind: playbook
+    ref: /onboarding
+    title: Client onboarding
+  - kind: playbook
+    ref: /setup/claude-md
+    title: Writing CLAUDE.md
+  - kind: playbook
+    ref: /setup/make-it-yours
+    title: Make It Yours
+  rulings:
+  - 'Ruling 2: ''Setting up context either for themselves or the team is L3. Setting up claude''s behavior via hooks tooling or anything else, is mostly L4.'''
+  authors_note: The field has no settled name for this. The vocabulary's moves are about one agent's context, not a team's.
+  ladder_short:
+    L2: Passes tips and rules to teammates by hand
+    L3: 'Commits the team''s rules to the repo and keeps personal ones local'
+    L4: Builds, tunes and tests tooling that delivers the setup to every teammate
+  short_name: Share agent setup with teammates
+  entry_rules: '1: about 9 people in calls set up alone (173-call review) plus the tool-to-tool copying pitfall; 2: deciding what is shared versus personal is the person''s act; 3: their team''s repos,
+    not an agent product.'
+- id: keep-always-loaded-small
+  name: Trim, merge and retire the instructions that load every time
+  term: context pruning
+  grade: emerging
+  source: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+  vocab:
+  - context-pruning
+  audience: uses-agents
+  what_you_do: 'They cut what the agent can work out without being told, merge rules that overlap, settle rules that contradict each other, reword a ''don''t'' into what to do instead, and retire a rule
+    once its cause is fixed. When a written rule still gets ignored, they find out why: the file is too long, the rule is ambiguous or contradicted, or the code itself leads the agent the other way. Then
+    they fix that cause instead of writing it louder.'
+  handles:
+  - context-rot
+  - lost-in-the-middle
+  - context-poisoning
+  - context-distraction
+  - context-confusion
+  - context-clash
+  - attention-budget
+  - attention-dilution
+  - summary-drift
+  - prompt-bloat
+  - instruction-stacking
+  also_handles:
+  - prompt:prompt-debt
+  - prompt:whack-a-mole
+  - prompt:aggressive-prompt-language
+  - prompt:pink-elephant
+  ladder:
+    L2: 'Trims or rewrites the file now and then, when it bites: after the agent ignored it, or after someone pointed at its size.'
+    L3: What loads every time stays small over time. They can say why each line is there, they retire rules once the cause is fixed, and their trims hold instead of growing back. When a rule is ignored,
+      they look for the cause in the rules or the code, not for louder wording.
+    L4: 'Built a check that keeps the files in shape without them: size limits, dead or duplicate rules, contradictions.'
+  techniques:
+  - tool: Claude Code
+    how: /context to see what loads every turn and how big it is.
+    laptop_signal: Words of instructions loaded at the start of each session (median, top tenth, largest)
+  - tool: any
+    how: Delete lines the agent follows anyway, move detail behind a reference, and keep one copy of each rule.
+    laptop_signal: 'Git history of instruction files: trims, where the removed lines went, files that grew back'
+  - tool: any
+    how: Write rules as what to do, with the reason, and keep emphasis for a rule that is actually being skipped. Put what matters most at the start or the end.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A regular review that compares the rules with recent sessions to find rules that were ignored, corrections not yet captured, and stale entries.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A hook or CI check that fails when an instruction file passes a size limit or repeats a rule.
+    laptop_signal: Own hooks, decided by git (what each one checks is not read)
+  call_evidence: '''When did you last delete a line from your rules file, and why?'' and ''Is there a rule the agent keeps breaking anyway? What did you try?'' L3 when they name a retired rule and its cause,
+    or a fix for an ignored rule that wasn''t louder wording. Ruling 6 is parked: ask this, but don''t require it for Level 3 yet.'
+  laptop_evidence: 'Size of what loads at the start of each session, and the git history of the files they wrote: trims, splits, lines moved to docs or skills, and whether trimmed files grew back. The logs
+    can''t show whether a rule is ignored or contradicts another one.'
+  learn:
+  - kind: playbook
+    ref: /setup/claude-md
+    title: Writing CLAUDE.md
+  - kind: playbook
+    ref: /reference/common-pitfalls
+    title: Common Pitfalls
+  - kind: playbook
+    ref: /patterns/distribution
+    title: Context Distribution
+  - kind: playbook
+    ref: /patterns/self-improving-loop
+    title: The Self-Improving Loop
+  - kind: outside
+    ref: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+    title: How to fix your context (context pruning)
+  rulings:
+  - 'Ruling 6, parked (''later''): whether a Level 3 must show pruning. Ask it on calls; decide later.'
+  - 'Level guide row 6 note: an ignored rule is a context problem, not a cue to write a hook (''Stop saying a written rule gets ignored = it becomes a hook. Nobody''s doing that.'').'
+  authors_note: Merges context pruning (of the standing instructions), the smallest set of high-signal tokens, and consolidation and dead-clause audits.
+  ladder_short:
+    L2: Trims the file now and then, when it bites
+    L3: File stays small over time; can say why each line exists
+    L4: Built a check for size, dead and duplicate rules
+  short_name: Keep CLAUDE.md short
+  retired: true
+  merged_into: write-down-what-it-cannot-know
+- id: let-the-agent-fetch
+  name: Let the agent fetch what it needs from where it lives
+  term: just-in-time context retrieval
+  grade: emerging
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  vocab:
+  - just-in-time-context-retrieval
+  audience: uses-agents
+  what_you_do: 'They don''t paste tickets, logs, docs or whole files into the session. They leave the agent pointers (paths, links, a notes store) and let it look things up when it needs them. Context is
+    any knowledge the agent works from: project facts, conventions, the best practices they follow.'
+  handles:
+  - context-rot
+  - context-confusion
+  - attention-budget
+  - starts-from-zero
+  also_handles: []
+  ladder:
+    L2: Points the agent at the files, folder or source in each session, or hands it the real evidence themselves (the error, the payload, a screenshot).
+    L3: Told the agent once where its knowledge lives (a docs folder, decision records, a notes vault they shaped). It then searches there without being asked ('search the vault first'). Connections others
+      built are a Level 1 basic, not this level.
+    L4: 'Built the retrieval itself: their own connector, MCP server or search tool that changes what the agent can reach. A test shows it finds the right thing.'
+  techniques:
+  - tool: Claude Code
+    how: Name file paths or folders in the ask, and the agent reads them itself.
+    laptop_signal: Prompt names a file (English word list)
+  - tool: Claude Code
+    how: MCP servers or command-line tools others built, for tickets, logs, databases and docs.
+    laptop_signal: Outside tool servers used, and about 19 outside tools run from the shell
+  - tool: Claude Code
+    how: A line in the always-loaded file that says where knowledge lives and to search there first.
+    laptop_signal: null
+  - tool: any
+    how: Their own MCP server or search index over the team's docs or notes.
+    laptop_signal: null
+  call_evidence: '''Where did the information for your last task come from, and how did it reach the agent?'' L3 when they set up the place once and the agent searches it unprompted. L2 when they point
+    at it or paste it each time. Using a connection someone else set up is the Level 1 basic.'
+  laptop_evidence: Tool servers and shell tools used, and whether prompts name files or paste errors. Whether the agent searched a store on its own because the setup says so is not separated today; the
+    notes check catches some of it as sessions that start by reading notes.
+  learn:
+  - kind: playbook
+    ref: /patterns/context-management
+    title: Context Management
+  - kind: playbook
+    ref: /onboarding
+    title: Client onboarding
+  - kind: playbook
+    ref: /setup/mcp-wiring
+    title: MCP Wiring
+  - kind: outside
+    ref: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    title: Effective context engineering for AI agents
+  rulings:
+  - 'Ruling 10: ''A knowledge store whose shape they chose, which the agent is set up to search on its own, is engineered context, whatever it holds. Telling the agent once where its knowledge lives is
+    setting it up; pointing it at a file in every session is Level 2.'''
+  - 'Ruling 7: ''MCP servers are not necessarily L4. Using them is a L1 basic thing. building them is a L4.'''
+  - 'Level guide: ''Pointing Claude at the right file is Level 2.'''
+  authors_note: Merges just-in-time context retrieval (agentic search, pulling instead of pushing) and RAG as a context fix.
+  ladder_short:
+    L2: Points the agent at files, or pastes the real evidence
+    L3: Told it once where knowledge lives; it searches there itself
+    L4: Own MCP server or search tool; a test shows it finds things
+  short_name: Point, don't paste
+  retired: true
+  merged_into: put-rules-where-they-apply
+- id: compact-on-purpose
+  name: Compact a long session on purpose, saying what must survive
+  term: compaction
+  grade: standard
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  vocab:
+  - compaction
+  audience: uses-agents
+  what_you_do: 'Between steps, and before the session fills, they have the agent summarise the session so far and carry on from that summary. They tell it what must survive: the files, the decisions, the
+    open question. They don''t leave it to the automatic compaction at the edge of the window. They know a summary loses things, so what matters for longer lives in files.'
+  handles:
+  - context-rot
+  - context-distraction
+  - context-pollution
+  - attention-budget
+  - context-anxiety
+  - context-poisoning
+  - summary-drift
+  - context-collapse
+  - lobotomization
+  - dumb-zone
+  - real-context-size
+  also_handles: []
+  ladder:
+    L2: Compacts the session by hand at a point they choose and says what to keep. Watches how full the session is.
+    L3: 'Their setup decides what survives a compaction: standing instructions for what a summary must keep, and rules and state that reload from files afterwards, so a compaction loses nothing that matters.'
+    L4: Built hooks or a program that save the state before a compaction and load it back after, or that compact at a threshold they set. A test shows it works.
+  techniques:
+  - tool: Claude Code
+    how: /compact with focus instructions ('keep the file list and the open decisions').
+    laptop_signal: Compactions by hand compared with automatic ones, and how full the session was each time
+  - tool: Claude Code
+    how: A status line that shows how full the context is.
+    laptop_signal: Status line set
+  - tool: Claude Code
+    how: Compaction instructions in the always-loaded file; automatic compaction switched off.
+    laptop_signal: null
+  - tool: any
+    how: 'Use only part of a big window even when it''s switched on: compact or hand off well before the limit.'
+    laptop_signal: How full the session was at each compaction (median)
+  - tool: Claude Code
+    how: Hooks before a compaction and at the session start that follows it, to save and reload the state.
+    laptop_signal: Hooks by event, and own hooks, decided by git
+  - tool: any
+    how: 'For people building agents: context editing in the API, which clears old tool calls and results.'
+    laptop_signal: null
+  call_evidence: Ask what they do when a session gets long, and what they make sure survives. L2 when they compact it at a point they chose and name what to keep. Letting the automatic compaction carry
+    a long session, or compacting again and again, is the Level 1 picture. Level 2, carried into Level 3.
+  laptop_evidence: Compactions by hand compared with automatic ones, how full the session was when they happened, and stepping in before and after a compaction compared with the same points in sessions
+    never compacted. Files carried into a compacted session are in the logs but not read yet.
+  learn:
+  - kind: playbook
+    ref: /patterns/context-management
+    title: Context Management
+  - kind: playbook
+    ref: /patterns/session-management
+    title: Session Management
+  - kind: playbook
+    ref: /reference/common-pitfalls
+    title: Common Pitfalls
+  - kind: outside
+    ref: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    title: Effective context engineering for AI agents (compaction)
+  - kind: outside
+    ref: https://factory.com/news/evaluating-compression
+    title: Evaluating compression (anchored iterative summarization)
+  rulings:
+  - 'Level guide row 10: ''They keep going, and compact again and again'' is the Level 1 line.'
+  - 'Ruling 3: Level 2, carried into Level 3.'
+  authors_note: Merges compaction, anchored iterative summarization (a summary with fixed sections that is updated, not rewritten) and tool result clearing (dropping old tool output first).
+  ladder_short:
+    L2: Compacts by hand at a chosen point, says what to keep
+    L3: Standing instructions decide what survives; state reloads from files
+    L4: Hooks save and reload state around compaction; a test shows it
+  short_name: Compact before it fills
+  retired: true
+  merged_into: reset-with-a-handoff
+- id: design-the-context-you-send
+  name: Design the context your own agent sends the model
+  term: own your context window
+  grade: single-source
+  source: https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-03-own-your-context-window.md
+  vocab:
+  - own-your-context-window
+  audience: builds-agents
+  what_you_do: For an agent they build, they decide the format of what goes to the model, rather than a default session transcript. They do it for information density, error handling and cost. They keep
+    a stable opening with history that is only appended to, so the cache keeps hitting. They mask tools instead of adding or removing them mid-run.
+  handles:
+  - context-rot
+  also_handles: []
+  ladder:
+    L2: null
+    L3: null
+    L4: Their agent builds its own context format (stable opening, append-only history, errors condensed), and they measure cache hits and quality with evals.
+  techniques:
+  - tool: any
+    how: 'Agent SDK or API: their own message format, prompt-caching breakpoints and a fixed prefix.'
+    laptop_signal: Scripts they wrote that start agents (what they send the model is not read)
+  - tool: any
+    how: Mask tool choices while the model writes its answer, or use a fixed set of tool states, instead of changing the tool list mid-run.
+    laptop_signal: null
+  call_evidence: 'Ask only someone who builds agents: ''Show me what your agent actually sends the model on one turn, and why it''s shaped that way.'''
+  laptop_evidence: Scripts or programs they wrote that start agents. What those send the model is not read.
+  learn:
+  - kind: outside
+    ref: https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-03-own-your-context-window.md
+    title: '12-Factor Agents, factor 3: own your context window'
+  - kind: outside
+    ref: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+    title: 'Context engineering for AI agents: lessons from building Manus'
+  rulings:
+  - 'L4 needs building that changes how the agent runs, plus evals, period: whether the agent can edit them is not part of the bar (11-02, replaces 10-09/10-13).'
+  authors_note: Merges own your context window, design around the KV-cache, and mask, don't remove.
+  ladder_short:
+    L4: Their own agent's context format, measured with evals
+  short_name: Shape your agent's context
+  retired: true
+  track: agent-builders
+- id: agent-managed-memory
+  name: Build your agent's memory as a curated store it updates in small edits
+  term: Agentic Context Engineering (ACE)
+  grade: single-source
+  source: https://arxiv.org/abs/2510.04618
+  vocab:
+  - agentic-context-engineering
+  audience: builds-agents
+  what_you_do: For an agent they build, memory is a system. It can be an evolving playbook updated by small, structured edits after each run instead of being rewritten whole. It can be tiers of fast and
+    slow memory that the agent moves data between. It can be work done ahead of time between requests.
+  handles:
+  - context-collapse
+  - context-rot
+  - starts-from-zero
+  - notes-pile-up
+  also_handles: []
+  ladder:
+    L2: null
+    L3: null
+    L4: Their agent keeps and curates its own memory across runs by a mechanism they built, and evals show the memory helps rather than drifts.
+  techniques:
+  - tool: any
+    how: Small updates to a playbook file after each run, with a separate step that curates it.
+    laptop_signal: null
+  - tool: any
+    how: 'Memory tiers: a small core kept in context, and an archive the agent searches.'
+    laptop_signal: null
+  - tool: any
+    how: A background job that prepares summaries or answers between sessions.
+    laptop_signal: Schedules and scripted runs
+  call_evidence: 'Ask only someone who builds agents: ''How does your agent''s memory change after a run, and how do you know it got better rather than worse?'''
+  laptop_evidence: Scheduled or scripted runs they wrote. What those runs do to memory is not read.
+  learn:
+  - kind: outside
+    ref: https://arxiv.org/abs/2510.04618
+    title: Agentic Context Engineering (ACE)
+  - kind: outside
+    ref: https://arxiv.org/abs/2310.08560
+    title: 'MemGPT: virtual context management'
+  - kind: outside
+    ref: https://arxiv.org/abs/2504.13171
+    title: Sleep-time compute
+  rulings:
+  - 'Level guide row 8: ''They build memory systems, which the program doesn''t teach'' is where Level 4 starts.'
+  authors_note: Merges ACE (evolving playbooks), virtual context management (MemGPT memory tiers) and sleep-time compute.
+  ladder_short:
+    L4: Their agent curates its own memory; evals show it helps
+  short_name: Memory for an agent you build
+  retired: true
+  track: agent-builders
+- id: long-input-in-pieces
+  name: Have your agent work through long input in pieces
+  term: Recursive Language Models (RLMs)
+  grade: single-source
+  source: https://arxiv.org/abs/2512.24601
+  vocab:
+  - recursive-language-models
+  audience: builds-agents
+  what_you_do: For agents they build that face more input than works in one context, the model treats the input as something outside itself. It examines the input with code and calls itself on pieces of
+    it. Or it branches into a subtask and folds the result back into a short summary.
+  handles:
+  - context-rot
+  also_handles: []
+  ladder:
+    L2: null
+    L3: null
+    L4: Their agent splits long input and calls itself on the pieces, or folds subtasks back into summaries, and they measure it against a single long context with evals.
+  techniques:
+  - tool: any
+    how: The long input is a variable in a code environment the model can inspect, split, and call itself on.
+    laptop_signal: null
+  - tool: any
+    how: Branch-and-return subtasks that keep only a short result (needs a model trained for it).
+    laptop_signal: null
+  call_evidence: 'Ask only someone who builds agents: ''What does your agent do when the input is bigger than its context can handle well?'''
+  laptop_evidence: Not read.
+  learn:
+  - kind: outside
+    ref: https://arxiv.org/abs/2512.24601
+    title: Recursive Language Models
+  - kind: outside
+    ref: https://arxiv.org/abs/2510.11967
+    title: Context folding
+  rulings:
+  - 'L4 needs building that changes how the agent runs, plus evals, period: whether the agent can edit them is not part of the bar (11-02, replaces 10-09/10-13).'
+  authors_note: Merges RLMs and context folding (which needs a model trained for it).
+  ladder_short:
+    L4: Their agent splits long input; evals compare it to one pass
+  short_name: Long input, handled in pieces
+  retired: true
+  track: agent-builders
+crosswalk:
+- v13: context-7
+  to: write-down-what-it-cannot-know
+  why: '''Instruction layer ownership'' was a virtue-shaped name. Its surfaces split: the file existing and corrections landing become this practice''s L3 level, and rules retiring moves to keep-always-loaded-small.'
+- v13: c7-has-file
+  to: write-down-what-it-cannot-know
+  why: Having a file starts the L3 level but isn't the level. It counts when they can say what the file holds and why.
+- v13: c7-hand-authored
+  to: write-down-what-it-cannot-know
+  why: 'Ruling 5 replaces the 08-22 ''agent-written is negative'' line: a file the agent writes counts when they set tight rules on what goes in and it doesn''t bloat. What counts is who decides the shape,
+    not who types.'
+- v13: c7-corrections-land
+  to: write-down-what-it-cannot-know
+  why: A repeated correction turned into a line every session reads is the L3 level.
+- v13: c7-rules-retire
+  to: keep-always-loaded-small
+  why: Retiring a rule once its cause is fixed is the L3 level of trimming. Ruling 6 is parked, so it is asked, not required.
+- v13: ctx-instr-file
+  to: write-down-what-it-cannot-know
+  why: Evidence toward L3 only together with what the file holds. On its own it is the existence fact v13 over-credited.
+- v13: ctx-no-instr-file
+  to: starts-from-zero
+  why: Becomes a call sign of the challenge (no session knows anything about the project), and means L1 on write-down-what-it-cannot-know when said. Never inferred from silence.
+- v13: ctx-per-client
+  to: put-rules-where-they-apply
+  why: 'A file per client workspace is scoping at the widest useful level (level guide row 2: workspace, repo, folder or personal file).'
+- v13: ctx-agent-writes-docs
+  to: write-down-what-it-cannot-know
+  why: 'Its polarity becomes conditional: positive when the writing is supervised (ruling 5), and a lead toward prompt-bloat when it isn''t.'
+- v13: ctx-rules-from-review
+  to: write-down-what-it-cannot-know
+  why: Deciding which review comment earns a line is the L3 level's 'they decide what earns a line'.
+- v13: context-8
+  to: put-rules-where-they-apply
+  why: 'Its prune, scope, route ladder splits in two: scoping, pointers and own skills stay here, and pruning moves to keep-always-loaded-small. Progressive disclosure, which v13 dropped from display as
+    a technique name, is the vocabulary term again.'
+- v13: c8-prune
+  to: keep-always-loaded-small
+  why: Keeping what loads every turn small is this practice's core.
+- v13: c8-scope
+  to: put-rules-where-they-apply
+  why: 'Rules split by scope so they load only where they apply: the L3 level.'
+- v13: c8-wide-root
+  to: put-rules-where-they-apply
+  why: 'Becomes a technique: start from a workspace folder whose file orients the agent. On its own it decides nothing, as the 10-09 split already said.'
+- v13: c8-route
+  to: put-rules-where-they-apply
+  why: 'Pointers that say when to read a deeper file: the L3 level.'
+- v13: c8-skill
+  to: put-rules-where-they-apply
+  why: Own skills are L3 (ruling 4), part of the picture, not a ticket into it.
+- v13: hn-own-skills
+  to: put-rules-where-they-apply
+  why: Same as c8-skill. The laptop decides authorship by git.
+- v13: ctx-wide-root
+  to: put-rules-where-they-apply
+  why: A technique, not evidence of a level on its own.
+- v13: ctx-dir-scoped
+  to: put-rules-where-they-apply
+  why: 'The L3 level. Its v13 boundaries hold: one file per repo is not scoping, and narrowing what the agent sees without any instruction structure is not scoping.'
+- v13: ctx-route-trigger
+  to: put-rules-where-they-apply
+  why: 'A line naming the situation that sends the agent to another file: the L3 level.'
+- v13: ctx-file-split-plan
+  to: put-rules-where-they-apply
+  why: Moving material behind pointers. A plan heard on a call is a lead; the laptop's git history shows whether it happened.
+- v13: ctx-file-oversize
+  to: prompt-bloat
+  why: Becomes the challenge's call sign, in their own words, never the interviewer's.
+- v13: context-9
+  to: reset-with-a-handoff
+  why: 'Session management splits by what it heard: starting clean goes to reset-with-a-handoff, compacting to compact-on-purpose, exploration to isolate-side-work, and pointing or pasting to let-the-agent-fetch.
+    Ruling 3 keeps all of it Level 2, carried into Level 3.'
+- v13: ctx-agent-searches
+  to: let-the-agent-fetch
+  why: Letting the agent explore is agentic search (L2). Done in the main session for a big question, it becomes a kitchen-sink risk that isolate-side-work handles.
+- v13: ctx-paste-files
+  to: let-the-agent-fetch
+  why: Pointing at files in every session is the L2 level (ruling 10; 'Pointing Claude at the right file is Level 2').
+- v13: ctx-screenshot
+  to: let-the-agent-fetch
+  why: Handing over the real thing is this practice's L2. How the ask around it is framed belongs to prompt.
+- v13: ctx-outside-data
+  to: let-the-agent-fetch
+  why: Pasted is L2. Fetched through connections others built is the Level 1 basic (ruling 7). A store they shaped that the agent searches on its own is L3 (ruling 10).
+- v13: ctx-one-thread
+  to: context-rot
+  why: v13 counted it as a plus, but one endless session is the symptom. Picking a still-good session back up is part of reset-with-a-handoff's L2.
+- v13: ctx-cost
+  to: attention-budget
+  why: Treating token spend as a limit is the cost side of the attention budget. It counts only through the act it changes (sub-agents or split work in isolate-side-work, cheaper models in orchestration's
+    model routing), never as a stance.
+- v13: context-10
+  to: notes-the-next-chat-reads
+  why: 'Memory across sessions keeps its kinds-to-tiers idea as one ladder: told to open (L2), read on its own in a shape they chose (L3), a system they built (L4).'
+- v13: c10-note
+  to: notes-the-next-chat-reads
+  why: 'A note the next session must be told to open is the L2 level (level guide row 7: not ''I tell it to open the file'').'
+- v13: c10-auto
+  to: notes-the-next-chat-reads
+  why: Notes that load on their own are the L3 level, but only with a shape they designed; built-in memory alone measures the tool (10-16). A check for it now exists (starts_from_zero.py), which v13 lacked.
+- v13: c10-agent-fills
+  to: notes-the-next-chat-reads
+  why: The agent filling a structure they designed is L3 ('Who writes the notes doesn't matter').
+- v13: c10-governed
+  to: notes-the-next-chat-reads
+  why: Layers, retirement and dated logs are the top of L3. A write gate built with hooks is L4.
+- v13: mem-note-handoff
+  to: notes-the-next-chat-reads
+  why: 'The L2 level: the next session is told to open the note.'
+- v13: mem-agent-writes
+  to: notes-the-next-chat-reads
+  why: L3 when the record is written for the agent and its shape is theirs.
+- v13: mem-write-gated
+  to: notes-the-next-chat-reads
+  why: 'L4: a hook or commit step that won''t let work land without the record is behaviour set by code.'
+- v13: mem-external-store
+  to: let-the-agent-fetch
+  why: A store of written knowledge they shaped, which the agent searches on its own, is ruling 10's engineered context (L3).
+- v13: mem-native-feature
+  to: notes-the-next-chat-reads
+  why: 'Kept as the near miss: built-in memory ''just remembering'' measures the tool, not the person, and is never L3 on its own.'
+- v13: mem-transcript-handoff
+  to: notes-the-next-chat-reads
+  why: 'Pasting a summary into the next session is the L2 level: they carry it.'
+- v13: mem-compact-only
+  to: compact-on-purpose
+  why: Letting automatic compaction carry a long session is this practice's L1 (level guide row 10), and a lead for lobotomization.
+- v13: mem-none
+  to: starts-from-zero
+  why: A call sign of the challenge. Asked, never inferred from silence.
+- v13: mem-file-grows
+  to: notes-the-next-chat-reads
+  why: Notes with no shape or curation sit below L3. The symptom is prompt bloat if the file loads every session, or context collapse if it is rewritten.
+- v13: context-11
+  to: share-the-setup-with-the-team
+  why: Instruction reach keeps its own practice, because the level guide decides Level 3 on it (rows 14 and 15) and it has its own laptop signal (committed files, other authors).
+- v13: c11-committed
+  to: share-the-setup-with-the-team
+  why: L3 level. The laptop reads it from git, so it is no longer without a check.
+- v13: c11-team-adopts
+  to: share-the-setup-with-the-team
+  why: L3 level. The laptop sees only other authors; whether teammates actually use the files is asked.
+- v13: reach-committed
+  to: share-the-setup-with-the-team
+  why: L3 evidence.
+- v13: reach-split-deliberate
+  to: share-the-setup-with-the-team
+  why: L3 evidence. The personal half is also put-rules-where-they-apply (the narrowest place).
+- v13: reach-team-uses
+  to: share-the-setup-with-the-team
+  why: 'L3 evidence: named teammates run on the files.'
+- v13: reach-team-contributes
+  to: share-the-setup-with-the-team
+  why: 'L3 evidence: teammates edit the files too.'
+- v13: reach-local-only
+  to: share-the-setup-with-the-team
+  why: Below L3 on this practice, unless the client doesn't allow agent files in its repos (then it is not a gap).
+open_questions:
+- 'Ruling needed: 25 challenges are too many to ask about on a call or read from a laptop. Proposal: keep about 11 as challenges (context rot, context poisoning, context pollution, kitchen sink session,
+  lost in conversation, lobotomization, summary drift, instruction drift, prompt bloat, instruction stacking, starts from zero, context confusion). Fold the rest in as other names under a parent: attention
+  budget, attention dilution, real context size and dumb zone under context rot; trajectory poisoning under context poisoning; context collapse under summary drift; context distraction, context inertia
+  and instruction-induction conflict under context pollution or poisoning. Drop agent drift: no fix is named, the only source is a simulation, and only its abstract was read.'
+- 'Ruling needed: are sub-agents someone defined themselves (their own agent files) Level 3, like their own skills (ruling 4)? Drafted that way in isolate-side-work L3, by analogy only.'
+- 'Level guide conflict: row 7 rejects ''a note the next session is told to open'' as Level 3, while row 9 accepts ''a goal or plan file that the next session reads''. Drafted: told to open = L2, read on
+  its own = L3. Please confirm.'
+- 'Level guide row 10 puts ''No hand-written handoff notes'' in the Level 2 line, while the playbook''s Session Management page teaches a handoff file as the main move. Drafted: a handoff they write by
+  hand each time = L2, one their setup writes = L3. Do hand-written handoffs count at Level 2?'
+- Ruling 6 (pruning) is still parked. keep-always-loaded-small's L3 is drafted as asked but not required for Level 3.
+- 'Playbook conflict: The Self-Improving Loop and System Evolution teach ''tell the agent to update its rules file after every correction'' with no supervision rule. That teaches instruction stacking, and
+  ruling 5 says agent-written rules count only under tight rules on what goes in. Both pages need that line and a step for retiring rules.'
+- 'Playbook conflict: System Evolution says ''If a rule keeps getting violated, promote it to a hook.'' This contradicts his note on level guide row 6 (''Stop saying a written rule gets ignored = it becomes
+  a hook. Nobody''s doing that.'').'
+- 'Playbook conflict: Context Management, Common Pitfalls and Workflow Patterns say ''compact between tasks'', while Session Management says a new task gets a new session, and the level guide''s Level 1
+  line is ''compact again and again''. Pick one answer.'
+- 'Content gaps (nothing in the materials index teaches these): recovering from a poisoned session by going back to before the wrong turn (Session Management only has a paragraph on forking); lost in the
+  middle and keeping a plan file the agent rewrites; finding why a written rule is ignored, and retiring rules (row 6); notes in a chosen shape that a fresh session reads on its own (only the onboarding
+  page''s memory-folder step); a knowledge store the agent searches first (ruling 10); and every builds-agents practice (outside sources only). The Explore Memory page lists plugins (using them is Level
+  1) but doesn''t teach the practice. The hands-on track covers only the first rules file and the first skill.'
+- 'Term grades: reset-with-a-handoff rests on ''context reset'' (single-source), so its levels rest on the level guide, not on the term. It is Level 2 and carried, so it anchors no level. The notes practice
+  is named by ''context offloading'' (emerging) because ''structured note-taking (agentic memory)'', the field''s most-cited name for the across-sessions half, is single-source and may name but not anchor
+  Level 3. Is this the intended reading of rule 1?'
+- 'Rule 1 reading: the three builds-agents practices (design-the-context-you-send, agent-managed-memory, long-input-in-pieces) are each named by a single-source term and their only level is L4. They are
+  drafted as the SCOPE file assigns them, but single-source terms may name and never anchor a level, so their L4 levels rest on the L4 rulings (building that changes how the agent runs, plus evals the agent
+  can''t edit), not on the term. Please confirm.'
+- '''Own your context window'' is drafted as builds-agents, because its definition is about the message format of agents you build, though SCOPE listed it among the user practices. API-only moves (tool
+  result clearing, Tool Search Tool, programmatic tool calling) are merged into user practices as techniques, since Claude Code does the first two automatically. ''Context folding'' needs a specially trained
+  model, so it is builds-agents. Please confirm.'
+- The fresh-session test (level guide row 16, 'applies to every row') is drafted as how every level is checked, not as a practice. Its automated form, evals the agent can't edit, belongs to verification.
+  Please confirm.
+- 'Laptop gaps: no laptop sign at all for lost in the middle, context clash, context anxiety, instruction-induction conflict, context inertia, attention dilution or agent drift; these are call-only. Markers
+  already in the logs but not read: files carried into a compacted session, which plugin or skill made each write (did they or a tool write the note), and the plans folder. Subfolder files that loaded mid-session
+  are read by the prompt-bloat check but not by the scanner. Memory is matched by folder name, so notes.md scores zero.'
+- 'One-laptop results (the owner''s machine, 30 days): context rot doesn''t show (handled in the moment, L2); context poisoning can''t tell (only 6 of 18 hand-read streaks were the same wrong thing); prompt
+  bloat doesn''t show (L3: small always-loaded files and subfolder rules); starts from zero shows L3 in one project and L2 in the others. The context-rot signal sees the person''s reaction, not answer quality.
+  Run a second and third machine before any challenge here is read from a laptop alone.'
+- 'Crosswalk calls to confirm: ctx-cost goes to the attention-budget challenge (a stance, credited only through the act it changes); ctx-screenshot and ctx-outside-data go to let-the-agent-fetch L2, which
+  overlaps with the prompt discipline''s ''show it the real thing'' (level guide L2 row 3). The prompt draft should say which one owns them.'
+checker_changes:
+- 'CHECK reset-with-a-handoff L4: added ''A test the agent can''t edit shows the next session picks up the saved state.'' Enforces SCOPE ruling ''L4 needs demonstrable building that changes how the agent
+  runs, AND evals it can''t edit (10-09, 10-13)''; the draft''s L4 had building but no check.'
+- 'CHECK share-the-setup-with-the-team L4: replaced ''or guardrails that make dangerous actions impossible for every teammate''s agent'' with ''with a check the agent can''t edit showing that a fresh clone
+  loads it''. Same L4 ruling (evals it can''t edit were missing), and guardrails belong to the harness discipline per this discipline''s own scope note.'
+- 'CHECK open_questions: added a ''Rule 1 reading'' question, because the three builds-agents practices are named by single-source terms and have only an L4 level (single-source terms may name but never
+  anchor a level).'
+- 'CHECK no other change needed: all 25 challenge terms, grades and sources, and all 11 practice terms, grades and sources, match the vocabulary entries exactly; handled_by and handles agree in both directions
+  and cover every ''Fixed by'' link (context rot''s ''Fixed by'' ends in own your context window, context folding, RLMs, sleep-time compute and the Ralph loop, all covered); every learn ref is in the materials
+  index or is a vocabulary source URL; the crosswalk holds context-7 to context-11 and all 55 of their surfaces and cues once each (checked against practices.yaml); no practice name has a tool name or a
+  virtue; no member names; no SCOPE term is missing.'
+- v13's five context practices (context-7 to context-11) become nine practices for people who use agents and three for people who build them, grouped around 25 sourced challenges plus one unnamed one (starts
+  from zero).
+- 'Session management (context-9) is split by what it actually heard: fresh sessions, compacting a session, exploration, and pointing at files. All of it stays Level 2, carried into Level 3.'
+- Instruction scoping (context-8) is split into 'where and when it loads' (progressive disclosure) and 'trim and retire' (context pruning), so a recommendation can name the specific gap.
+- 'Agent-written rules files are no longer negative: ruling 5 makes them count when supervised.'
+- Going back to one existing session (ctx-one-thread) is now read as the context-rot symptom, not as a plus.

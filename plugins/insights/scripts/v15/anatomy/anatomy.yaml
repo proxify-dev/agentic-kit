@@ -1,0 +1,326 @@
+# The substrate as a hierarchy (11-09, session 63a4be18):
+#   Discipline (field term) → Component (a part the system needs) → Rung (L2 by hand · L3 their setup · L4 built)
+#   → Technique (how, with today's tools) → Signal (how we see it, and from where).
+# A signal is one of:
+#   an id                                  SCAN: code only, any laptop (resolved against the signal inventory)
+#   {read: project, what: ...}             PROJECT READ: an AI reads the most active projects
+#   {read: scan+ai, scan: ..., what: ...}  SCAN → AI: the scan finds the file, the AI reads only that file
+#   {read: call, ask: ...}                 CALL: only the person can tell
+# Draw it:   uv run --with pyyaml python -I labs/v15/tools/anatomy.py labs/v15/anatomy/anatomy.yaml
+# A person:  python3 labs/v15/engine/anatomy_scan.py RUN_DIR, the AI pass on its briefs, then anatomy.py ... --run RUN_DIR
+#   {read: scan-new, id, what}       SCAN: a code check of engine/anatomy_scan.py (no stranger-laptop test yet)
+#   {read: scan+ai, find, scan, what} the finder `find` of anatomy_scan.py lists the files
+title: Agentic engineering, taken apart
+inventory: signals.json
+note: >-
+  First pass. Each discipline taken apart into the parts a working system needs; every gap has an address:
+  discipline → component → rung → technique.
+
+disciplines:
+  - id: context
+    name: Context engineering
+    goal: The agent starts knowing what it needs, and nothing more.
+    components:
+      - id: rules-file
+        name: A rules file for what it can't infer
+        maps_to: [write-down-what-it-cannot-know]
+        rungs:
+          L2: {does: retypes the same facts each session, techniques: [{name: "facts typed into the session", signals: [probably.corrections]}]}
+          L3: {does: "one file every session loads, short, each line has a reason", techniques: [{name: "CLAUDE.md / AGENTS.md of their own", signals: [write-down-what-it-cannot-know:L3#0, {read: scan+ai, find: rule-files, scan: own rule files (git), what: "Are the lines facts the agent can't work out from the code, each short and with its reason (not a dump of docs)?"}]}]}
+          L4: {does: tooling proposes new lines and flags dead ones, techniques: [{name: "a hook or skill that edits the rules file", signals: [write-down-what-it-cannot-know:L4#0]}]}
+      - id: scoped-rules
+        name: Instructions scoped to where they apply
+        maps_to: [put-rules-where-they-apply]
+        rungs:
+          L2: {does: points the agent at the right file by hand, techniques: [{name: "@file, pasted paths", signals: [you.file_mentions]}]}
+          L3: {does: rules load only in their folder, techniques: [{name: "subfolder CLAUDE.md, .claude/rules with paths", signals: [setup.subfolder_rules_reached, put-rules-where-they-apply:L3#0]}]}
+          L4: {does: a check keeps scopes from drifting, techniques: [{name: "own lint for rule files", signals: [{read: scan+ai, find: rule-files, scan: own scripts touching rule files, what: "Is there a script or hook of theirs that checks rule files for scope, size or duplicates?"}]}]}
+      - id: skills
+        name: Repeated how-tos as skills
+        maps_to: [put-rules-where-they-apply]
+        rungs:
+          L2: {does: pastes the same steps by hand, techniques: [{name: "steps pasted into sessions", signals: [{read: call, ask: "what do you paste into the agent again and again?"}]}]}
+          L3: {does: own skills load when the task matches, techniques: [{name: "own skills and slash commands", signals: [put-rules-where-they-apply:L3#1, you.skill_mentions]}]}
+          L4: {does: skills tested and kept current, techniques: [{name: "evals or edits across weeks on own skills", signals: [built-for-the-agent-roll-call:L4#5]}]}
+      - id: progress-notes
+        name: Progress notes the next session reads
+        maps_to: [notes-the-next-chat-reads]
+        rungs:
+          L2: {does: hands the next session a note by hand, techniques: [{name: "a file attached to the first message", signals: [notes-the-next-chat-reads:L2#0]}]}
+          L3: {does: notes written where the next session finds them, techniques: [{name: "memory files, auto memory", signals: [claude.automemory_at_start, {read: project, what: "Is there a notes or memory folder that the agent writes to and later sessions read?"}]}]}
+          L4: {does: written and loaded without them, techniques: [{name: "a session-end hook that writes notes, a start hook that loads them", signals: [setup.own_hook_context_at_start]}]}
+      - id: clean-context
+        name: A clean session, reset with a handoff
+        maps_to: [reset-with-a-handoff]
+        rungs:
+          L2: {does: compacts or restarts on purpose, techniques: [{name: "/compact with what to keep", signals: [compact-on-purpose:L2#2, you.manual_compactions]}]}
+          L3: {does: a handoff command of their own, techniques: [{name: "own handoff skill or command", signals: [{read: scan+ai, find: agent-files, scan: own commands and skills, what: "Does one of their commands, skills or agents write a handoff note for the next session?"}]}]}
+          L4: {does: resets happen at set points without them, techniques: [{name: "PreCompact hook, fresh run per step", signals: [{read: scan+ai, find: own-hooks, scan: own PreCompact or SessionStart hooks, what: "Does one of their hooks carry state across a reset (compaction or a new session)?"}]}]}
+      - id: side-work-isolated
+        name: Side work kept in sub-agents
+        maps_to: [isolate-side-work]
+        rungs:
+          L2: {does: forks or asks a sub-agent by hand, techniques: [{name: "forks, /btw, sub-agent asks", signals: [isolate-side-work:L2#0, you.btw_side_questions, you.subtask_forks]}]}
+          L3: {does: own sub-agents the flow calls, techniques: [{name: "own agent files", signals: [setup.own_agent_launches]}]}
+          L4: {does: built so exploration never lands in the main session, techniques: [{name: "hooks or a runner that route exploration", signals: [{read: project, what: "Is there a runner or hook of theirs that sends searching and reading to sub-agents?"}]}]}
+      - id: real-docs
+        name: Real docs and code fetched, not pasted
+        maps_to: [put-rules-where-they-apply]
+        rungs:
+          L2: {does: pastes or points at docs by hand, techniques: [{name: "@file, pasted docs", signals: [you.file_mentions]}]}
+          L3: {does: rules say where knowledge lives, techniques: [{name: "pointers in rule files the agent follows", signals: [put-rules-where-they-apply:L3#2]}]}
+          L4: {does: own retrieval tool, tested, techniques: [{name: "own docs MCP server or search tool", signals: [give-the-agent-tools-made-for-it:L4#0]}]}
+      - id: always-loaded-small
+        name: What loads every time kept small
+        maps_to: [write-down-what-it-cannot-know]
+        rungs:
+          L2: {does: trims when it bites, techniques: [{name: "deletions in the rules file", signals: [{read: scan+ai, find: rule-files, scan: git history of own rule files, what: "Were lines removed from a rules file to keep it short, with a reason?"}]}]}
+          L3: {does: stays small; every line has a reason, techniques: [{name: "detail moved into skills and scoped rules", signals: [keep-always-loaded-small:L3#0]}]}
+          L4: {does: a check for size and dead rules, techniques: [{name: "own size or duplicate check", signals: [keep-always-loaded-small:L4#2]}]}
+
+  - id: harness
+    name: Harness engineering
+    goal: What the agent can use, and what it can never do.
+    components:
+      - id: agent-tools
+        name: Tools made for the agent
+        maps_to: [give-the-agent-tools-made-for-it]
+        rungs:
+          L2: {does: wires up tools others wrote, techniques: [{name: "installed MCP servers and CLIs", signals: [give-the-agent-tools-made-for-it:L2#1]}]}
+          L3: {does: tools of their own the agent uses, techniques: [{name: "own scripts with short output", signals: [give-the-agent-tools-made-for-it:L3#0]}]}
+          L4: {does: built and tested for the agent, techniques: [{name: "own MCP server", signals: [give-the-agent-tools-made-for-it:L4#0]}]}
+      - id: permissions
+        name: What runs without asking, set once
+        maps_to: [limit-what-the-agent-can-reach]
+        rungs:
+          L2: {does: approves step by step, techniques: [{name: "refuses risky steps by hand", signals: [ask-before-what-cant-be-undone:L2#0, you.steps_refused]}]}
+          L3: {does: rules decide what runs alone and what asks, techniques: [{name: "permissions allow / ask / deny", signals: [limit-what-the-agent-can-reach:L3#0, ask-before-what-cant-be-undone:L3#0]}]}
+          L4: {does: rules tuned from what they had to approve, techniques: [{name: "own PermissionRequest hook or tuned rules", signals: [limit-what-the-agent-can-reach:L4#0]}]}
+      - id: hard-rules-hooks
+        name: Hard rules enforced by hooks
+        maps_to: [enforce-fixed-rules-in-code]
+        rungs:
+          L2: {does: tells the agent the rule, techniques: [{name: "a line in the rules file", signals: [{read: call, ask: "which rule must never break, and what stops it?"}]}]}
+          L3: {does: a hook someone else wrote blocks it, techniques: [{name: "installed blocking hooks", signals: [enforce-fixed-rules-in-code:L3#0]}]}
+          L4: {does: own hooks that block, tuned, techniques: [{name: "own PreToolUse hooks", signals: [enforce-fixed-rules-in-code:L4#0, enforce-fixed-rules-in-code:L4#2, setup.hook_blocks]}]}
+      - id: sandbox
+        name: The run sandboxed
+        maps_to: [limit-what-the-agent-can-reach]
+        rungs:
+          L2: {does: risky work in a throwaway copy by hand, techniques: [{name: "a copy or a branch", signals: [run-the-agent-in-a-box:L2#0, {read: scan-new, id: home_override, what: "scripts that point HOME at a temp copy; hooks run against temp folders"}]}]}
+          L3: {does: the sandbox is the default, techniques: [{name: "sandbox setting, devcontainer", signals: [run-the-agent-in-a-box:L3#0]}]}
+          L4: {does: own sandboxed runner, techniques: [{name: "own container runner", signals: [run-the-agent-in-a-box:L3#1]}]}
+      - id: vet-what-gets-in
+        name: Plugins, MCP servers and packages vetted
+        maps_to: [vet-what-gets-in]
+        rungs:
+          L2: {does: checks before installing, techniques: [{name: "reads before install", signals: [vet-what-gets-in:L2#0]}]}
+          L3: {does: pinned and listed in the setup, techniques: [{name: "pinned versions, allow-lists", signals: [vet-what-gets-in:L3#0]}]}
+          L4: {does: a check blocks unknown ones, techniques: [{name: "own install gate", signals: [vet-what-gets-in:L3#2]}]}
+      - id: untrusted-input
+        name: Untrusted text kept away from secrets
+        maps_to: [limit-what-the-agent-can-reach]
+        rungs:
+          L2: {does: thinks about it per task, techniques: [{name: "judgment", signals: [{read: call, ask: "when the agent reads issues or web pages, what can it reach?"}]}]}
+          L3: {does: setups that read outside text have no keys or network, techniques: [{name: "separate settings per kind of work", signals: [{read: scan+ai, find: settings-files, scan: own settings files per project, what: "Are sessions that read outside text (web pages, issues) kept free of keys and network access by their settings?"}]}]}
+          L4: {does: enforced by their harness, techniques: [{name: "own guard on tool combinations", signals: [{read: project, what: "Is there a hook or runner of theirs that stops one session from holding secrets and outside text together?"}]}]}
+      - id: client-bounds
+        name: Client code and data kept in bounds
+        maps_to: []
+        rungs:
+          L2: {does: checks by hand what the agent may touch, techniques: [{name: "judgment per repo", signals: [{read: call, ask: "what may the agent touch in the client repo?"}]}]}
+          L3: {does: each client folder allows only its tools, techniques: [{name: "provider routing, per-folder connectors", signals: [keep-client-code-and-data-in-bounds:L3#0, keep-client-code-and-data-in-bounds:L3#1]}]}
+          L4: {does: a gate on what leaves the folder, techniques: [{name: "own egress gate", signals: [{read: project, what: "Is there a hook or proxy of theirs that limits what leaves a client folder?"}]}]}
+
+  - id: loop
+    name: Loop engineering
+    goal: A run reaches done without you.
+    components:
+      - id: goal
+        name: A goal the run checks itself against
+        maps_to: [bound-the-task, settle-the-approach-first]
+        rungs:
+          L2: {does: sets a goal by hand per run, techniques: [{name: /goal typed per run, signals: [you.goals_set, {read: scan-new, id: goal_status, what: "goal_status records in the session log: met or not met, rounds not met"}]}]}
+          L3: {does: the goal lives in a file with a done-when, techniques: [{name: "a goal file or GOALS.md with 'done when'", signals: [{read: scan+ai, find: goal-files, scan: "files a /goal names (goal.md, GOALS.md)", what: "Does the goal file say when the work is done (a done-when) and what not to do?"}]}]}
+          L4: {does: their runner sets the goal and checks it, techniques: [{name: own runner passes the goal and checks it, signals: [{read: scan+ai, find: runner-scripts, scan: "own scripts that start claude -p or the Agent SDK", what: "Does a runner script of theirs give the agent a goal or done-condition and check it before finishing?"}]}]}
+      - id: while-away
+        name: It keeps going while you're away
+        maps_to: [runs-start-without-you]
+        rungs:
+          L2: {does: leaves a goal running and comes back, techniques: [{name: a time-boxed or overnight /goal, signals: [runs-start-without-you:L2#0, {read: scan-new, id: goal_timebox, what: "goal text with a time box or 'while I sleep', and the session's length"}]}]}
+          L3: {does: the run wakes itself up and watches its jobs, techniques: [{name: "ScheduleWakeup, Monitor, background jobs", signals: [claude.jobs_watched, {read: scan-new, id: wakeups_in_goal_sessions, what: "ScheduleWakeup and Monitor calls inside goal sessions"}]}]}
+          L4: {does: a never-ask rule and a report the next run picks up, techniques: [{name: goal file with a never-ask rule + morning report, signals: [{read: project, what: "Is there a goal file that forbids asking the person, plus a report the next run continues from?"}]}]}
+      - id: check-before-done
+        name: A check before it may stop
+        maps_to: [prove-it-works]
+        rungs:
+          L2: {does: asks for proof each time, techniques: [{name: '"run the tests" typed', signals: [prove-it-works:L2#1]}]}
+          L3: {does: rules say what proves a change, techniques: [{name: proof lines in the rules file, signals: [prove-it-works:L3#3]}]}
+          L4: {does: a hook blocks 'done' until a check passes, techniques: [{name: Stop hook that blocks, signals: [{read: scan-new, id: stop_hook_rounds, what: "stop_hook_summary records with errors, repeated in one session"}, {read: scan+ai, find: own-stop-hooks, scan: own Stop hook scripts, what: "Does the Stop hook run a check and refuse to let the agent stop until it passes?"}]}]}
+      - id: looks-at-output
+        name: The agent looks at its own result
+        maps_to: [prove-it-works]
+        rungs:
+          L2: {does: they send it screenshots, techniques: [{name: images pasted by the person, signals: [{read: scan-new, id: user_images, what: "images attached to typed messages"}]}]}
+          L3: {does: the agent opens what it made, techniques: [{name: "screenshots, browser, logs the agent reads", signals: [{read: scan-new, id: looks_after_edit, what: "a Read of an image or a browser call after an Edit in the same turn"}]}]}
+          L4: {does: a hook demands it before done, techniques: [{name: Stop hook checks the agent looked, signals: [{read: scan+ai, find: own-stop-hooks, scan: own Stop hook scripts, what: "Does a hook require the agent to look at its own output (a fresh screenshot or result) before it may finish?"}]}]}
+      - id: independent-judge
+        name: A judge that didn't do the work
+        maps_to: [second-look]
+        rungs:
+          L2: {does: hands the result to a fresh session, techniques: [{name: review in a fresh session, signals: [second-look:L2#2]}]}
+          L3: {does: own reviewer the flow calls, techniques: [{name: own reviewer agent, signals: [second-look:L3#0]}]}
+          L4: {does: the reviewer's verdict gates the run, techniques: [{name: critic inside the run, signals: [{read: scan+ai, find: [own-stop-hooks, agent-files], scan: "reviewer agents started inside headless runs", what: "Does a reviewer or critic's verdict send the work back to the agent that made it?"}]}]}
+      - id: round-cap
+        name: A cap on rounds
+        maps_to: [second-look]
+        rungs:
+          L2: {does: stops it by hand when it loops, techniques: [{name: Esc when it goes in circles, signals: [you.esc_interrupts]}]}
+          L3: {does: a written limit on rounds, techniques: [{name: max rounds in the rules or the goal, signals: [{read: project, what: "Is there a written limit on retries or review rounds?"}]}]}
+          L4: {does: the hook or runner enforces the cap, techniques: [{name: a send counter in the hook, signals: [{read: scan-new, id: stop_hook_rounds, what: "a counter file per run next to the Stop hook's records"}, {read: scan+ai, find: own-stop-hooks, scan: own Stop hook scripts, what: "Does the hook or runner count rounds and stop sending the run back at a cap?"}]}]}
+      - id: findings-carried
+        name: Findings carried from round to round
+        maps_to: []
+        rungs:
+          L2: {does: tells the next round what the last one found, techniques: [{name: pasted findings, signals: [{read: call, ask: "how does the next round know what the last one found?"}]}]}
+          L3: {does: each round writes findings the next reads, techniques: [{name: findings files per round, signals: [{read: project, what: "Does each round write findings or progress that the next round reads?"}]}]}
+          L4: {does: the runner carries them, techniques: [{name: runner-managed findings, signals: [{read: scan+ai, find: runner-scripts, scan: "files one headless run writes and the next reads", what: "Does a runner script of theirs carry findings from one run to the next?"}]}]}
+      - id: decision-log
+        name: A decision log
+        maps_to: []
+        rungs:
+          L2: {does: the why lives in commit messages, techniques: [{name: commit messages, signals: [{read: call, ask: "where do you find why something was decided?"}]}]}
+          L3: {does: every change updates the log in the same commit, techniques: [{name: "CHANGELOG, process docs, rules ledger", signals: [{read: scan-new, id: changelog_cochange, what: "commits that change code and CHANGELOG or docs together"}]}]}
+          L4: {does: a hook checks the why is there, techniques: [{name: hook that refuses changes without a why, signals: [{read: scan+ai, find: [own-stop-hooks, own-hooks], scan: own hooks reading commit or change text, what: "Does a hook of theirs refuse a change that has no stated reason?"}]}]}
+      - id: unmet-written
+        name: What's left at the cap, written down
+        maps_to: []
+        rungs:
+          L2: {does: notes it by hand, techniques: [{name: a note after the run, signals: [{read: call, ask: "when a run gives up, where does what's left go?"}]}]}
+          L3: {does: the run writes what's left, techniques: [{name: an unmet-list file, signals: [{read: project, what: "When a run hits its cap, does it write down what is still wrong?"}]}]}
+          L4: {does: the next run or a tool acts on it, techniques: [{name: the next build reads it, signals: [{read: project, what: "Does the next run or a tool of theirs read that list of what is still wrong and act on it?"}]}]}
+      - id: escalation
+        name: It calls you only when needed
+        maps_to: [step-in-on-signals]
+        rungs:
+          L2: {does: watches and steps in, techniques: [{name: typing after the agent finishes or asks, signals: [step-in-on-signals:L2#1]}]}
+          L3: {does: pinged when stuck or done, techniques: [{name: "notifications, background runs", signals: [claude.background_helpers, you.sessions_backgrounded]}]}
+          L4: {does: escalation rules built into the runner, techniques: [{name: own notify hook or runner rules, signals: [{read: scan+ai, find: own-hooks, scan: own Notification and Stop hooks, what: "Does a hook or runner of theirs decide when to notify the person (stuck, done, needs input)?"}]}]}
+      - id: starts-without-you
+        name: It starts without you
+        maps_to: [runs-start-without-you, build-what-the-agent-runs-inside]
+        rungs:
+          L2: {does: types claude -p by hand, techniques: [{name: a headless run started by hand, signals: [programs.runs_unattended]}]}
+          L3: {does: a script starts runs, model and caps per stage, techniques: [{name: own runner scripts, signals: [write-a-program-that-runs-the-agent:L3#1, {read: scan-new, id: runner_scripts, what: "claude -p in repo files; project log folders whose sessions aren't typed"}]}]}
+          L4: {does: events and schedules start them, techniques: [{name: "Agent SDK, CI, cron", signals: [write-a-program-that-runs-the-agent:L4#0, programs.scheduled_jobs, {read: scan-new, id: scheduled_claude, what: "crontab or launchd entries that run claude"}]}]}
+      - id: list-loop
+        name: A list worked item by item, fresh each
+        maps_to: [fresh-run-per-task]
+        rungs:
+          L2: {does: restarts by hand per item, techniques: [{name: one session per item, signals: [fresh-run-per-task:L2#1]}]}
+          L3: {does: a script loops the list, techniques: [{name: task loop (Ralph loop), signals: [fresh-run-per-task:L2#2]}]}
+          L4: {does: the loop checks and records each item, techniques: [{name: own loop with checks per item, signals: [fresh-run-per-task:L4#0]}]}
+      - id: hand-back
+        name: A hand-back report you can check
+        maps_to: [own-what-ships]
+        rungs:
+          L2: {does: asks what changed each time, techniques: [{name: '"what did you change?" typed', signals: [{read: call, ask: "how do you know what the agent changed?"}]}]}
+          L3: {does: every run reports changes, proof and what to read first, techniques: [{name: "output style, report template", signals: [{read: scan+ai, find: style-files, scan: outputStyle setting and own style files, what: "Does their output style ask the agent to report what changed, the proof, and what to read first?"}]}]}
+          L4: {does: a run without the report is refused, techniques: [{name: Stop hook checks the report, signals: [{read: scan+ai, find: own-stop-hooks, scan: own Stop hooks, what: "Does a hook refuse to finish a run without that report?"}]}]}
+
+  - id: orchestration
+    name: Orchestration
+    goal: Many agents at once, without them colliding.
+    components:
+      - id: parallel-apart
+        name: Parallel sessions kept apart
+        maps_to: [parallel-work-kept-apart]
+        rungs:
+          L2: {does: runs a second session by hand, techniques: [{name: "two sessions at once", signals: [you.chats_at_once]}]}
+          L3: {does: each session gets its own worktree, techniques: [{name: "worktrees", signals: [parallel-work-kept-apart:L2#0, probably.worktree_mentions, {read: scan-new, id: worktrees, what: "git worktree list per repo; sessions run inside a worktree"}]}]}
+          L4: {does: own agents launch in worktrees, techniques: [{name: "agent files with isolation worktree", signals: [parallel-work-kept-apart:L3#0]}]}
+      - id: agent-roles
+        name: A team of agents with roles
+        maps_to: [lead-a-team-of-agents]
+        rungs:
+          L2: {does: asks for a multi-agent run, techniques: [{name: "workflows on request", signals: [lead-a-team-of-agents:L2#1, you.ultracode_requests]}]}
+          L3: {does: own roles the flow calls, techniques: [{name: "own agent files", signals: [setup.own_agent_launches]}]}
+          L4: {does: own program runs the team, techniques: [{name: "Agent SDK team runner", signals: [write-a-program-that-runs-the-agent:L4#0]}]}
+      - id: model-per-step
+        name: The right model and spend per step
+        maps_to: [model-and-budget-per-step]
+        rungs:
+          L2: {does: switches model by hand, techniques: [{name: "/model", signals: [model-and-budget-per-step:L2#0]}]}
+          L3: {does: agents carry their own model, techniques: [{name: "model per agent file", signals: [model-and-budget-per-step:L3#0, {read: scan-new, id: model_spread, what: "the spread of model: across own agent files"}]}]}
+          L4: {does: routing tuned from what runs cost, techniques: [{name: "own router", signals: [model-and-budget-per-step:L4#1]}]}
+      - id: cost-watched
+        name: What runs did and cost, watched
+        maps_to: [model-and-budget-per-step]
+        rungs:
+          L2: {does: checks cost now and then, techniques: [{name: "/cost, /usage", signals: [watch-what-runs-did-and-cost:L2#0]}]}
+          L3: {does: cost visible per run, techniques: [{name: "status line, telemetry export", signals: [watch-what-runs-did-and-cost:L3#2]}]}
+          L4: {does: acts on it automatically, techniques: [{name: "budget caps in the runner", signals: [watch-what-runs-did-and-cost:L4#1]}]}
+      - id: agent-handoffs
+        name: Agents hand each other work
+        maps_to: [coordinate-live-agents]
+        rungs:
+          L2: {does: relays between sessions by hand, techniques: [{name: "copy-paste between sessions", signals: [cant.messages_to_other_sessions]}]}
+          L3: {does: agents message each other, techniques: [{name: "agent teams, messaging", signals: [cant.messages_from_other_sessions]}]}
+          L4: {does: own coordination layer, techniques: [{name: "own task board or bus", signals: [{read: project, what: "Do their agents hand each other work through a shared task list or message bus they built?"}]}]}
+
+  - id: compound
+    name: Compound engineering
+    goal: The setup gets better over time, and reaches your teammates.
+    components:
+      - id: correction-to-rule
+        name: A repeated correction becomes a rule
+        maps_to: [reword-the-ask, write-down-what-it-cannot-know]
+        rungs:
+          L2: {does: corrects again each time, techniques: [{name: "the same correction typed again", signals: [probably.corrections]}]}
+          L3: {does: the second correction becomes a line, techniques: [{name: "own rule, skill or agent file edited after a miss", signals: [reword-the-ask:L3#1]}]}
+          L4: {does: tooling proposes the line, techniques: [{name: "own hook that turns corrections into proposed rules", signals: [reword-the-ask:L4#0]}]}
+      - id: setup-evals
+        name: Evals rerun after setup changes
+        maps_to: [retest-agent-setup, turn-misses-into-checks]
+        rungs:
+          L2: {does: retries a few tasks by hand, techniques: [{name: "the same task rerun after a change", signals: [retest-agent-setup:L2#0]}]}
+          L3: {does: saved cases anyone can rerun, techniques: [{name: "eval cases, claude plugin eval", signals: [retest-agent-setup:L3#0, retest-agent-setup:L3#2, programs.own_eval_folders_changed]}]}
+          L4: {does: they run on every change and block drops, techniques: [{name: "evals in CI", signals: [retest-agent-setup:L4#1]}, {name: "a control arm and blind judges, checked against their own verdict", signals: [{read: scan+ai, find: eval-folders, scan: "eval or bench folders with a runs ledger", what: "Do their evals run a control arm, and do they compare their own verdict with the judges'?"}]}]}
+      - id: past-sessions-read
+        name: Past sessions read for repeats
+        maps_to: []
+        rungs:
+          L2: {does: opens past sessions when something repeats, techniques: [{name: "the agent reads old transcripts on request", signals: [review-past-sessions-to-fix-the-setup:L2#1, {read: scan-new, id: session_refs, what: "session ids in typed messages; session-search tools called"}]}]}
+          L3: {does: own tool reports what repeats, techniques: [{name: "own skill or agent that reads transcripts", signals: [review-past-sessions-to-fix-the-setup:L3#0, {read: scan-new, id: own_session_readers, what: "own agents, skills or commands that read session logs (transcript_path, ~/.claude/projects)"}]}]}
+          L4: {does: reads every session and checks the problem went down, techniques: [{name: "session-end hook reading transcript_path", signals: [review-past-sessions-to-fix-the-setup:L4#0, {read: scan-new, id: own_session_hooks, what: "own hook scripts that read the transcript (transcript_path)"}]}]}
+      - id: dead-setup-removed
+        name: Unused setup removed
+        maps_to: []
+        rungs:
+          L2: {does: deletes what they don't use now and then, techniques: [{name: "deleted skills, hooks, agents in git", signals: [retire-setup-that-no-longer-earns-its-place:L2#1]}]}
+          L3: {does: setup lists what hasn't been used, techniques: [{name: "installed vs used, hooks that never fire", signals: [retire-setup-that-no-longer-earns-its-place:L3#1, retire-setup-that-no-longer-earns-its-place:L2#2]}]}
+          L4: {does: flagged or removed without them, techniques: [{name: "own cleanup tool", signals: [retire-setup-that-no-longer-earns-its-place:L3#0]}]}
+      - id: refined-over-time
+        name: What they built, refined over weeks
+        maps_to: []
+        rungs:
+          L2: {does: built once, techniques: [{name: "own agent-facing files", signals: [built-for-the-agent-roll-call:L4#0]}]}
+          L3: {does: changed when it breaks, techniques: [{name: "edits after failures", signals: [{read: scan+ai, find: agent-files, scan: git history of own agent-facing files, what: "Were their agent-facing files edited to fix a failure (the commit or a note says what broke)?"}]}]}
+          L4: {does: tuned week after week, techniques: [{name: "edits across weeks", signals: [built-for-the-agent-roll-call:L4#5]}]}
+      - id: shared-setup
+        name: The setup shared with the team
+        maps_to: [share-the-setup-with-the-team]
+        rungs:
+          L2: {does: passes tips by hand, techniques: [{name: "tips in chat", signals: [{read: call, ask: "how does a teammate get your setup?"}]}]}
+          L3: {does: committed in the team repo, techniques: [{name: "rules and skills in the repo", signals: [share-the-setup-with-the-team:L3#0, cant.teammates]}]}
+          L4: {does: delivered to every teammate's agent, techniques: [{name: "team plugin", signals: [share-the-setup-with-the-team:L4#1]}]}
+
+left_out:
+  - what: How well someone writes a prompt or hands over a task
+    why: too broad, and a scan can't judge it (his 11-09); the built-in parts (done-conditions, spec files) live in Loop engineering
+  - what: Ask without hinting the answer you want
+    why: no signal; a call question
+  - what: Commit in small, revertible steps
+    why: plain git habit, not agentic
+  - what: Building agents into a product
+    why: its own track, needs his ruling

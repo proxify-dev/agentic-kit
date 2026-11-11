@@ -1,0 +1,805 @@
+# Substrate v15 · discipline: Harness engineering. Drafted and checked 2026-11-02 (workflow wf_346397c1-980: opus draft, sonnet check). Model + rules: ../README.md
+discipline:
+  id: harness
+  name: Harness engineering
+  question: 'What have you built around your agent: the tools it uses, what it may do on its own, and what each run starts inside?'
+  scope_note: 'Everything around the agent except the model and what it reads. That covers what the agent may reach, the boundary it runs inside, which steps wait for a person, the checks that hold whatever
+    it was told, the plugins, MCP servers and dependencies let in, and the tools made for it. The field calls the whole the agent harness (''Agent = Model + Harness'', LangChain). ''Harness engineering''
+    names the discipline, not a practice. In Hashimoto''s sense (engineer a fix after every mistake) it is the context discipline''s ''a correction sticks''. These live elsewhere: what the agent knows (context);
+    how work is handed over (prompt); whether the work is right, meaning tests, linters, reviewers and evals (verification: the ''sensors'' half of guides-and-sensors is backpressure there); agents that
+    run without you, and watching them (orchestration). Hooks, permission settings, sandboxes, plugins and MCP servers are techniques, never practices. The floor is using an agent on real work most days,
+    including tools others connected (v13 harness-1 and harness-4; ruling 7: ''Using them is a L1 basic thing''). It is not a practice. Building something that changes how the agent runs is the L4 level
+    of each practice here, not a practice of its own: v13''s build leg (harness-10) is spread across the practices its builds serve. Approval fatigue comes from the vocabulary''s ''human'' family and lives
+    here because its fixes do. YOLO mode is filed as a move in the vocabulary. Here it is the challenge ''running with every guard off''.'
+challenges:
+- id: tools-made-for-people
+  name: The agent fumbles tools made for people
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: The agent works through commands and services built for a person at a screen. It scrolls through pages of output, guesses options and misreads errors, so turns and attention go to the
+    tool instead of the task.
+  handled_by:
+  - give-the-agent-tools-made-for-it
+  also_handled_in: []
+  ask: Tell me about the last time the agent got stuck on a command or a service, like too much output, a wrong option or something it couldn't reach. What did you change?
+  call_signs:
+  - Copies tickets, logs or database rows in by hand because the agent can't reach them
+  - 'Uses connections others set up: the floor, a Level 1 basic (ruling 7), not evidence of the practice'
+  - Wrote a script or command whose output is shaped for the agent, or built a tool server with commands they designed
+  laptop_signs:
+  - Connected services called per server and outside tools run from the shell (using them is the floor)
+  - 'Tool servers they wrote: no check yet (scan coverage, table 5)'
+  detector: null
+  seen_in: 'Calls: ''it got stuck on the command'' stories; the field names only the fix (agent-computer interface), not the problem.'
+- id: cant-reach-the-system
+  name: The agent can't reach the system, so they paste it in
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: The build log, the ticket, the error report or the database rows live where the agent can't get to them. The engineer copies them in by hand, every time, and the agent works from whatever
+    slice they happened to paste.
+  handled_by:
+  - give-the-agent-tools-made-for-it
+  also_handled_in: []
+  ask: Tell me about the last time you pasted something into the agent, a log, a ticket, a query result, or watched it get stuck on a command. Could it have fetched that itself, and what did you change?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'v13 calls: 44 of 110 name a system outside the code the agent reaches, 35 of 110 a connection; the rest describe pasting.'
+- id: rule-in-words-ignored
+  name: A rule written in the instructions gets broken anyway
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: A rule that must hold every time (never commit a secrets file, never force-push, format what you write) is only written in the instructions. Most of the time the agent follows it; sometimes
+    it doesn't, and the engineer finds out after, then adds the rule again in louder words.
+  handled_by:
+  - enforce-fixed-rules-in-code
+  also_handled_in: []
+  ask: Which rule does your agent have to follow every single time, and what happens when it doesn't? What stops it, and when did that last fire?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'Pitfall cards 4 and 9 (19 and more people in calls): a new line in the instructions after every mistake, repeated louder.'
+- id: approval-fatigue
+  name: Every action asks for approval, so 'yes' becomes a reflex
+  term: approval fatigue
+  grade: emerging
+  source: https://anthropic.com/engineering/claude-code-sandboxing
+  vocab:
+  - approval-fatigue
+  what_goes_wrong: The agent asks so often that the engineer clicks yes without reading. The one request that mattered goes through like the rest, and the waiting pushes them to switch the questions off
+    altogether.
+  handled_by:
+  - limit-what-the-agent-can-reach
+  also_handled_in: []
+  ask: How often does the agent stop to ask your permission, and when did you last say no?
+  call_signs:
+  - Can tell the last time they said no and why
+  - '''I just click yes'', or clicks through to keep moving'
+  - Prompts come up only on the risky steps because routine ones are allowed in their settings
+  laptop_signs:
+  - 'Permission mode on each typed message: all checks off, automatic, plan, ask'
+  - Allow, ask and refuse rule counts and the default mode in settings
+  - 'Minutes agents wait on the person (waiting check: one laptop, about 3 minutes per agent hour, half of it plan approvals)'
+  - 'In the logs but not read yet: tool calls the person rejected (157 in 14 days on one laptop), the plainest sign prompts are read'
+  - Permission prompts themselves leave no record
+  detector: babysitting.py
+  seen_in: 'Pitfall card 7 (12 people in calls): ''I click Allow without reading''; laptops show minutes of agent time waiting on the person.'
+- id: yolo-mode
+  name: Every permission prompt is switched off
+  term: YOLO mode
+  grade: emerging
+  source: https://simonwillison.net/2025/Sep/30/designing-agentic-loops/
+  vocab:
+  - yolo-mode
+  what_goes_wrong: 'To stop the waiting, everything is approved by default on their own machine, with their keys, client code, production access and network in reach. Nothing stands between a wrong guess
+    and lasting damage: a dropped table, a push to the main branch, a secret sent out.'
+  handled_by:
+  - limit-what-the-agent-can-reach
+  also_handled_in: []
+  ask: When the agent runs without asking you anything, what's the worst it could do on that machine, and what would stop it?
+  call_signs:
+  - 'Auto-approves everything to go faster on their own machine (level guide: the Level 1 line of ''What the agent doesn''t get to do'')'
+  - Runs without prompts only inside a container, a virtual machine or a throwaway copy
+  - Keeps refuse rules or guards that still hold with prompts off (refuse rules block in every mode, per the permission docs)
+  - Names something the agent can't reach and the mechanism they set up that enforces it (was v13 hn-perm-scoped)
+  laptop_signs:
+  - 'Share of typed messages run with all permission checks off (one laptop: 95%)'
+  - Settings that skip the warning for the all-off mode
+  - 'Whether a boundary was in use: sandbox switched on in settings, repos with a dev container. Commands marked as sandboxed are in the logs but not read yet'
+  - Refuse rules and guards that can block, wired in settings
+  - Refuse rules in settings, the sandbox switched on, repos with a dev container
+  - 'Secrets lying in plain files the agent can open: no check yet'
+  detector: babysitting.py
+  pitfall:
+    title: The agent can reach production or secrets, and I approve everything to keep it moving
+    fix: 'Decide per project how much the agent may reach: there is no one rule. Inside a sandbox with no production access, skipping prompts can be fine. Outside one, give it only the access the task needs,
+      keep secrets and production out of its reach, and make sure there is a way back (a branch, a backup) before anything that can''t be undone.'
+    order: 6
+    why: To stop the prompts, everything gets approved, on a machine with your keys, client code and network in reach. Nothing stands between a wrong guess or an injected instruction and the damage. The
+      agent's own docs say running without prompts is for isolated containers and virtual machines only.
+  seen_in: 'Pitfall card 7: checks off on a laptop holding client code and keys; one laptop ran 95% of typed messages with every check off.'
+- id: lethal-trifecta
+  name: Private data, text from outside and a way out are in one session
+  term: lethal trifecta
+  grade: standard
+  source: https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/
+  vocab:
+  - lethal-trifecta
+  what_goes_wrong: 'The agent holds private data (a client database, a secrets file), reads text anyone could have written (a web page, an email, an issue) and can send things out (a message, a push, an upload). An
+    instruction hidden in that text can make it send the data out. Any one or two of the three is far safer than all three in one session, and a send that stops for a person, or a hook that blocks it, takes the third away.'
+  handled_by:
+  - limit-what-the-agent-can-reach
+  also_handled_in: []
+  ask: In one session, can the agent read your private data, read text from outside, and send something out? Which of the three could you take away, and what would it cost you?
+  call_signs:
+  - Names systems outside the code the agent reaches, like the database, the deploy platform, the error tracker or team chat (was v13 hn-service-wired). This is exposure, not skill
+  - 'Removes one of the three on purpose: no outside network while it reads client data, or no secrets on the machine it runs on'
+  - Sends and pushes that stop for a person, or a hook that blocks the ones that would leak
+  laptop_signs:
+  - Connected services the agent called and outside tools it ran from the shell (private data and ways out)
+  - Web fetches in the same sessions (untrusted text)
+  - Ask rules, refuse rules and hooks that can block, over the ways out (a send, a push, an upload, a deploy)
+  detector: problems.py
+  seen_in: 'A tester with private data debugging in the same sessions as web reading and Slack, git and Drive sends: all the ways out sat behind her ask rules and a commit-blocking hook, so it did not show.'
+- id: each-run-set-up-by-hand
+  name: Every run is set up by hand
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: 'Each run starts from nothing: open a session, pick the branch or copy, paste the same opening setup, start the helpers one by one. Steps get skipped, two runs of the same job start differently,
+    and a teammate can''t start it the same way at all.'
+  handled_by:
+  - build-what-the-agent-runs-inside
+  also_handled_in: []
+  ask: Walk me through how a run starts, from nothing to the agent working. Which of those steps did you build, and how do you know it still works after you change it?
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'v13 build-leg probe (35 calls): 9 wrote their own agent roles, 3 their own program that starts the agent; the rest start every run by typing.'
+practices:
+- id: give-the-agent-tools-made-for-it
+  name: Build tools for the agent, with short output, that reach the systems it needs
+  term: agent-computer interface (ACI)
+  grade: emerging
+  source: https://arxiv.org/abs/2405.15793
+  vocab:
+  - agent-computer-interface
+  audience: uses-agents
+  what_you_do: 'When the agent keeps fumbling a command made for people, or can''t reach the build, the ticket or the data so they paste it in, they give it a way in shaped for it: short output, plain errors,
+    exactly the fields the task needs. They design what it can ask for and what it gets back, not only whether it can connect. Using connections someone else built is the everyday floor, not this practice.'
+  handles:
+  - tools-made-for-people
+  - cant-reach-the-system
+  also_handles: []
+  ladder:
+    L1: They paste logs, tickets and query results in by hand, or watch the agent wade through output made for people; connections others set up are used as they come.
+    L2: Each time the agent fumbles or can't reach something, they show it in the session which command or option fetches it with short, readable output, instead of pasting it in.
+    L3: They wrote small tools for the agent (a script or task command that fetches the build log, the ticket or the rows the task needs, with short output and plain errors), and their setup names them
+      so every session and teammate uses them unasked.
+    L4: 'They built their own tools for the agent (command-line tools, scripts, servers, plugins) with commands and replies designed for it, so any system it needs is one call away with nobody pasting anything in, keep reshaping them as their work changes, and tests show they still work.'
+  techniques:
+  - tool: Claude Code
+    how: An MCP server they wrote, with tool names, inputs and replies shaped for the agent (L4)
+    laptop_signal: null
+  - tool: any
+    how: A project script or task-runner command with short output and plain errors, named in the project's always-loaded instructions (L3)
+    laptop_signal: null
+  - tool: any
+    how: Command-line clients for CI, tickets and the database (gh, the CI's CLI, a read-only query script) the agent calls instead of the person pasting
+    laptop_signal: null
+  - tool: Claude Code
+    how: Their own plugin that adds tools or commands for the agent
+    laptop_signal: Plugins installed from a marketplace folder they keep
+  - tool: Claude Code
+    how: 'MCP servers and plugins others built, wired in: the L1 floor, not evidence of this practice'
+    laptop_signal: null
+  call_evidence: Tell me about the last time you pasted something into the agent, a log, a ticket, a query result, or watched it get stuck on a command. Could it have fetched that itself, and what did you
+    change?
+  laptop_evidence: 'Connected services called per server and outside tools run from the shell show the floor. Not read yet: tool servers they wrote and scripts the agent calls (scan coverage, table 5: ''Building
+    your own MCP server'' has no check).'
+  learn:
+  - kind: playbook
+    ref: /setup/mcp-wiring
+    title: MCP Wiring
+  - kind: playbook
+    ref: /patterns/robots-first
+    title: Robots-First Engineering
+  - kind: playbook
+    ref: /explore/tools
+    title: Tools & Harnesses
+  rulings:
+  - 'Ruling 7: ''MCP servers are not necessarily L4. Using them is a L1 basic thing. building them is a L4.'''
+  - 'Ruling 4: writing your own skills = L3. Small scripts written for the agent are read the same way here (our reading; to be confirmed).'
+  - 'L4 needs building that changes how the agent runs, plus evals, period: whether the agent can edit them is not part of the bar (11-02, replaces 10-09/10-13).'
+  authors_note: 'The floor is ruling 7: using connections others built.'
+  ladder_short:
+    L2: Shows the agent which command fetches the data, instead of pasting it
+    L3: Writes small agent tools that every session and teammate uses unasked
+    L4: 'Builds, tunes and tests its own tools shaped for the agent'
+  short_name: Build tools for the agent
+  entry_rules: 'Credited only for a tool they shaped for the agent; using or wiring in someone else''s connection is the L1 floor (ruling 7: ''Using them is a L1 basic thing. building them is a L4'').'
+- id: enforce-fixed-rules-in-code
+  name: Turn a rule that must always hold into a check that runs every time
+  term: guardrails
+  grade: standard
+  source: https://arxiv.org/abs/2310.10501
+  vocab:
+  - guardrails
+  audience: uses-agents
+  what_you_do: For a rule that must hold every time and always gives the same answer (never commit a secrets file, never force-push, format every file written), they stop asking in words and make a check
+    that runs at that moment and blocks or fixes the action, whatever the agent was told. Words guide before the agent acts; a check catches the action as it happens. They keep checks for cheap fixed rules
+    and hard gates, not for deciding when the work is done.
+  handles:
+  - rule-in-words-ignored
+  also_handles: []
+  ladder:
+    L1: A rule that must always hold lives only in the instructions; the agent breaks it now and then and they find out afterwards.
+    L2: 'They catch the breach themselves each time: look for it in the diff, undo the force-push, re-run the formatter, and remind the agent.'
+    L3: A ready-made check is wired into the project (a secret scan before every commit, a formatter on every saved file), so the rule holds for every session and teammate without them.
+    L4: They wrote their own checks that block or fix the action the moment it happens, with nobody stepping in, keep a record of what each one stopped, keep tuning them as their rules and projects change,
+      and a test shows each one still blocks.
+  techniques:
+  - tool: Claude Code
+    how: A hook before a tool call that refuses a fixed-rule action (staging a secrets file, a force-push) by exiting with an error
+    laptop_signal: Hooks wired in user and project settings and switched-on plugins, credited by git authorship of the script; hooks that can block; blocks that fired
+  - tool: Claude Code
+    how: A hook after a file is written that formats or auto-fixes it every time
+    laptop_signal: Hooks wired on file writes, credited by git authorship
+  - tool: Claude Code
+    how: Their own plugin that carries their checks into every project
+    laptop_signal: null
+  - tool: any
+    how: A git pre-commit or pre-push hook they wrote to check the agent's commits (level pending his ruling)
+    laptop_signal: null
+  - tool: Claude Code
+    how: When the action is never allowed at all, a deny rule instead of a check (see 'Decide what the agent may do on its own')
+    laptop_signal: null
+  call_evidence: Which rule does your agent have to follow every single time, and what happens when it doesn't? What stops it, and when did that last fire?
+  laptop_evidence: 'Checks wired in user and project settings and in switched-on plugins, credited by who wrote the script (git history); which can refuse; refusals that fired and whether the agent''s next
+    step changed (backpressure check: one laptop, 237 refusals in 30 days, 228 in runs without the person typing; 221 of the 237 are checks on ''done'', which belong to verification, not to this practice).
+    Missed today: refusals that come back as a tool result (issues log B18) and git pre-commit hooks.'
+  learn:
+  - kind: playbook
+    ref: /setup/hooks-playbook
+    title: Hooks Playbook
+  - kind: playbook
+    ref: /patterns/system-evolution
+    title: System Evolution
+  rulings:
+  - 'His hooks norm (10-16): hooks are for ''a cheap rule that must hold every time'', ''a hard gate on what can''t be undone'', ''the right context at the right moment'', and ''watching, logging, notifying''.
+    They are not for ''defining done'', not for ''blocking on something cheap to redo, like a failing test'', and not for ''replacing a person who is already reviewing''. "''If it matters, make it a hook''
+    is wrong as a general rule… What counts is whether a hook was the right tool."'
+  - 'Ruling 2: ''Setting up claude''s behavior via hooks tooling or anything else, is mostly L4. Engineering the behavior of agents through scripting (plugins) is l4''.'
+  - '10-09: ''A plugin counts by what it does'': an own plugin that alters the agent''s runtime or behaviour counts as building; one that only bundles skills or commands is tooling.'
+  - 'Git hook written to check the agent''s work: pending ruling (v13 h10-git-hook).'
+  authors_note: 'Merges: guardrails (standard); guides and sensors (single-source). Guides are the rules files and skills of context; sensors are verification''s backpressure; a guard is the sensor that
+    can refuse.'
+  ladder_short:
+    L2: Catches each breach by hand and reminds the agent
+    L3: Wires ready-made checks into the project, so they hold for everyone
+    L4: Builds, tunes and tests their own checks that block a breach instantly
+  short_name: Turn hard rules into checks
+  trusted_checks:
+  - 'enforce-fixed-rules-in-code L4 #0'
+  - 'enforce-fixed-rules-in-code L4 #2'
+  entry_rules: Only checks for a fixed rule or an irreversible step count; a check that decides 'done' or re-runs the tests at every stop is verification, and he rejected it as a tip (hooks norm 10-16).
+- id: limit-what-the-agent-can-reach
+  name: 'Decide what the agent may do alone, what needs a person, and what''s off-limits'
+  term: least privilege for agents
+  grade: standard
+  source: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+  vocab:
+  - least-privilege-for-agents
+  audience: uses-agents
+  what_you_do: 'Before it works, they sort what the agent may touch and do: what goes through without asking (reading, editing on a branch, running tests), what waits for a person (a push, a deploy, a data
+    write, a message to someone outside), and what stays out of reach (production keys, secrets, the admin database user). Where they want it to run with no questions, they first put it somewhere it can''t
+    do lasting harm, such as a throwaway copy or a container. They decide case by case per project; there is no one rule.'
+  handles:
+  - approval-fatigue
+  - yolo-mode
+  - lethal-trifecta
+  also_handles: []
+  ladder:
+    L1: Either every action asks and they click yes without reading, or they switched the questions off on a machine with their keys, client code and production in reach.
+    L2: They decide per task what the agent may touch, do the risky steps themselves, read the risky requests and say no when one is wrong, and commit or branch before letting it run loose.
+    L3: 'Their project settings sort it for every session and teammate: routine commands go through, pushes and data writes stop for a person, secrets and production are refused, and runs with no questions
+      happen only inside a sandbox or container.'
+    L4: They engineered their own boundary layer (short-lived keys for one job, a gate for actions that can't be undone, their own sandbox image) that every run starts inside, keep tightening it as projects
+      change, and a test tries to get past it on every change, for example a planted fake secret never leaks.
+  techniques:
+  - tool: Claude Code
+    how: Allow, ask and deny rules in the project's committed settings; deny rules hold in every permission mode, including with prompts off
+    laptop_signal: null
+  - tool: Claude Code
+    how: Permission mode switched by task (ask, accept edits, plan, auto); bypass only inside a container, never on the host
+    laptop_signal: null
+  - tool: Claude Code
+    how: 'The built-in sandbox: commands limited to the project folder and approved servers, chosen variables and files hidden'
+    laptop_signal: null
+  - tool: any
+    how: A dev container or virtual machine the agent always runs in; a commit or a separate working copy before a long run as the way back
+    laptop_signal: null
+  - tool: any
+    how: 'Scoped keys: a read-only database user, a one-repo token, no production keys on the machine; protected branches on the remote'
+    laptop_signal: null
+  - tool: any
+    how: 'Never one run that holds private data, reads text outsiders wrote and can send things out: drop one of the three'
+    laptop_signal: null
+  - tool: Claude Code
+    how: A hook on permission requests that holds a chosen action for a person (written by them = L4)
+    laptop_signal: null
+  call_evidence: What won't you let the agent do on its own, and what stops it? When did you last say no to it, and why?
+  laptop_evidence: 'Refuse and ask rules in user and project settings; headless runs started with tool or permission limits; which connections are on for every project vs per project. Not read yet: secrets
+    in plain files the agent can open, which keys the agent''s commands use, sub-agents'' tool lists.'
+  learn:
+  - kind: playbook
+    ref: /patterns/permission-modes
+    title: Permission Modes
+  - kind: playbook
+    ref: /setup/secrets-safety
+    title: Secrets & Sandboxing
+  - kind: playbook
+    ref: /patterns/autonomous-tasks
+    title: Autonomous Task Patterns
+  rulings:
+  - 'Level guide, draft Level 2 row 9 ''What the agent doesn''t get to do'': L2 decides on purpose what the agent may touch and what they do by hand; L1 gives it the same reach for everything, or auto-approves
+    to go faster; L4 starts with ''They build the guardrail so nobody''s agent can do it.'''
+  - 'Level guide not_in_the_map: building ''guardrails and cost limits'' is Level 4.'
+  - 'L4 needs building that changes how the agent runs, plus evals, period: whether the agent can edit them is not part of the bar (11-02, replaces 10-09/10-13).'
+  practice_card:
+    title: Limit what the agent can touch, and keep a way back
+    text: 'Draw the boundary yourself: read-only database user, no production access, scoped credentials per directory, branch-from-latest-and-open-a-PR instructions, no commit without an approved message,
+      plan-before-apply in CI. Work on a branch and commit each good step. Use a deny list or a hook for the hard rules, not a prompt alone.'
+    order: 6
+  authors_note: 'Merges: least privilege for agents (standard); Agents Rule of Two (emerging: no more than two of the three in one session); ''remove one of the three legs'' (the lethal trifecta''s own
+    fix). Its failure mode is OWASP''s ''excessive agency''.'
+  ladder_short:
+    L2: Decides per task what the agent may touch, and does risky steps
+    L3: Keeps project settings that allow, ask about or refuse each action
+    L4: 'Builds, tunes and tests its own boundary every run starts inside'
+  short_name: 'Set the agent''s permissions'
+  trusted_checks:
+  - 'limit-what-the-agent-can-reach L3 #0'
+  - 'ask-before-what-cant-be-undone L3 #0'
+  entry_rules: Credited for limits they set (settings, scoped keys, a box, a rollback point); the tool's default prompts, or access they simply don't have, don't count.
+- id: build-what-the-agent-runs-inside
+  name: Script how each agent run starts, so none is set up by hand
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: 'Instead of setting up every run by hand (the right copy of the code, the same opening setup, the right helpers with the right tools and limits), they make the setup itself: agent roles with
+    their own tools and model, a start command that brings each run up the same way, or a program that drives the agent and changes how it behaves. Every run starts ready, the same for them and for a teammate.'
+  handles:
+  - each-run-set-up-by-hand
+  also_handles: []
+  ladder:
+    L1: 'Every run starts from scratch: they open a session, paste the same setup, pick the branch and the helpers by hand, and skip a step now and then.'
+    L2: 'They follow their own routine by hand each time: a fresh branch or copy, the same opening instructions, the helpers they need started one by one.'
+    L3: 'Their setup brings the run up: agent roles they wrote (what each does, its tools, its model) and a saved start command make every run start the same way, for them and a teammate.'
+    L4: They wrote their own program that drives the agent or changes how it runs (starts and steers sessions, adds context or gates at set moments), it runs every session without them stepping in, they
+      keep tuning it as their work changes, and a saved set of cases re-run after each change shows it still works.
+  techniques:
+  - tool: Claude Code
+    how: Agent definition files they wrote, each with a role, a tool list and a model
+    laptop_signal: null
+  - tool: Claude Code
+    how: Their own program on the Agent SDK, or headless runs from their own script, that start and steer sessions
+    laptop_signal: null
+  - tool: Claude Code
+    how: Their own plugin whose hooks add context or gates at set moments, or that defines agents (counts by what it does to the run)
+    laptop_signal: null
+  - tool: any
+    how: A start script that makes a separate working copy, loads the setup and launches the agent with its limits
+    laptop_signal: null
+  - tool: Claude Code
+    how: An output style they wrote, replacing the agent's system prompt (supporting only)
+    laptop_signal: null
+  call_evidence: Walk me through how a run starts, from nothing to the agent working. Which of those steps did you build, and how do you know it still works after you change it?
+  laptop_evidence: ''
+  learn:
+  - kind: playbook
+    ref: /setup/make-it-yours
+    title: Make It Yours
+  - kind: playbook
+    ref: /patterns/autonomous-tasks
+    title: Autonomous Task Patterns
+  - kind: playbook
+    ref: /explore/tools
+    title: Tools & Harnesses
+  rulings: []
+  ladder_short:
+    L2: Repeats their setup routine by hand before every run
+    L3: Saves agent roles and a start command that bring every run up
+    L4: Builds, tunes and tests a program that drives and steers each session
+  short_name: Script how agent runs start
+  entry_rules: A plugin or program counts by what it does to the run (10-09); one that only bundles skills or commands is tooling, and when runs start (a schedule, an event) is orchestration.
+- id: run-the-agent-in-a-box
+  name: Run the agent inside a sandbox
+  term: sandboxing
+  grade: standard
+  source: https://anthropic.com/engineering/claude-code-sandboxing
+  vocab:
+  - sandboxing
+  what_you_do: 'They let the agent work freely only inside walls. It can read and write only the project folder and reach only approved servers. The machine or container it runs in can be thrown away. That
+    is a sandbox, and it is what makes running without permission prompts safe (''safe YOLO mode''). For damage to the code itself, a rollback point made before a long run does the same job: a commit, a
+    branch or a separate copy.'
+  handles:
+  - prompt-injection
+  - lethal-trifecta
+  - slopsquatting
+  - approval-fatigue
+  - yolo-mode
+  also_handles: []
+  audience: uses-agents
+  ladder:
+    L2: 'Before a risky or long run, makes the damage easy to undo by hand: commits or branches first, or runs it in a throwaway copy, container or virtual machine started for the job.'
+    L3: 'Every session runs inside the boundary by default: the built-in sandbox switched on with the folders and servers it may reach, or a dev container the repo always opens in. Prompts are switched
+      off only inside it.'
+    L4: 'Built the sandbox: their own container image or wrapper script that starts the agent with no way out except what they allow. A planted fake secret never shows up, and a test checks it.'
+  techniques:
+  - tool: Claude Code
+    how: 'The built-in sandbox: shell commands limited to the project folder and approved servers, with sandbox.credentials hiding chosen variables and files'
+    laptop_signal: '''sandbox'' key present in settings (key names only). Commands marked sandboxed are in the logs but not read yet'
+  - tool: any
+    how: A dev container or virtual machine the agent always runs in
+    laptop_signal: Repos with a .devcontainer folder
+  - tool: Claude Code
+    how: Bypass permissions only inside the container, never on the host
+    laptop_signal: Share of typed messages with all permission checks off; settings that skip the all-off mode's warning (read together with whether a box was in use)
+  - tool: any
+    how: A commit, a branch or a separate working copy before a long or unattended run, as a rollback point
+    laptop_signal: null
+  call_evidence: 'They say where risky or unattended runs happen (a container, a virtual machine, a throwaway copy) and what the agent can''t reach from there. Or they say they commit or branch before letting
+    it run loose (the rollback half of v13 hn-perm-scoped). L1: every prompt off, on their own laptop, with nothing around it.'
+  laptop_evidence: 'Sandbox switched on in settings; repos with a dev container; share of messages with all permission checks off, read against whether a box was in use. In the logs but not read yet: commands
+    marked as sandboxed.'
+  learn:
+  - kind: playbook
+    ref: /setup/secrets-safety
+    title: Secrets & Sandboxing
+  - kind: playbook
+    ref: /patterns/permission-modes
+    title: Permission Modes
+  - kind: playbook
+    ref: /patterns/autonomous-tasks
+    title: Autonomous Task Patterns
+  - kind: outside
+    ref: https://anthropic.com/engineering/claude-code-sandboxing
+    title: 'Anthropic: Claude Code sandboxing (beyond permission prompts)'
+  rulings:
+  - 'The vocabulary''s YOLO mode entry quotes the Claude Code docs: bypass permissions is for ''isolated containers and VMs only''.'
+  - 'L4 needs evals, period: whether the agent can edit them is not part of the bar (11-02, replaces the 10-09/10-13 ''evals the agent can''t edit''). The playbook''s canary-secret test (/setup/secrets-safety)
+    is the shape of that eval for a box.'
+  authors_note: 'Merges: sandboxing (standard), container isolation, safe YOLO mode. AI boxing is an AI-safety term and is dropped (SCOPE).'
+  ladder_short:
+    L2: Commits first, or runs risky jobs in a throwaway copy
+    L3: Every session runs in the sandbox or a dev container
+    L4: Built their own sandbox image; a planted fake secret never leaks
+  short_name: Run it in a sandbox
+  retired: true
+  merged_into: limit-what-the-agent-can-reach
+- id: ask-before-what-cant-be-undone
+  name: Ask a person only before steps that can't be undone
+  term: human-in-the-loop (HITL)
+  grade: standard
+  source: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+  vocab:
+  - human-in-the-loop
+  audience: uses-agents
+  what_you_do: Approval goes where it counts. Before a push, a deploy, a delete, a database write or a message to someone outside, the agent stops and a person reads what it is about to do. Steps that are
+    cheap to redo (reading, editing on a branch, running tests) go through without asking, so the few questions left get real attention. Saying no, and why, is part of it.
+  handles:
+  - lethal-trifecta
+  - approval-fatigue
+  - yolo-mode
+  also_handles: []
+  ladder:
+    L2: 'Reads each request on the risky steps and says no when it is wrong. Loosens or tightens how much the agent may do as the task changes: asks for everything on unfamiliar code, lets edits through
+      on routine work.'
+    L3: 'Their settings sort it for every session: routine commands go through, while pushes, deploys and data writes always stop for a person or are blocked. The few prompts left are worth reading.'
+    L4: 'Built the approval gate: a check that holds actions that can''t be undone (a push to the main branch, a production write, a message sent outside) until a person approves, for everyone''s agent,
+      with a test showing it can''t be skipped.'
+  techniques:
+  - tool: Claude Code
+    how: Permission modes switched by task (ask, accept edits, plan, auto)
+    laptop_signal: Permission mode recorded on each typed message (share per mode)
+  - tool: Claude Code
+    how: Allow rules for routine commands; ask or deny rules for push, deploy and data writes
+    laptop_signal: Allow, ask and deny rule counts and the default mode in settings
+  - tool: Claude Code
+    how: 'Auto mode: a classifier approves routine actions and stops risky ones. Tool results are kept from the classifier, so hostile text can''t sway it'
+    laptop_signal: Share of typed messages in auto mode
+  - tool: Claude Code
+    how: A hook on permission requests or before tool calls that holds a chosen action for a person (written by them = L4)
+    laptop_signal: Hooks wired before tool calls, credited by git authorship; refusals that fired
+  - tool: any
+    how: Protected branches and required review on the remote, so a push can't land on its own
+    laptop_signal: null
+  call_evidence: 'They name the steps that always wait for them and the last time they said no, with the reason (level guide row 9 ask: ''What won''t you let Claude do on its own, and why?''). They say
+    routine steps go through, so prompts are rare. L1: ''I just click yes'', or switched prompts off to stop the waiting.'
+  laptop_evidence: 'Permission mode on each typed message; allow, ask and deny counts and the default mode; minutes agents wait on the person (waiting check). In the logs but not read yet: tool calls the
+    person rejected (toolDenialKind user-rejected), the plainest sign prompts are read. Permission prompts themselves leave no record.'
+  learn:
+  - kind: playbook
+    ref: /patterns/permission-modes
+    title: Permission Modes
+  - kind: outside
+    ref: https://anthropic.com/engineering/claude-code-sandboxing
+    title: 'Anthropic: beyond permission prompts (approval fatigue, 93% accepted)'
+  rulings:
+  - 'Level guide, draft Level 2 row 9: ''They decide on purpose what the agent may touch and what they do by hand: no direct database access, no auto-approve on anything shared.'' L1 there: ''auto-approve
+    to go faster''.'
+  - An unasked practice is the interviewer's choice of where to stop, never a gap (11-02).
+  authors_note: 'Merges: human-in-the-loop (standard) with two fixes the vocabulary lists for approval fatigue, permission allow-lists and classifier-gated approvals (the latter is a technique).'
+  ladder_short:
+    L2: Reads risky requests and says no; adjusts permissions per task
+    L3: Settings let routine commands through; pushes and deploys stop
+    L4: Built an approval gate for everyone's agent; a test can't skip it
+  short_name: Approve only the irreversible
+  retired: true
+  merged_into: limit-what-the-agent-can-reach
+- id: vet-what-gets-in
+  name: Check plugins, MCP servers and dependencies before they get in
+  term: none
+  grade: unnamed
+  source: ''
+  audience: uses-agents
+  what_you_do: Every plugin, skill or MCP server someone else wrote puts its author's words into the agent's instructions, and every package the agent suggests runs someone else's code. Before installing,
+    they read what it will tell the agent or run, check that a suggested package really exists and is the one they meant, and keep the list of what is switched on short and known.
+  handles:
+  - prompt-injection
+  - slopsquatting
+  also_handles:
+  - verification:package-hallucination
+  ladder:
+    L2: Before installing a plugin someone else wrote, reads what it will tell the agent or run. When the agent adds a package, looks it up before it is installed.
+    L3: 'Their setup keeps it checked for them and their teammates: a short list of approved plugins in the project''s rules, versions pinned, and every new package visible in review through the file that
+      pins versions. Nothing new gets in unseen.'
+    L4: 'Built the check: a step that refuses unknown packages or unreviewed plugins before they install, with a test that a made-up package name is blocked.'
+  techniques:
+  - tool: any
+    how: Read a skill's or plugin's files, and the events its hooks fire on, before installing. Check that its trigger is not 'every task'
+    laptop_signal: 'Built vs borrowed list: plugins from someone else''s marketplace, skills installed from a registry or linked in'
+  - tool: any
+    how: Pin plugins, MCP servers and dependencies to a version; review plugin updates and lockfile changes like dependency updates
+    laptop_signal: null
+  - tool: any
+    how: Look up a package the agent proposes (registry page, maintainer, downloads) before it is installed
+    laptop_signal: null
+  - tool: Claude Code
+    how: An ask rule on install commands so each install stops for a look
+    laptop_signal: Ask rule count (which commands it covers is not read)
+  call_evidence: 'They say they read a plugin''s files before installing it, or that the project keeps a list of approved ones. They look up a package the agent added: that it exists, who keeps it, that
+    it is the right name. L1: installs what is popular or whatever the agent suggests. Installing plugins is itself the floor (ruling 7). Checking them first is the practice.'
+  laptop_evidence: 'Built vs borrowed: plugins installed from someone else''s marketplace vs a folder they keep, skills installed through a registry. Not read: package installs the agent ran, pinned versions,
+    lockfile review.'
+  learn:
+  - kind: playbook
+    ref: /patterns/supply-chain
+    title: The Supply Chain
+  - kind: outside
+    ref: https://socket.dev/blog/slopsquatting-how-ai-hallucinations-are-fueling-a-new-class-of-supply-chain-attacks
+    title: 'Socket: slopsquatting'
+  rulings:
+  - 'Ruling 7: ''Using them is a L1 basic thing.'' Installing plugins others wrote is the floor; checking them before they get in is what this practice reads.'
+  authors_note: 'No vocabulary term: the vocabulary names the attacks (prompt injection through installed instructions, slopsquatting) and one narrow fix filed under package hallucination (''verify packages
+    exist before install''), but no settled name for the habit. The playbook calls it the supply chain.'
+  ladder_short:
+    L2: Reads a plugin or package before installing it
+    L3: Approved plugin list, pinned versions, new packages seen in review
+    L4: Built a step refusing unknown packages; a test blocks a fake
+  short_name: Vet plugins and packages
+  retired: true
+  merged_into: null
+- id: keep-outside-text-from-steering
+  name: Build agents so the text they read can't choose what they do
+  term: Dual LLM pattern
+  grade: emerging
+  source: https://simonwillison.net/2023/Apr/25/dual-llm-pattern/
+  vocab:
+  - dual-llm-pattern
+  audience: builds-agents
+  what_you_do: When they build an agent that reads outside text (emails, web pages, tickets, user messages), they design it so that text can't pick its actions. Either the list of actions is fixed before
+    any outside text is read, or a reader with no tools handles the outside text and passes back only results the program treats as plain data. Their own instructions sit above anything fetched.
+  handles:
+  - prompt-injection
+  - lethal-trifecta
+  - jailbreaking
+  also_handles:
+  - prompt:goal-drift
+  ladder:
+    L2: In an agent they build, reads or cleans outside text by hand before it reaches the model, or turns off the tools that can send things out while it handles outside input.
+    L3: 'Their agent''s setup does it on every run: their instructions in the part the model ranks highest, outside text passed in marked as data, and tools that can send things out unavailable while untrusted
+      text is loaded.'
+    L4: 'Designed it in: a reader with no tools handles outside text and passes back only checked values, or the list of actions is fixed before any outside text is read. A set of injection attempts is
+      run against it.'
+  techniques:
+  - tool: any
+    how: 'An agent SDK program with two roles: a reader with no tools for outside text, and an actor that only ever sees checked, typed values'
+    laptop_signal: Files in their repos that start agents through the Agent SDK, claude -p or CI (shows they build agents, not this design)
+  - tool: any
+    how: Fix the list of tool calls before reading outside data (plan-then-execute)
+    laptop_signal: null
+  - tool: any
+    how: Keep their instructions in the system prompt; pass fetched text as data, marked untrusted
+    laptop_signal: null
+  call_evidence: 'They have built an agent that reads outside text and can say how that text is kept from choosing its actions: what the part that reads it can and can''t do. Side projects count (ruling
+    9).'
+  laptop_evidence: Files in their repos that start agents through an agent SDK show they build agents at all. Nothing on the laptop shows the design.
+  learn:
+  - kind: outside
+    ref: https://simonwillison.net/2023/Apr/25/dual-llm-pattern/
+    title: 'Willison: the Dual LLM pattern'
+  - kind: outside
+    ref: https://arxiv.org/html/2506.08837
+    title: Design Patterns for Securing LLM Agents against Prompt Injections (plan-then-execute)
+  - kind: outside
+    ref: https://arxiv.org/abs/2404.13208
+    title: The Instruction Hierarchy (Wallace et al., 2024)
+  rulings:
+  - 'Builder-level move: marked builds-agents, like the context discipline''s builder moves (SCOPE).'
+  - 'Ruling 9: ''Of course side projects count towards the level''. An agent built on the side shows this as much as client work.'
+  authors_note: 'Merges: Dual LLM pattern (emerging); plan-then-execute, the security pattern and not the planning habit (single-source); instruction hierarchy (emerging), which is trained into the model
+    and which builders use by keeping their rules in the top-ranked place.'
+  ladder_short:
+    L2: In an agent they build, cleans outside text by hand
+    L3: Their agent marks outside text as data on every run
+    L4: Designed it in; injection attempts are run against it
+  short_name: Guard against prompt injection
+  retired: true
+  track: agent-builders
+crosswalk:
+- v13: harness-1
+  to: floor
+  why: Using an agent on real work most days is the entry condition for Level 1, not a practice (SCOPE; levels.md). Side projects count (ruling 9).
+- v13: hn-tool-named
+  to: floor
+  why: Naming the daily agent and where it runs is the floor's evidence.
+- v13: hn-second-tool
+  to: floor
+  why: A second tool handles no challenge; it is only colour on the floor.
+- v13: harness-2
+  to: 'split: orchestration:work that runs without you (scheduled, triggered, batch) · give-the-agent-tools-made-for-it · floor · prompt:role prompting (persona prompting)'
+  why: '''Custom tooling'' mixed four things: a program that drives the agent, tools for the agent, others'' plugins and an output style. Each goes where its challenge lives. Own skills had already left
+    for context (ruling 4, L3).'
+- v13: hn-own-rig
+  to: orchestration:work that runs without you (scheduled, triggered, batch)
+  why: 'Their own program that drives the agent is a runner: the L4 level of work that runs without you.'
+- v13: hn-local-model
+  to: dropped
+  why: Where the model runs is a tool choice with no named challenge in this discipline, and it has no check (scan coverage, table 5). When it is chosen so client data never leaves the machine, read it
+    as a call sign under limit-what-the-agent-can-reach.
+- v13: hn-event-trigger
+  to: orchestration:work that runs without you (scheduled, triggered, batch)
+  why: Runs fired by a ticket board or a webhook are work that runs without them.
+- v13: hn-skill-used
+  to: floor
+  why: '''Using them is a L1 basic thing'' (ruling 7). The same list of borrowed plugins is what vet-what-gets-in asks about.'
+- v13: hn-output-style
+  to: prompt:role prompting (persona prompting)
+  why: An output style replaces the agent's built-in instructions with a role they wrote. It is a technique of role prompting, or of what loads every turn in context, not of the harness. Never asked on
+    a call in v13.
+- v13: harness-4
+  to: floor
+  why: 'Wiring in connections others built is a Level 1 basic (ruling 7). What the agent reaches outside the code is now read as exposure: a call sign of lethal-trifecta and the cue to ask about limit-what-the-agent-can-reach.'
+- v13: hn-mcp
+  to: floor
+  why: 'Ruling 7: using an MCP server is a L1 basic. Kept as a laptop sign of exposure under lethal-trifecta.'
+- v13: hn-service-wired
+  to: lethal-trifecta
+  why: The agent reaching the database, the deploy platform or the error tracker means private data plus a way out. That is a call sign of the challenge, not a skill.
+- v13: harness-7
+  to: enforce-fixed-rules-in-code
+  why: Hooks is a technique (SCOPE), and what a hook does decides which practice it shows. A guard belongs here, context at the right moment belongs to context, and watching belongs to orchestration. A
+    hook used to define 'done' is the misuse his 10-16 ruling names.
+- v13: hn-hook-fired
+  to: enforce-fixed-rules-in-code
+  why: A hook they wrote that blocks or fixes is this practice's L4 level (ruling 2, behaviour by code). It overlaps hn-hook-authored, which v13 added because this cue credited planned and team hooks. Keep
+    only the stricter reading.
+- v13: harness-8
+  to: 'split: give-the-agent-tools-made-for-it · enforce-fixed-rules-in-code · orchestration:work that runs without you (scheduled, triggered, batch)'
+  why: '''Agent infrastructure'' is building, and building is the L4 level of the practice the thing serves, not a practice of its own.'
+- v13: hn-plugin-own
+  to: enforce-fixed-rules-in-code
+  why: '''A plugin counts by what it does'' (10-09). One that blocks or gates is this practice''s L4. One that injects context is context''s L4. One that only bundles skills or commands is context L3 (ruling
+    4).'
+- v13: hn-mcp-authored
+  to: give-the-agent-tools-made-for-it
+  why: '''building them is a L4'' (ruling 7): the L4 level of tools made for the agent.'
+- v13: hn-sdk-used
+  to: orchestration:work that runs without you (scheduled, triggered, batch)
+  why: Code that starts agent sessions is a runner (L4 there). When it is an agent other people use, its design also shows under keep-outside-text-from-steering.
+- v13: harness-9
+  to: 'split: limit-what-the-agent-can-reach · run-the-agent-in-a-box · orchestration:human-on-the-loop (HOTL)'
+  why: '''Bounds and watches the run'' held two habits. Bounding is least privilege and sandboxing here; watching runs is oversight in orchestration.'
+- v13: hn-perm-scoped
+  to: limit-what-the-agent-can-reach
+  why: Naming what the agent can't reach and the mechanism they set up is the L3 level here. Its rollback-point half (commit before letting it loose) is the L2 level of run-the-agent-in-a-box.
+- v13: hn-telemetry
+  to: orchestration:human-on-the-loop (HOTL)
+  why: Logs, traces and cost counters they actually check are how a person oversees runs. The cost half also serves orchestration's model routing (cost) and its token maxxing challenge.
+- v13: harness-10
+  to: split into the L4 level of each practice
+  why: 'Its rule holds: L4 needs something built that changes how the agent runs (10-09), plus evals the agent can''t edit. But it holds as the top level of every practice, not as a practice. Each cue goes
+    to the practice its build serves.'
+- v13: hn-hook-authored
+  to: enforce-fixed-rules-in-code
+  why: L4 when the hook is a guard. A hook that loads context is context's L4. One that refuses 'done' is verification's, and his 10-16 norm limits that use.
+- v13: hn-runner-authored
+  to: orchestration:work that runs without you (scheduled, triggered, batch)
+  why: A script they wrote that starts the agent is the L4 level of work that runs without them.
+- v13: hn-agent-file-authored
+  to: context:sub-agent architectures (context isolation)
+  why: A sub-agent file with a role, tools and model is setup the next session gets, which is L3 like skills (ruling 4). v13 counted it as an L4 core cue, so a ruling is needed. A sub-agent given a short
+    tool list is also a technique of limit-what-the-agent-can-reach.
+- v13: hn-extension-runtime
+  to: enforce-fixed-rules-in-code
+  why: 'A plugin or server they wrote that blocks or gates is this practice''s L4 level. One that injects context or defines agents goes to the practice it serves (10-09: ''by what it does'').'
+- v13: hn-git-hook-for-agent
+  to: enforce-fixed-rules-in-code
+  why: 'A git hook they wrote to check what the agent commits is a guard technique (tool: any). Its level is still the pending ruling from v13 h10-git-hook. Not read on the laptop.'
+open_questions:
+- 'Ruling needed, new unnamed challenge: SCOPE lists no challenge that the agent-computer interface (ACI) practice handles, and the vocabulary gives ACI no ''Fixes''. I added ''tools-made-for-people'' (term
+  none) so it has one, and so v13''s tool-building cues (hn-mcp-authored, part of harness-2/8) have a home. Keep it? The other option is to fold building tools for the agent into context''s just-in-time
+  retrieval and drop the practice.'
+- 'Ruling needed, jailbreaking: for people using coding agents it collapses into prompt injection. Its vocabulary source is marked ''not confirmed'', and its listed fixes (instruction hierarchy, safety-capability
+  parity) are model-level. Keep it as a builder-only challenge (as drafted), or drop it like the prompt discipline''s model-level terms?'
+- 'Ruling needed, one signal read two ways: the waiting check (babysitting.py) rates one laptop L3 because 95% of messages ran with all permission checks off (''your setup keeps prompts away''). Harness
+  reads the same signal as YOLO mode, L1 on safety unless a boundary is shown, though that laptop also had 4 refuse rules. Which reading wins, or does each discipline keep its own?'
+- 'Ruling needed: v13 counted helper-agent files the person wrote (hn-agent-file-authored) as an L4 core cue, the commonest verified build (9 of 17 builders). The v15 ladder reads a config file like a skill,
+  which is L3 (ruling 4). Drafted as L3 in context; confirm.'
+- 'Ruling needed: ruling 2 says setting up the agent''s behaviour ''via hooks tooling or anything else, is mostly L4''. Guardrails L3 is drafted as a ready-made check (a secret scan before every commit)
+  chosen and wired into the project. Is that L3, or ''mostly L4''? L2 is null on purpose: a guard by hand is a person approving (ask-before-what-cant-be-undone).'
+- 'Confirm: ruling 7 (10-20, ''building them is a L4'') is read here as closing the 10-09 open question on MCP servers that only add tools (v13 h10-mcp-tools, weight ''supporting, pending'').'
+- 'Still pending since v13: a git hook the person wrote to check the agent''s work (h10-git-hook). Drafted as a guardrails technique with its level open.'
+- 'Duplicate cues: hn-hook-fired and hn-hook-authored both map to the guardrails L4 level. Keep only the stricter one (hn-hook-authored).'
+- 'Hook-tip problem still live in the playbook: ''/setup/hooks-playbook'' (''The Quality Gate'': Claude ''can''t declare done until tests pass''; ''If you''ve written it in CLAUDE.md and it matters, back
+  it up with a hook'') and ''/patterns/system-evolution'' (a Stop hook so the agent ''cannot declare done prematurely'') contradict his 10-16 hooks ruling. ''/patterns/autonomous-tasks'' and ''/patterns/permission-modes''
+  repeat ''stop hooks'' as a completion gate in passing. I did not link the hooks playbook as learning for guardrails until it is fixed. The backpressure check''s ''try'' line (a Stop check that runs the
+  tests) repeats the same tip; flag for the verification draft.'
+- 'Content gaps (no playbook page teaches it): prompt injection and the lethal trifecta as such (only covered sideways by /patterns/supply-chain and /setup/secrets-safety); the builder patterns (Dual LLM,
+  plan-then-execute, instruction hierarchy) have only outside sources; checking a package the agent suggests (slopsquatting); designing tools for the agent (ACI, where /setup/mcp-wiring covers wiring others''
+  servers, not designing one); guardrails taught the way his 10-16 ruling defines them; asking only before what can''t be undone (/patterns/permission-modes covers modes, not where approvals belong). No
+  hands-on station touches this discipline.'
+- 'Laptop gaps, all already in the logs or on disk and never read: tool calls the person rejected (toolDenialKind user-rejected, 157 in 14 days on one laptop), commands marked sandboxed, which plugin or
+  MCP server made each tool call (attribution fields), refusals that come back as a tool result (B18). Also not read: secrets in plain files the agent can open, package installs the agent ran, git hooks,
+  tool servers the person wrote. The cheapest high-value pair is rejected tool calls and the sandboxed flag.'
+- 'Vocabulary gap: ''vet-what-gets-in'' has no sourced term. The playbook says ''supply chain'', and the vocabulary only has the narrow ''verify packages exist before install''. Research a sourced name,
+  or keep it unnamed?'
+- 'Confirm the v13 harness-9 split: bounding stays here (least privilege, sandboxing), while watching runs and their cost (hn-telemetry) moves to orchestration (human-on-the-loop, model routing).'
+- Confirm hn-local-model is dropped (a tool choice with no challenge and no check), or credit it under limit-what-the-agent-can-reach when it is used to keep client data on the machine.
+- Confirm that Hashimoto's 'harness engineering' (engineer a fix after every agent mistake so it never happens again) lives in context as 'a correction sticks' (level guide l3-corrections), not as a harness
+  practice.
+- The source the vocabulary gives for human-in-the-loop is a 2012 human-rights report on autonomous weapons (origin of the term). It is fine as a term source but not as learning. Consider adding the permission-modes
+  docs or Anthropic's auto-mode post to the vocabulary as a teaching source.
+checker_changes:
+- v13's harness badge (custom tooling, system integration, hooks, agent infrastructure, limits, build leg) becomes 7 named challenges and 7 practices about what surrounds the agent. Tools appear only as
+  techniques.
+- Building is no longer a practice of its own. v13's build leg (harness-10) and agent infrastructure (harness-8) become the L4 level of the practice each build serves, which keeps the rule that L4 needs
+  evals the agent can't edit.
+- Using MCP servers and plugins others built (harness-4, hn-mcp, hn-skill-used) moves to the floor, per ruling 7. What the agent reaches is now read as exposure under the lethal trifecta.
+- Runners, triggers, SDK programs and run telemetry move to orchestration; helper-agent files move to context; output styles move to prompt.
+- Safety was one v13 practice (harness-9) with two never-swept cues. It is now four practices under the field's own names (least privilege, sandboxing, human-in-the-loop, guardrails) plus one unnamed (checking
+  plugins, MCP servers and dependencies), and one builder practice (Dual LLM, plan-then-execute, instruction hierarchy merged).
+- 'New challenges the field names: prompt injection, lethal trifecta, jailbreaking, slopsquatting, approval fatigue and YOLO mode. One unnamed challenge was added (tools made for people), pending a ruling.'
+- 'Hooks follow his 10-16 norm everywhere: a guard for fixed rules and hard gates, never the definition of ''done''.'
+- 'Checker: give-the-agent-tools-made-for-it, L4 level: replaced ''with checks that keep it working'' with ''with a test the agent can''t edit that keeps it working'', and added the matching ruling line.
+  Reason: SCOPE ruling ''L4 needs demonstrable building that changes how the agent runs, AND evals it can''t edit (10-09, 10-13)''; every other practice''s L4 level already carried this and this one did
+  not.'
+- 'Checker: enforce-fixed-rules-in-code, laptop_evidence: added that 221 of the 237 refusals in the backpressure check are checks on ''done'', which belong to verification. Reason: citing them as guard
+  evidence here would credit the misuse his 10-16 ruling names (''not for defining done'').'
+- 'Checker: verified with no change needed: term, grade and source of all 6 challenges and 7 practices against the vocabulary entries; handled_by and handles agree both ways and with the vocabulary ''Fixed
+  by'' lists; no tool name or virtue in any practice name; every SCOPE term for this discipline is present (merged ones listed in what_you_do); every learn ref is in the materials index or is a vocabulary
+  source URL (the four playbook pages were opened and teach what is claimed); crosswalk holds harness-1, 2, 4, 7, 8, 9, 10 and all 18 of their cues (hn-tool-named, hn-second-tool, hn-own-rig, hn-local-model,
+  hn-event-trigger, hn-skill-used, hn-output-style, hn-mcp, hn-service-wired, hn-hook-fired, hn-plugin-own, hn-mcp-authored, hn-sdk-used, hn-perm-scoped, hn-telemetry, hn-hook-authored, hn-runner-authored,
+  hn-agent-file-authored, hn-extension-runtime, hn-git-hook-for-agent) once each; no member names; laptop numbers (95%, about 3 minutes, 237 and 228, 157, about 19 tools) match the results of the scan and
+  scan coverage.'

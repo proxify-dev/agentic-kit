@@ -1,0 +1,19 @@
+[
+ "\"agent_listing_delta\"",
+ "\"attachment\":\\s*\\{\\s*\"type\":\\s*\"(?:hook_blocking_error)\"",
+ "\"attachment\":\\s*\\{\\s*\"type\":\\s*\"(?:hook_non_blocking_error)\"",
+ "\"attachment\":\\s*\\{\\s*\"type\":\\s*\"(?:hook_success)\"",
+ "\"attachment\":\\s*\\{\\s*\"type\":\\s*\"(?:instructions)\"",
+ "\"attachment\":\\s*\\{\\s*\"type\":\\s*\"(?:nested_memory)\"",
+ "\"attachment\":\\s*\\{\\s*\"type\":\\s*\"(?:skill_mention)\"",
+ "\"attachment\":\\s*\\{\\s*\"type\":\\s*\"hook_",
+ "\"hook_blocking_error\"",
+ "\"hook_success\"",
+ "\"name\":\\s*\"(?:Agent|Task)\"",
+ "\"sessionKind\":\\s*\"bg\"",
+ "\"skill_listing\"",
+ "\"stop_hook_summary\"",
+ "\"stop_reason\":\\s*\"end_turn\"",
+ "\"type\":\\s*\"(?:permission-mode|cost-state)\"",
+ "\"worktree\\-state\""
+]

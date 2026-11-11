@@ -1,0 +1,2418 @@
+[
+ {
+  "id": "you.typed_messages",
+  "source": "card",
+  "reads": "A message a person typed in an interactive session.; How the session was started (cli, vscode, jetbrains, desktop, sdk-cli, sdk-py, sdk-ts).",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "you.btw_side_questions",
+  "source": "card",
+  "reads": "cmd.btw",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "isolate-side-work",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.subtask_forks",
+  "source": "card",
+  "reads": "A sub-agent's own record: who started it (toolUseId = Claude's call; isFork without it = the person), its team, how deep, whether the person stopped it, whether it got its own worktree.; cmd.subtask; cmd.btw",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "isolate-side-work",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.goals_set",
+  "source": "card",
+  "reads": "cmd.goal",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "step-in-on-signals",
+    "rung": "L2"
+   },
+   {
+    "practice": "bound-the-task",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.plans_asked",
+  "source": "card",
+  "reads": "cmd.plan",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "settle-the-approach-first",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.clears_typed",
+  "source": "card",
+  "reads": "cmd.clear; A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "you.chats_split_off",
+  "source": "card",
+  "reads": "cmd.fork; cmd.branch",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "reset-with-a-handoff",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.sessions_backgrounded",
+  "source": "card",
+  "reads": "cmd.background; A session sent to the background (/bg, /background).",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "runs-start-without-you",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.helper_mentions",
+  "source": "card",
+  "reads": "The person @-mentioned a sub-agent by name.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "isolate-side-work",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.skill_mentions",
+  "source": "card",
+  "reads": "The person typed /skill-name inside a message.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "put-rules-where-they-apply",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.file_mentions",
+  "source": "card",
+  "reads": "A file attached to the person's message, after leaving out the files /compact re-attaches.; A file Claude Code put back into context after a compaction.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "let-the-agent-fetch",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.ultracode_requests",
+  "source": "card",
+  "reads": "The person typed the workflow keyword (\"ultracode\").",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "lead-a-team-of-agents",
+    "rung": "L2"
+   },
+   {
+    "practice": "parallel-work-kept-apart",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.esc_interrupts",
+  "source": "card",
+  "reads": "The person pressed Esc while Claude worked.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "reword-the-ask",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.steps_refused",
+  "source": "card",
+  "reads": "The person rejected a tool call Claude asked to make.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "ask-before-what-cant-be-undone",
+    "rung": "L2"
+   },
+   {
+    "practice": "reword-the-ask",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.helpers_stopped_by_hand",
+  "source": "card",
+  "reads": "A sub-agent's own record: who started it (toolUseId = Claude's call; isFork without it = the person), its team, how deep, whether the person stopped it, whether it got its own worktree.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "step-in-on-signals",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.manual_compactions",
+  "source": "card",
+  "reads": "A compaction; trigger says manual (the person typed /compact) or auto.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "compact-on-purpose",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.plan_mode_switched_on",
+  "source": "card",
+  "reads": "The permission mode in force when the person typed each message (plan, default, acceptEdits, auto…).",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "settle-the-approach-first",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.chats_at_once",
+  "source": "card",
+  "reads": "A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "parallel-work-kept-apart",
+    "rung": "L2"
+   },
+   {
+    "practice": "step-in-on-signals",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "you.most_chats_in_10_min",
+  "source": "card",
+  "reads": "A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "setup.chats_opened_in_plan_by_settings",
+  "source": "card",
+  "reads": "The permission mode in force when the person typed each message (plan, default, acceptEdits, auto…).; A settings file (~/.claude/settings.json, a project's .claude/settings*.json) that ownership.py says is theirs; a teammate's committed file and managed settings are not.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "settle-the-approach-first",
+    "rung": "L2"
+   }
+  ]
+ },
+ {
+  "id": "setup.own_agent_launches",
+  "source": "card",
+  "reads": "Claude started a sub-agent; subagent_type says which, model and isolation how.; An agent file (.claude/agents/*.md, a plugin's agents/) in a repo where git shows their commits.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "isolate-side-work",
+    "rung": "L3"
+   }
+  ]
+ },
+ {
+  "id": "setup.hook_blocks",
+  "source": "card",
+  "reads": "A hook blocked a tool call.; A hook ran and its output went into Claude's context: {command, hookName, stdout}. The only record that ties context text to a script.; A hook in their settings whose script sits in a repo where git shows their commits.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "enforce-fixed-rules-in-code",
+    "rung": "L3"
+   }
+  ]
+ },
+ {
+  "id": "setup.sessions_as_named_agent",
+  "source": "card",
+  "reads": "The session runs as a named agent (claude --agent …).",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "setup.subfolder_rules_reached",
+  "source": "card",
+  "reads": "A rule file from a subfolder (CLAUDE.md below the repo root) loaded because Claude worked there.; A CLAUDE.md, AGENTS.md or CLAUDE.local.md git shows they wrote.",
+  "status": "ok",
+  "sets_rung": true,
+  "counts_for": [
+   {
+    "practice": "put-rules-where-they-apply",
+    "rung": "L3"
+   }
+  ]
+ },
+ {
+  "id": "setup.hook_text_chats",
+  "source": "card",
+  "reads": "A hook put text into Claude's context. Whose hook is decided by own.hook, never by the text.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "programs.runs_started_by_code",
+  "source": "card",
+  "reads": "How the session was started (cli, vscode, jetbrains, desktop, sdk-cli, sdk-py, sdk-ts).",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "programs.runs_unattended",
+  "source": "card",
+  "reads": "How the session was started (cli, vscode, jetbrains, desktop, sdk-cli, sdk-py, sdk-ts).; A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "programs.scheduled_jobs",
+  "source": "card",
+  "reads": "A crontab or LaunchAgents entry that starts Claude Code.",
+  "status": "check",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "probably.helpers_after_ask",
+  "source": "card",
+  "reads": "Claude started a sub-agent; subagent_type says which, model and isolation how.; A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "probably.worktree_mentions",
+  "source": "card",
+  "reads": "A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "probably.corrections",
+  "source": "card",
+  "reads": "A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.helper_calls_unattributed",
+  "source": "card",
+  "reads": "Claude started a sub-agent; subagent_type says which, model and isolation how.; A message a person typed in an interactive session.; A hook ran and its output went into Claude's context: {command, hookName, stdout}. The only record that ties context text to a script.; The rule files loaded at session start: files[{path, type, content}].; A rule file from a subfolder (CLAUDE.md below the repo root) loaded because Claude worked there.; A hook in their settings whose script sits in a repo where git shows their commits.; A CLAUDE.md, AGENTS.md or CLAUDE.local.md git shows they wrote.; An agent file (.claude/agents/*.md, a plugin's agents/) in a repo where git shows their commits.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.messages_to_own_helpers",
+  "source": "card",
+  "reads": "Claude sent a message to a sub-agent, a teammate or another session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.messages_to_other_sessions",
+  "source": "card",
+  "reads": "Claude sent a message to a sub-agent, a teammate or another session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.messages_from_other_sessions",
+  "source": "card",
+  "reads": "A message from another session or a teammate arrived in this session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.teammates",
+  "source": "card",
+  "reads": "A sub-agent's own record: who started it (toolUseId = Claude's call; isFork without it = the person), its team, how deep, whether the person stopped it, whether it got its own worktree.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.helpers_started_by_helpers",
+  "source": "card",
+  "reads": "A sub-agent's own record: who started it (toolUseId = Claude's call; isFork without it = the person), its team, how deep, whether the person stopped it, whether it got its own worktree.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.helpers_own_worktree",
+  "source": "card",
+  "reads": "A sub-agent's own record: who started it (toolUseId = Claude's call; isFork without it = the person), its team, how deep, whether the person stopped it, whether it got its own worktree.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.helpers_stopped_by_claude",
+  "source": "card",
+  "reads": "Claude stopped background work (a shell, a sub-agent or a workflow; the call doesn't say which).",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.helper_calls_with_model",
+  "source": "card",
+  "reads": "Claude started a sub-agent; subagent_type says which, model and isolation how.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.plan_mode_entered_by_claude",
+  "source": "card",
+  "reads": "Claude asked to switch plan mode on.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.chats_opened_in_plan_mode",
+  "source": "card",
+  "reads": "The permission mode in force when the person typed each message (plan, default, acceptEdits, auto…).",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "claude.jobs_watched",
+  "source": "card",
+  "reads": "Claude watched a job until it ended.; A background shell command got a task id; Claude Code writes a <task-notification> with the task's final status when it ends.; Claude ran a shell command, in the foreground or (run_in_background) the background.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "claude.background_shell",
+  "source": "card",
+  "reads": "Claude left a shell command or a sub-agent running in the background.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "claude.background_helpers",
+  "source": "card",
+  "reads": "Claude left a shell command or a sub-agent running in the background.; Claude started a sub-agent; subagent_type says which, model and isolation how.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "claude.auto_compactions",
+  "source": "card",
+  "reads": "A compaction; trigger says manual (the person typed /compact) or auto.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "claude.automemory_at_start",
+  "source": "card",
+  "reads": "The rule files loaded at session start: files[{path, type, content}].",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "you.own_commands_typed",
+  "source": "card",
+  "reads": "A command the person typed: history.jsonl entries whose display starts with /.; A command or skill file they wrote (git). Counted as \"a command of theirs\", never by its name.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "setup.subagents_after_own_context",
+  "source": "card",
+  "reads": "Claude started a sub-agent; subagent_type says which, model and isolation how.; A hook ran and its output went into Claude's context: {command, hookName, stdout}. The only record that ties context text to a script.; The rule files loaded at session start: files[{path, type, content}].; A rule file from a subfolder (CLAUDE.md below the repo root) loaded because Claude worked there.; A hook in their settings whose script sits in a repo where git shows their commits.; A CLAUDE.md, AGENTS.md or CLAUDE.local.md git shows they wrote.",
+  "status": "check",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "setup.own_hook_context_at_start",
+  "source": "card",
+  "reads": "A hook ran and its output went into Claude's context: {command, hookName, stdout}. The only record that ties context text to a script.; A hook in their settings whose script sits in a repo where git shows their commits.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "programs.own_eval_folders_changed",
+  "source": "card",
+  "reads": "The layout `claude plugin eval` reads. A run ledger (runs.jsonl) is not Claude Code's: the agentic kit's.; A folder in a repo where git shows their commits.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "cant.early_reads_of_earlier_work",
+  "source": "card",
+  "reads": "Claude read a file.; Claude wrote or edited a file.; A message a person typed in an interactive session.",
+  "status": "ok",
+  "sets_rung": false,
+  "counts_for": []
+ },
+ {
+  "id": "write-down-what-it-cannot-know:L2#0",
+  "source": "portable",
+  "reads": "Person corrected the agent (Esc or refused tool call right before a typed message)",
+  "practice": "write-down-what-it-cannot-know",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.14,
+  "slow": false
+ },
+ {
+  "id": "write-down-what-it-cannot-know:L3#0",
+  "source": "portable",
+  "reads": "The fact is a line in a rule file that every new session loads",
+  "practice": "write-down-what-it-cannot-know",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.4,
+  "slow": false
+ },
+ {
+  "id": "write-down-what-it-cannot-know:L3#2",
+  "source": "portable",
+  "reads": "If the agent writes the file, it does so under tight rules they set",
+  "practice": "write-down-what-it-cannot-know",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "write-down-what-it-cannot-know:L4#0",
+  "source": "portable",
+  "reads": "A hook of your put a rule/doc into context at the moment it applies",
+  "practice": "write-down-what-it-cannot-know",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.1,
+  "slow": false
+ },
+ {
+  "id": "write-down-what-it-cannot-know:L4#2",
+  "source": "portable",
+  "reads": "A test shows the rule holds",
+  "practice": "write-down-what-it-cannot-know",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 7.91,
+  "slow": true
+ },
+ {
+  "id": "put-rules-where-they-apply:L2#2",
+  "source": "portable",
+  "reads": "Keeps one file for everything",
+  "practice": "put-rules-where-they-apply",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.45,
+  "slow": false
+ },
+ {
+  "id": "put-rules-where-they-apply:L3#0",
+  "source": "portable",
+  "reads": "Rule files of yours in subfolders that loaded when the agent worked there",
+  "practice": "put-rules-where-they-apply",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.47,
+  "slow": false
+ },
+ {
+  "id": "put-rules-where-they-apply:L3#1",
+  "source": "portable",
+  "reads": "Your own skills the model loaded for a matching task: at least 3 skills, in 3 or more sessions",
+  "practice": "put-rules-where-they-apply",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.85,
+  "slow": false
+ },
+ {
+  "id": "put-rules-where-they-apply:L3#2",
+  "source": "portable",
+  "reads": "Deeper docs your rule files and skills point to that the agent opened on its own: at least 3 docs, in 3 or more sessions",
+  "practice": "put-rules-where-they-apply",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": null,
+  "stranger_cant_tell": null,
+  "secs": null,
+  "slow": false
+ },
+ {
+  "id": "put-rules-where-they-apply:L4#0",
+  "source": "portable",
+  "reads": "Hook/plugin of your that brings in a rule or doc when a file, command or task comes up",
+  "practice": "put-rules-where-they-apply",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.01,
+  "slow": false
+ },
+ {
+  "id": "keep-always-loaded-small:L2#0",
+  "source": "portable",
+  "reads": "Trims the file now and then",
+  "practice": "keep-always-loaded-small",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.32,
+  "slow": false
+ },
+ {
+  "id": "keep-always-loaded-small:L3#0",
+  "source": "portable",
+  "reads": "What loads every time stays small over time (trims hold)",
+  "practice": "keep-always-loaded-small",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "keep-always-loaded-small:L4#2",
+  "source": "portable",
+  "reads": "The check runs every time",
+  "practice": "keep-always-loaded-small",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "let-the-agent-fetch:L2#1",
+  "source": "portable",
+  "reads": "Files you @-mentioned (shown only: an @-mention puts the file in the session, it isn't the agent fetching)",
+  "practice": "let-the-agent-fetch",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 3.81,
+  "slow": false
+ },
+ {
+  "id": "let-the-agent-fetch:L3#1",
+  "source": "portable",
+  "reads": "Agent searched the store on its own",
+  "practice": "let-the-agent-fetch",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "let-the-agent-fetch:L4#0",
+  "source": "portable",
+  "reads": "Own connector/server in a repo with your commits",
+  "practice": "let-the-agent-fetch",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.46,
+  "slow": false
+ },
+ {
+  "id": "notes-the-next-chat-reads:L2#0",
+  "source": "portable",
+  "reads": "Sessions whose first message points at a note an earlier session wrote",
+  "practice": "notes-the-next-chat-reads",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.04,
+  "slow": false
+ },
+ {
+  "id": "notes-the-next-chat-reads:L3#0",
+  "source": "portable",
+  "reads": "Fresh session reads, before the 3rd typed message, a file an earlier session wrote or edited",
+  "practice": "notes-the-next-chat-reads",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.86,
+  "slow": false
+ },
+ {
+  "id": "notes-the-next-chat-reads:L3#2",
+  "source": "portable",
+  "reads": "Agent keeps notes up to date in small edits",
+  "practice": "notes-the-next-chat-reads",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.81,
+  "slow": false
+ },
+ {
+  "id": "notes-the-next-chat-reads:L3#3",
+  "source": "portable",
+  "reads": "Settled or wrong notes are merged or retired, not piling up",
+  "practice": "notes-the-next-chat-reads",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 7.39,
+  "slow": true
+ },
+ {
+  "id": "notes-the-next-chat-reads:L4#1",
+  "source": "portable",
+  "reads": "Work can't land until the record is written (blocking hook)",
+  "practice": "notes-the-next-chat-reads",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "notes-the-next-chat-reads:L4#2",
+  "source": "portable",
+  "reads": "A check shows the notes stay right",
+  "practice": "notes-the-next-chat-reads",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "reset-with-a-handoff:L2#0",
+  "source": "portable",
+  "reads": "Starts clean by hand (/clear)",
+  "practice": "reset-with-a-handoff",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.53,
+  "slow": false
+ },
+ {
+  "id": "reset-with-a-handoff:L2#3",
+  "source": "portable",
+  "reads": "Rewind / branch a copy",
+  "practice": "reset-with-a-handoff",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.49,
+  "slow": false
+ },
+ {
+  "id": "reset-with-a-handoff:L3#1",
+  "source": "portable",
+  "reads": "Fresh session picks it up on its own",
+  "practice": "reset-with-a-handoff",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.45,
+  "slow": false
+ },
+ {
+  "id": "compact-on-purpose:L2#2",
+  "source": "portable",
+  "reads": "Times you typed /compact saying what to keep, followed by a manual compaction",
+  "practice": "compact-on-purpose",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.01,
+  "slow": false
+ },
+ {
+  "id": "compact-on-purpose:L2#3",
+  "source": "portable",
+  "reads": "Checked how full the session was (shown beside the compactions; not counted on its own)",
+  "practice": "compact-on-purpose",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.19,
+  "slow": false
+ },
+ {
+  "id": "compact-on-purpose:L3#1",
+  "source": "portable",
+  "reads": "Rules and state reload from files afterwards",
+  "practice": "compact-on-purpose",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.1,
+  "slow": false
+ },
+ {
+  "id": "compact-on-purpose:L4#0",
+  "source": "portable",
+  "reads": "PreCompact / PostCompact hooks save and reload state",
+  "practice": "compact-on-purpose",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "compact-on-purpose:L4#1",
+  "source": "portable",
+  "reads": "Compacts at a threshold you set",
+  "practice": "compact-on-purpose",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "isolate-side-work:L2#0",
+  "source": "portable",
+  "reads": "Side tasks you forked by hand (/subtask, /btw, /fork) with a short brief, whose result came back",
+  "practice": "isolate-side-work",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "lead-a-team-of-agents:L2#1",
+  "source": "portable",
+  "reads": "Dynamic workflows you started that spread one job over many agents",
+  "practice": "lead-a-team-of-agents",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": null,
+  "stranger_cant_tell": null,
+  "secs": null,
+  "slow": false
+ },
+ {
+  "id": "isolate-side-work:L3#0",
+  "source": "portable",
+  "reads": "Sub-agents you defined",
+  "practice": "isolate-side-work",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.07,
+  "slow": false
+ },
+ {
+  "id": "isolate-side-work:L3#1",
+  "source": "portable",
+  "reads": "Main agent hands exploration to them by default",
+  "practice": "isolate-side-work",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "share-the-setup-with-the-team:L3#0",
+  "source": "portable",
+  "reads": "Instruction files and shared settings committed, personal ones apart",
+  "practice": "share-the-setup-with-the-team",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 9.14,
+  "slow": true
+ },
+ {
+  "id": "share-the-setup-with-the-team:L3#1",
+  "source": "portable",
+  "reads": "Some teammates edit them",
+  "practice": "share-the-setup-with-the-team",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 8.76,
+  "slow": true
+ },
+ {
+  "id": "share-the-setup-with-the-team:L4#1",
+  "source": "portable",
+  "reads": "A check that a fresh clone loads it",
+  "practice": "share-the-setup-with-the-team",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.33,
+  "slow": false
+ },
+ {
+  "id": "limit-what-the-agent-can-reach:L3#0",
+  "source": "portable",
+  "reads": "Ask and deny rules in your user and project settings",
+  "practice": "limit-what-the-agent-can-reach",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.06,
+  "slow": false
+ },
+ {
+  "id": "limit-what-the-agent-can-reach:L3#2",
+  "source": "portable",
+  "reads": "connections switched on only in the projects that need them",
+  "practice": "limit-what-the-agent-can-reach",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "limit-what-the-agent-can-reach:L4#0",
+  "source": "portable",
+  "reads": "hooks wired before tool calls, with who wrote the script",
+  "practice": "limit-what-the-agent-can-reach",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.02,
+  "slow": false
+ },
+ {
+  "id": "run-the-agent-in-a-box:L2#0",
+  "source": "portable",
+  "reads": "throwaway copy or worktree made for the job",
+  "practice": "run-the-agent-in-a-box",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.16,
+  "slow": false
+ },
+ {
+  "id": "run-the-agent-in-a-box:L3#0",
+  "source": "portable",
+  "reads": "built-in sandbox switched on",
+  "practice": "run-the-agent-in-a-box",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "run-the-agent-in-a-box:L3#1",
+  "source": "portable",
+  "reads": "dev container the repo opens in",
+  "practice": "run-the-agent-in-a-box",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.51,
+  "slow": false
+ },
+ {
+  "id": "ask-before-what-cant-be-undone:L2#0",
+  "source": "portable",
+  "reads": "Risky steps you refused (push, reset, delete, deploy, send, writes outside the repo)",
+  "practice": "ask-before-what-cant-be-undone",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.18,
+  "slow": false
+ },
+ {
+  "id": "ask-before-what-cant-be-undone:L2#1",
+  "source": "portable",
+  "reads": "sessions where the mode changed during the session",
+  "practice": "ask-before-what-cant-be-undone",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.2,
+  "slow": false
+ },
+ {
+  "id": "ask-before-what-cant-be-undone:L2#2",
+  "source": "portable",
+  "reads": "permission mode in force on each typed message",
+  "practice": "ask-before-what-cant-be-undone",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.01,
+  "slow": false
+ },
+ {
+  "id": "ask-before-what-cant-be-undone:L3#0",
+  "source": "portable",
+  "reads": "Ask and deny rules in your user and project settings",
+  "practice": "ask-before-what-cant-be-undone",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.63,
+  "slow": false
+ },
+ {
+  "id": "ask-before-what-cant-be-undone:L3#1",
+  "source": "portable",
+  "reads": "default mode and mode share",
+  "practice": "ask-before-what-cant-be-undone",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.23,
+  "slow": false
+ },
+ {
+  "id": "ask-before-what-cant-be-undone:L4#0",
+  "source": "portable",
+  "reads": "hooks wired before tool calls, with who wrote the script",
+  "practice": "ask-before-what-cant-be-undone",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.59,
+  "slow": false
+ },
+ {
+  "id": "enforce-fixed-rules-in-code:L3#0",
+  "source": "portable",
+  "reads": "a ready-made check wired into the project",
+  "practice": "enforce-fixed-rules-in-code",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 3.52,
+  "slow": false
+ },
+ {
+  "id": "enforce-fixed-rules-in-code:L3#2",
+  "source": "portable",
+  "reads": "hook blocks seen as attachments",
+  "practice": "enforce-fixed-rules-in-code",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "enforce-fixed-rules-in-code:L4#0",
+  "source": "portable",
+  "reads": "Your own hooks that run before a tool call and can block it",
+  "practice": "enforce-fixed-rules-in-code",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.01,
+  "slow": false
+ },
+ {
+  "id": "enforce-fixed-rules-in-code:L4#1",
+  "source": "portable",
+  "reads": "Blocks recorded as attachments (not written by Claude Code for rule hooks: see the next line)",
+  "practice": "enforce-fixed-rules-in-code",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.96,
+  "slow": false
+ },
+ {
+  "id": "enforce-fixed-rules-in-code:L4#2",
+  "source": "portable",
+  "reads": "Times one of your own hooks blocked a tool call (Claude Code's 'hook error' results)",
+  "practice": "enforce-fixed-rules-in-code",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.19,
+  "slow": false
+ },
+ {
+  "id": "enforce-fixed-rules-in-code:L4#3",
+  "source": "portable",
+  "reads": "hooks that crashed instead of blocking",
+  "practice": "enforce-fixed-rules-in-code",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.78,
+  "slow": false
+ },
+ {
+  "id": "vet-what-gets-in:L2#0",
+  "source": "portable",
+  "reads": "agent adds packages (volume)",
+  "practice": "vet-what-gets-in",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 23.07,
+  "slow": true
+ },
+ {
+  "id": "vet-what-gets-in:L3#0",
+  "source": "portable",
+  "reads": "versions pinned",
+  "practice": "vet-what-gets-in",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 5.98,
+  "slow": true
+ },
+ {
+  "id": "vet-what-gets-in:L3#2",
+  "source": "portable",
+  "reads": "every new package visible in review via the lockfile",
+  "practice": "vet-what-gets-in",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "give-the-agent-tools-made-for-it:L2#1",
+  "source": "portable",
+  "reads": "the agent fumbled a tool (error output)",
+  "practice": "give-the-agent-tools-made-for-it",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.98,
+  "slow": false
+ },
+ {
+  "id": "give-the-agent-tools-made-for-it:L3#0",
+  "source": "portable",
+  "reads": "small scripts/tools of your that the agent runs",
+  "practice": "give-the-agent-tools-made-for-it",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 6.43,
+  "slow": true
+ },
+ {
+  "id": "give-the-agent-tools-made-for-it:L4#0",
+  "source": "portable",
+  "reads": "MCP servers whose code is yours (not a clone, not a package from a registry), called on 3 or more days",
+  "practice": "give-the-agent-tools-made-for-it",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.1,
+  "slow": false
+ },
+ {
+  "id": "give-the-agent-tools-made-for-it:L4#2",
+  "source": "portable",
+  "reads": "a test keeps it working",
+  "practice": "give-the-agent-tools-made-for-it",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 66.66,
+  "slow": true
+ },
+ {
+  "id": "test-the-setup-code:L2#0",
+  "source": "portable",
+  "reads": "edited a hook or launcher",
+  "practice": "test-the-setup-code",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.83,
+  "slow": false
+ },
+ {
+  "id": "test-the-setup-code:L3#0",
+  "source": "portable",
+  "reads": "fixture tests that target hook or launcher scripts",
+  "practice": "test-the-setup-code",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 6.97,
+  "slow": true
+ },
+ {
+  "id": "test-the-setup-code:L3#1",
+  "source": "portable",
+  "reads": "runnable with one command",
+  "practice": "test-the-setup-code",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 6.47,
+  "slow": true
+ },
+ {
+  "id": "test-the-setup-code:L4#0",
+  "source": "portable",
+  "reads": "tests run on every change (git hook or CI)",
+  "practice": "test-the-setup-code",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.58,
+  "slow": false
+ },
+ {
+  "id": "step-in-on-signals:L2#1",
+  "source": "portable",
+  "reads": "Times you came back within 5 minutes after a long run (5+ minutes) ended on its own, having worked elsewhere meanwhile",
+  "practice": "step-in-on-signals",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 7.64,
+  "slow": true
+ },
+ {
+  "id": "step-in-on-signals:L2#3",
+  "source": "portable",
+  "reads": "Stops it by hand when it drifts",
+  "practice": "step-in-on-signals",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.55,
+  "slow": false
+ },
+ {
+  "id": "step-in-on-signals:L3#1",
+  "source": "portable",
+  "reads": "Routine steps go through without asking (permission mode at each typed message, default mode in settings)",
+  "practice": "step-in-on-signals",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.03,
+  "slow": false
+ },
+ {
+  "id": "fresh-run-per-task:L2#1",
+  "source": "portable",
+  "reads": "Starts from a progress file that is updated after every task",
+  "practice": "fresh-run-per-task",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "fresh-run-per-task:L2#2",
+  "source": "portable",
+  "reads": "Or: the built-in loop repeats a saved prompt over the list",
+  "practice": "fresh-run-per-task",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "fresh-run-per-task:L4#0",
+  "source": "portable",
+  "reads": "A script keeps starting fresh agent runs over the list",
+  "practice": "fresh-run-per-task",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.07,
+  "slow": false
+ },
+ {
+  "id": "parallel-work-kept-apart:L2#0",
+  "source": "portable",
+  "reads": "Two or more sessions worked at once (you typed in one while another was active)",
+  "practice": "parallel-work-kept-apart",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.91,
+  "slow": false
+ },
+ {
+  "id": "parallel-work-kept-apart:L2#1",
+  "source": "portable",
+  "reads": "Each in its own worktree, or on files the others don't touch",
+  "practice": "parallel-work-kept-apart",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.11,
+  "slow": false
+ },
+ {
+  "id": "parallel-work-kept-apart:L3#0",
+  "source": "portable",
+  "reads": "Your own agents set to run in their own worktree that were actually launched",
+  "practice": "parallel-work-kept-apart",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.01,
+  "slow": false
+ },
+ {
+  "id": "runs-start-without-you:L2#0",
+  "source": "portable",
+  "reads": "Background or /loop runs where the agent kept working while you were away 10+ minutes",
+  "practice": "runs-start-without-you",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.39,
+  "slow": false
+ },
+ {
+  "id": "runs-start-without-you:L3#0",
+  "source": "portable",
+  "reads": "A schedule, pipeline step or ticket label starts the agent, set up once",
+  "practice": "runs-start-without-you",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "runs-start-without-you:L3#1",
+  "source": "portable",
+  "reads": "Runs again and again, nobody types",
+  "practice": "runs-start-without-you",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "runs-start-without-you:L3#2",
+  "source": "portable",
+  "reads": "A saved prompt; reads the result later",
+  "practice": "runs-start-without-you",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 5.84,
+  "slow": true
+ },
+ {
+  "id": "runs-start-without-you:L4#1",
+  "source": "portable",
+  "reads": "With limits on what each may do and spend",
+  "practice": "runs-start-without-you",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.55,
+  "slow": false
+ },
+ {
+  "id": "model-and-budget-per-step:L2#0",
+  "source": "portable",
+  "reads": "Switches model by hand",
+  "practice": "model-and-budget-per-step",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.01,
+  "slow": false
+ },
+ {
+  "id": "model-and-budget-per-step:L3#0",
+  "source": "portable",
+  "reads": "Your own agent files naming a model, when at least two name different models",
+  "practice": "model-and-budget-per-step",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.08,
+  "slow": false
+ },
+ {
+  "id": "model-and-budget-per-step:L4#1",
+  "source": "portable",
+  "reads": "Tracks cost against what each run left",
+  "practice": "model-and-budget-per-step",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "lead-a-team-of-agents:L2#0",
+  "source": "portable",
+  "reads": "Splits the work across 2+ agents",
+  "practice": "lead-a-team-of-agents",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "lead-a-team-of-agents:L3#0",
+  "source": "portable",
+  "reads": "Sessions where 2 or more of your own agent roles were started by you or by a command of yours (2+ sessions)",
+  "practice": "lead-a-team-of-agents",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.55,
+  "slow": false
+ },
+ {
+  "id": "bound-the-task:L2#1",
+  "source": "portable",
+  "reads": "Asks you typed that name a place (a file or folder) and a finish line (tests pass, 'done when', a check you run)",
+  "practice": "bound-the-task",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 6.03,
+  "slow": true
+ },
+ {
+  "id": "bound-the-task:L3#0",
+  "source": "portable",
+  "reads": "Own skill/agent/command files exist (the template material)",
+  "practice": "bound-the-task",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "bound-the-task:L3#2",
+  "source": "portable",
+  "reads": "Own skills called by name (typed /skill-name, or Skill tool call), split own vs installed",
+  "practice": "bound-the-task",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.01,
+  "slow": false
+ },
+ {
+  "id": "bound-the-task:L4#0",
+  "source": "portable",
+  "reads": "A Stop hook of your exists in settings",
+  "practice": "bound-the-task",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.49,
+  "slow": false
+ },
+ {
+  "id": "bound-the-task:L4#2",
+  "source": "portable",
+  "reads": "The gate actually fired",
+  "practice": "bound-the-task",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.53,
+  "slow": false
+ },
+ {
+  "id": "settle-the-approach-first:L2#0",
+  "source": "portable",
+  "reads": "Plan mode used on typed messages, split by who started it",
+  "practice": "settle-the-approach-first",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.13,
+  "slow": false
+ },
+ {
+  "id": "settle-the-approach-first:L3#0",
+  "source": "portable",
+  "reads": "A plan file exists",
+  "practice": "settle-the-approach-first",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "settle-the-approach-first:L3#1",
+  "source": "portable",
+  "reads": "The next session works from it and keeps it up to date",
+  "practice": "settle-the-approach-first",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.07,
+  "slow": false
+ },
+ {
+  "id": "settle-the-approach-first:L4#0",
+  "source": "portable",
+  "reads": "Saved runner scripts exist",
+  "practice": "settle-the-approach-first",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.09,
+  "slow": false
+ },
+ {
+  "id": "reword-the-ask:L2#6",
+  "source": "portable",
+  "reads": "Fork or rewind before the wrong turn",
+  "practice": "reword-the-ask",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.38,
+  "slow": false
+ },
+ {
+  "id": "reword-the-ask:L3#0",
+  "source": "portable",
+  "reads": "Own skill/agent/command files exist (the template material)",
+  "practice": "reword-the-ask",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.02,
+  "slow": false
+ },
+ {
+  "id": "reword-the-ask:L3#1",
+  "source": "portable",
+  "reads": "Your own skill, agent or command files rewritten substantively after they were used (your commits)",
+  "practice": "reword-the-ask",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 3.59,
+  "slow": false
+ },
+ {
+  "id": "reword-the-ask:L3#2",
+  "source": "portable",
+  "reads": "Agent edits of prompt files in sessions (any author)",
+  "practice": "reword-the-ask",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.33,
+  "slow": false
+ },
+ {
+  "id": "reword-the-ask:L4#0",
+  "source": "portable",
+  "reads": "An eval folder exists next to your plugins",
+  "practice": "reword-the-ask",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "reword-the-ask:L4#2",
+  "source": "portable",
+  "reads": "Rerun whenever a kept prompt or the model changes",
+  "practice": "reword-the-ask",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 3.89,
+  "slow": false
+ },
+ {
+  "id": "ask-without-leading:L3#0",
+  "source": "portable",
+  "reads": "Own standing instructions or reviewer agent exist",
+  "practice": "ask-without-leading",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "built-for-the-agent-roll-call:L4#0",
+  "source": "portable",
+  "reads": "Per kind: built by you (git share of commits on the file/manifest)",
+  "practice": "built-for-the-agent-roll-call",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "built-for-the-agent-roll-call:L4#1",
+  "source": "portable",
+  "reads": "Per kind: switched on / wired",
+  "practice": "built-for-the-agent-roll-call",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "built-for-the-agent-roll-call:L4#2",
+  "source": "portable",
+  "reads": "Per kind: actually used in the last 30 days (fired, called, ran)",
+  "practice": "built-for-the-agent-roll-call",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 5.61,
+  "slow": true
+ },
+ {
+  "id": "built-for-the-agent-roll-call:L4#3",
+  "source": "portable",
+  "reads": "Per kind: how a copied-in or installed one is told apart from one you built",
+  "practice": "built-for-the-agent-roll-call",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "built-for-the-agent-roll-call:L4#4",
+  "source": "portable",
+  "reads": "Number of distinct build kinds (one count for everyone)",
+  "practice": "built-for-the-agent-roll-call",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "write-a-program-that-runs-the-agent:L2#0",
+  "source": "portable",
+  "reads": "Runs claude -p by hand on piped input",
+  "practice": "write-a-program-that-runs-the-agent",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.01,
+  "slow": false
+ },
+ {
+  "id": "write-a-program-that-runs-the-agent:L3#0",
+  "source": "portable",
+  "reads": "A script of your calls the agent and is rerun",
+  "practice": "write-a-program-that-runs-the-agent",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 19.34,
+  "slow": true
+ },
+ {
+  "id": "write-a-program-that-runs-the-agent:L3#1",
+  "source": "portable",
+  "reads": "Fixed prompt, tool list and turn cap",
+  "practice": "write-a-program-that-runs-the-agent",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 10.04,
+  "slow": true
+ },
+ {
+  "id": "write-a-program-that-runs-the-agent:L4#0",
+  "source": "portable",
+  "reads": "An Agent SDK program with its own tools and permission callback",
+  "practice": "write-a-program-that-runs-the-agent",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 8.65,
+  "slow": true
+ },
+ {
+  "id": "work-with-the-prompt-cache:L2#0",
+  "source": "portable",
+  "reads": "Hit rate and cold restarts are visible per session",
+  "practice": "work-with-the-prompt-cache",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.17,
+  "slow": false
+ },
+ {
+  "id": "work-with-the-prompt-cache:L2#1",
+  "source": "portable",
+  "reads": "Avoids switching model mid-task",
+  "practice": "work-with-the-prompt-cache",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.73,
+  "slow": false
+ },
+ {
+  "id": "work-with-the-prompt-cache:L2#2",
+  "source": "portable",
+  "reads": "Avoids toggling servers and plugins mid-task",
+  "practice": "work-with-the-prompt-cache",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 3.24,
+  "slow": false
+ },
+ {
+  "id": "work-with-the-prompt-cache:L2#4",
+  "source": "portable",
+  "reads": "Cold restarts cost most of the cache writing",
+  "practice": "work-with-the-prompt-cache",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.76,
+  "slow": false
+ },
+ {
+  "id": "work-with-the-prompt-cache:L3#0",
+  "source": "portable",
+  "reads": "Model and effort set at the start, not changed",
+  "practice": "work-with-the-prompt-cache",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.56,
+  "slow": false
+ },
+ {
+  "id": "keep-client-code-and-data-in-bounds:L3#0",
+  "source": "portable",
+  "reads": "Project settings route the agent to a different provider",
+  "practice": "keep-client-code-and-data-in-bounds",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.23,
+  "slow": false
+ },
+ {
+  "id": "keep-client-code-and-data-in-bounds:L3#1",
+  "source": "portable",
+  "reads": "Each folder switches on only the connectors it allows",
+  "practice": "keep-client-code-and-data-in-bounds",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.04,
+  "slow": false
+ },
+ {
+  "id": "own-the-checks-the-agent-is-graded-by:L2#0",
+  "source": "portable",
+  "reads": "Test files in your commits that no Claude edit touched first",
+  "practice": "own-the-checks-the-agent-is-graded-by",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 15.32,
+  "slow": true
+ },
+ {
+  "id": "own-the-checks-the-agent-is-graded-by:L2#1",
+  "source": "portable",
+  "reads": "Tests written before the code in a session",
+  "practice": "own-the-checks-the-agent-is-graded-by",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.75,
+  "slow": false
+ },
+ {
+  "id": "own-the-checks-the-agent-is-graded-by:L3#1",
+  "source": "portable",
+  "reads": "Coverage set on the code the agent changes",
+  "practice": "own-the-checks-the-agent-is-graded-by",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.17,
+  "slow": false
+ },
+ {
+  "id": "own-the-checks-the-agent-is-graded-by:L4#0",
+  "source": "portable",
+  "reads": "Mutation tests",
+  "practice": "own-the-checks-the-agent-is-graded-by",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 6.17,
+  "slow": true
+ },
+ {
+  "id": "add-machinery-only-when-needed:L2#0",
+  "source": "portable",
+  "reads": "How much machinery sessions use",
+  "practice": "add-machinery-only-when-needed",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.22,
+  "slow": false
+ },
+ {
+  "id": "add-machinery-only-when-needed:L2#2",
+  "source": "portable",
+  "reads": "Frameworks tried then switched off",
+  "practice": "add-machinery-only-when-needed",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "watch-what-runs-did-and-cost:L2#0",
+  "source": "portable",
+  "reads": "Opens a usage or cost view now and then (/usage, /cost, /stats, /insights typed by the person)",
+  "practice": "watch-what-runs-did-and-cost",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.08,
+  "slow": false
+ },
+ {
+  "id": "watch-what-runs-did-and-cost:L2#2",
+  "source": "portable",
+  "reads": "Reads back a run's transcript (a session .jsonl or history.jsonl)",
+  "practice": "watch-what-runs-did-and-cost",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.3,
+  "slow": false
+ },
+ {
+  "id": "watch-what-runs-did-and-cost:L3#2",
+  "source": "portable",
+  "reads": "Telemetry export switched on",
+  "practice": "watch-what-runs-did-and-cost",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.07,
+  "slow": false
+ },
+ {
+  "id": "watch-what-runs-did-and-cost:L4#1",
+  "source": "portable",
+  "reads": "Cost per run is recorded",
+  "practice": "watch-what-runs-did-and-cost",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "review-past-sessions-to-fix-the-setup:L2#1",
+  "source": "portable",
+  "reads": "The person reads a transcript yourself",
+  "practice": "review-past-sessions-to-fix-the-setup",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.12,
+  "slow": false
+ },
+ {
+  "id": "review-past-sessions-to-fix-the-setup:L2#2",
+  "source": "portable",
+  "reads": "Claude reads past transcripts in a typed session",
+  "practice": "review-past-sessions-to-fix-the-setup",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 4.3,
+  "slow": false
+ },
+ {
+  "id": "review-past-sessions-to-fix-the-setup:L3#0",
+  "source": "portable",
+  "reads": "A command, skill or agent of your reads recent sessions",
+  "practice": "review-past-sessions-to-fix-the-setup",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 6.07,
+  "slow": true
+ },
+ {
+  "id": "review-past-sessions-to-fix-the-setup:L4#0",
+  "source": "portable",
+  "reads": "A scheduled or hook-started miner runs over transcripts",
+  "practice": "review-past-sessions-to-fix-the-setup",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "retire-setup-that-no-longer-earns-its-place:L2#1",
+  "source": "portable",
+  "reads": "Deleted skills, agents, hooks, commands or plugin manifests in git",
+  "practice": "retire-setup-that-no-longer-earns-its-place",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.26,
+  "slow": false
+ },
+ {
+  "id": "retire-setup-that-no-longer-earns-its-place:L2#2",
+  "source": "portable",
+  "reads": "Installed vs used, skills (split own vs installed)",
+  "practice": "retire-setup-that-no-longer-earns-its-place",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.96,
+  "slow": false
+ },
+ {
+  "id": "retire-setup-that-no-longer-earns-its-place:L2#3",
+  "source": "portable",
+  "reads": "Installed vs used, plugins",
+  "practice": "retire-setup-that-no-longer-earns-its-place",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.07,
+  "slow": false
+ },
+ {
+  "id": "retire-setup-that-no-longer-earns-its-place:L2#4",
+  "source": "portable",
+  "reads": "Installed vs used, MCP servers",
+  "practice": "retire-setup-that-no-longer-earns-its-place",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.58,
+  "slow": false
+ },
+ {
+  "id": "retire-setup-that-no-longer-earns-its-place:L2#5",
+  "source": "portable",
+  "reads": "Installed vs used, sub-agent types",
+  "practice": "retire-setup-that-no-longer-earns-its-place",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 3.28,
+  "slow": false
+ },
+ {
+  "id": "retire-setup-that-no-longer-earns-its-place:L3#0",
+  "source": "portable",
+  "reads": "Checks cost and use on a cadence",
+  "practice": "retire-setup-that-no-longer-earns-its-place",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.02,
+  "slow": false
+ },
+ {
+  "id": "retire-setup-that-no-longer-earns-its-place:L3#1",
+  "source": "portable",
+  "reads": "Hooks that never fire",
+  "practice": "retire-setup-that-no-longer-earns-its-place",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.72,
+  "slow": false
+ },
+ {
+  "id": "commit-in-small-revertible-steps:L2#0",
+  "source": "portable",
+  "reads": "A commit just before the first agent edit",
+  "practice": "commit-in-small-revertible-steps",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.9,
+  "slow": false
+ },
+ {
+  "id": "commit-in-small-revertible-steps:L2#1",
+  "source": "portable",
+  "reads": "Commits between steps and cadence",
+  "practice": "commit-in-small-revertible-steps",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.79,
+  "slow": false
+ },
+ {
+  "id": "commit-in-small-revertible-steps:L2#3",
+  "source": "portable",
+  "reads": "/rewind used",
+  "practice": "commit-in-small-revertible-steps",
+  "rung": "L2",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.01,
+  "slow": false
+ },
+ {
+  "id": "commit-in-small-revertible-steps:L3#1",
+  "source": "portable",
+  "reads": "Commits made by Claude vs by hand",
+  "practice": "commit-in-small-revertible-steps",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.62,
+  "slow": false
+ },
+ {
+  "id": "prove-it-works:L2#1",
+  "source": "portable",
+  "reads": "A check ran after the agent's last edit and before the commit (the run the agent can show)",
+  "practice": "prove-it-works",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 1.4,
+  "slow": false
+ },
+ {
+  "id": "prove-it-works:L2#2",
+  "source": "portable",
+  "reads": "Who made each check happen: person vs Claude vs hook",
+  "practice": "prove-it-works",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.76,
+  "slow": false
+ },
+ {
+  "id": "prove-it-works:L3#3",
+  "source": "portable",
+  "reads": "Checks they set up run on every change (CI, git hooks, hooks in settings)",
+  "practice": "prove-it-works",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 6.69,
+  "slow": true
+ },
+ {
+  "id": "prove-it-works:L4#0",
+  "source": "portable",
+  "reads": "An unattended runner keeps the agent going until a check a script can decide passes",
+  "practice": "prove-it-works",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": true,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "prove-it-works:L4#1",
+  "source": "portable",
+  "reads": "The hook or runner is something they built (not installed)",
+  "practice": "prove-it-works",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.0,
+  "slow": false
+ },
+ {
+  "id": "prove-it-works:L4#2",
+  "source": "portable",
+  "reads": "The check is outside the agent's reach",
+  "practice": "prove-it-works",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.22,
+  "slow": false
+ },
+ {
+  "id": "second-look:L2#2",
+  "source": "portable",
+  "reads": "Forked agents are not a fresh look",
+  "practice": "second-look",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.16,
+  "slow": false
+ },
+ {
+  "id": "second-look:L3#0",
+  "source": "portable",
+  "reads": "A reviewer sub-agent or skill they wrote",
+  "practice": "second-look",
+  "rung": "L3",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.88,
+  "slow": false
+ },
+ {
+  "id": "second-look:L4#0",
+  "source": "portable",
+  "reads": "The builder can't finish until a separate reviewer passes (Stop hook or runner)",
+  "practice": "second-look",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.16,
+  "slow": false
+ },
+ {
+  "id": "second-look:L4#2",
+  "source": "portable",
+  "reads": "In a hook or runner they wrote",
+  "practice": "second-look",
+  "rung": "L4",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.07,
+  "slow": false
+ },
+ {
+  "id": "retest-agent-setup:L2#0",
+  "source": "portable",
+  "reads": "Changed a prompt, rule or skill",
+  "practice": "retest-agent-setup",
+  "rung": "L2",
+  "approved": false,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 0.59,
+  "slow": false
+ },
+ {
+  "id": "retest-agent-setup:L3#0",
+  "source": "portable",
+  "reads": "Committed eval sets of yours with 3 or more cases that each state what a pass looks like",
+  "practice": "retest-agent-setup",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.71,
+  "slow": false
+ },
+ {
+  "id": "retest-agent-setup:L3#2",
+  "source": "portable",
+  "reads": "A command in your repo that anyone on the team can run to re-check the setup",
+  "practice": "retest-agent-setup",
+  "rung": "L3",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 2.58,
+  "slow": false
+ },
+ {
+  "id": "retest-agent-setup:L4#1",
+  "source": "portable",
+  "reads": "Evals that run by themselves on every change, where a drop blocks the change",
+  "practice": "retest-agent-setup",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": true,
+  "stranger_cant_tell": false,
+  "secs": 3.5,
+  "slow": false
+ },
+ {
+  "id": "built-for-the-agent-roll-call:L4#5",
+  "source": "portable",
+  "reads": "Weeks with your changes to things you built for the agent (skills, agents, commands, hooks, servers): 3 or more is refining",
+  "practice": "built-for-the-agent-roll-call",
+  "rung": "L4",
+  "approved": true,
+  "stranger_pass": null,
+  "stranger_cant_tell": null,
+  "secs": null,
+  "slow": false
+ }
+]
