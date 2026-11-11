@@ -1,6 +1,6 @@
 ---
 name: my-agentic-setup
-description: Read how this person really works with Claude Code from the files Claude Code keeps on this machine (sessions, helpers, hooks, skills, agents, evals, git) and build one local page: what they do, what they built, problems, next steps, and the level their laptop reads (a call confirms or raises it; AGENTIC_SETUP_MEMBER=1 leaves the level out). The page's Share tab can send Proxify a summary of practice ids and levels, only when the person presses Send there. One AI pass (a sonnet subagent) fills in the practice rungs. Read-only; the page is a local file. Use when asked "/my-agentic-setup", "what's my agentic setup", or to try the v15 setup tool.
+description: Read how this person really works with Claude Code from the files Claude Code keeps on this machine (sessions, helpers, hooks, skills, agents, evals, git) and build one local page: what they do, what they built, problems, next steps, and the level their laptop reads on its first tab, Your level (a call confirms or raises it; AGENTIC_SETUP_NO_LEVEL=1 leaves it out). The page's Share tab can send Proxify a summary of practice ids and levels, only when the person presses Send there. One AI pass (a sonnet subagent) fills in the practice rungs. Read-only; the page is a local file. Use when asked "/my-agentic-setup", "what's my agentic setup", or to try the v15 setup tool.
 allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Read, Agent, AskUserQuestion
 ---
 
@@ -8,8 +8,8 @@ allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Read,
 
 You rebuild how this person works with coding agents from files on their own machine, then show it as one page.
 This is an early trial (a beta). The page is the person's own copy: what they do, what they built, the problems it
-saw and next steps, and the level the laptop reads (the Level tab). That level is a starting point a call confirms
-or raises, never a final score. A person who wants the copy with no level sets `AGENTIC_SETUP_MEMBER=1` before running.
+saw and next steps, and the level the laptop reads (the first tab, "Your level"). That level is a starting point a call
+confirms or raises, never a final score. A person who wants the copy with no level sets `AGENTIC_SETUP_NO_LEVEL=1` before running.
 Say it is a beta when you start.
 
 It is read-only. It reads `~/.claude` and the git repos Claude Code ran in, and writes only into the run folder
@@ -122,8 +122,8 @@ python3 -I -c "import json,os,sys; r=json.load(open(os.path.join(sys.argv[1],'v1
 
 ## 4. Tell them what it says
 
-Plain words, short, "you". Say where the page is and the first recommendation. Say the Level tab's read in one line, as
-what the laptop shows so far, which a call can confirm or raise (never a score; not when AGENTIC_SETUP_MEMBER=1 is set). Then say
+Plain words, short, "you". Say where the page is and the first recommendation. Say the "Your level" tab's read in one line, as
+what the laptop shows so far, which a call can confirm or raise (never a score; not when AGENTIC_SETUP_NO_LEVEL=1 is set). Then say
 plainly that this is an early trial:
 - It reads this machine only: work on another machine, a client VM or a devcontainer does not show.
 - Each practice rung is one AI reading of a digest, not checked by a second reader (the page says "unchecked").
