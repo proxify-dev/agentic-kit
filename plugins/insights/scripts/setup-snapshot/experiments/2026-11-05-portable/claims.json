@@ -1,0 +1,944 @@
+[
+ {
+  "pid": "write-down-what-it-cannot-know",
+  "L": "L2",
+  "i": 0,
+  "claim": "Person corrected the agent (Esc or refused tool call right before a typed message)"
+ },
+ {
+  "pid": "write-down-what-it-cannot-know",
+  "L": "L3",
+  "i": 0,
+  "claim": "The fact is a line in a rule file that every new session loads"
+ },
+ {
+  "pid": "write-down-what-it-cannot-know",
+  "L": "L3",
+  "i": 2,
+  "claim": "If the agent writes the file, it does so under tight rules they set"
+ },
+ {
+  "pid": "write-down-what-it-cannot-know",
+  "L": "L4",
+  "i": 0,
+  "claim": "A hook of your put a rule/doc into context at the moment it applies"
+ },
+ {
+  "pid": "write-down-what-it-cannot-know",
+  "L": "L4",
+  "i": 2,
+  "claim": "A test shows the rule holds"
+ },
+ {
+  "pid": "put-rules-where-they-apply",
+  "L": "L2",
+  "i": 2,
+  "claim": "Keeps one file for everything"
+ },
+ {
+  "pid": "put-rules-where-they-apply",
+  "L": "L3",
+  "i": 0,
+  "claim": "Rule files of yours in subfolders that loaded when the agent worked there"
+ },
+ {
+  "pid": "put-rules-where-they-apply",
+  "L": "L3",
+  "i": 1,
+  "claim": "Your own skills the model loaded for a matching task: at least 3 skills, in 3 or more sessions"
+ },
+ {
+  "pid": "put-rules-where-they-apply",
+  "L": "L3",
+  "i": 2,
+  "claim": "Deeper docs your rule files and skills point to that the agent opened on its own: at least 3 docs, in 3 or more sessions"
+ },
+ {
+  "pid": "put-rules-where-they-apply",
+  "L": "L4",
+  "i": 0,
+  "claim": "Hook/plugin of your that brings in a rule or doc when a file, command or task comes up"
+ },
+ {
+  "pid": "keep-always-loaded-small",
+  "L": "L2",
+  "i": 0,
+  "claim": "Trims the file now and then"
+ },
+ {
+  "pid": "keep-always-loaded-small",
+  "L": "L3",
+  "i": 0,
+  "claim": "What loads every time stays small over time (trims hold)"
+ },
+ {
+  "pid": "keep-always-loaded-small",
+  "L": "L4",
+  "i": 2,
+  "claim": "The check runs every time"
+ },
+ {
+  "pid": "let-the-agent-fetch",
+  "L": "L2",
+  "i": 1,
+  "claim": "Files you @-mentioned (shown only: an @-mention puts the file in the session, it isn't the agent fetching)"
+ },
+ {
+  "pid": "let-the-agent-fetch",
+  "L": "L3",
+  "i": 1,
+  "claim": "Agent searched the store on its own"
+ },
+ {
+  "pid": "let-the-agent-fetch",
+  "L": "L4",
+  "i": 0,
+  "claim": "Own connector/server in a repo with your commits"
+ },
+ {
+  "pid": "notes-the-next-chat-reads",
+  "L": "L2",
+  "i": 0,
+  "claim": "Sessions whose first message points at a note an earlier session wrote"
+ },
+ {
+  "pid": "notes-the-next-chat-reads",
+  "L": "L3",
+  "i": 0,
+  "claim": "Fresh session reads, before the 3rd typed message, a file an earlier session wrote or edited"
+ },
+ {
+  "pid": "notes-the-next-chat-reads",
+  "L": "L3",
+  "i": 2,
+  "claim": "Agent keeps notes up to date in small edits"
+ },
+ {
+  "pid": "notes-the-next-chat-reads",
+  "L": "L3",
+  "i": 3,
+  "claim": "Settled or wrong notes are merged or retired, not piling up"
+ },
+ {
+  "pid": "notes-the-next-chat-reads",
+  "L": "L4",
+  "i": 1,
+  "claim": "Work can't land until the record is written (blocking hook)"
+ },
+ {
+  "pid": "notes-the-next-chat-reads",
+  "L": "L4",
+  "i": 2,
+  "claim": "A check shows the notes stay right"
+ },
+ {
+  "pid": "reset-with-a-handoff",
+  "L": "L2",
+  "i": 0,
+  "claim": "Starts clean by hand (/clear)"
+ },
+ {
+  "pid": "reset-with-a-handoff",
+  "L": "L2",
+  "i": 3,
+  "claim": "Rewind / branch a copy"
+ },
+ {
+  "pid": "reset-with-a-handoff",
+  "L": "L3",
+  "i": 1,
+  "claim": "Fresh session picks it up on its own"
+ },
+ {
+  "pid": "compact-on-purpose",
+  "L": "L2",
+  "i": 2,
+  "claim": "Times you typed /compact saying what to keep, followed by a manual compaction"
+ },
+ {
+  "pid": "compact-on-purpose",
+  "L": "L2",
+  "i": 3,
+  "claim": "Checked how full the session was (shown beside the compactions; not counted on its own)"
+ },
+ {
+  "pid": "compact-on-purpose",
+  "L": "L3",
+  "i": 1,
+  "claim": "Rules and state reload from files afterwards"
+ },
+ {
+  "pid": "compact-on-purpose",
+  "L": "L4",
+  "i": 0,
+  "claim": "PreCompact / PostCompact hooks save and reload state"
+ },
+ {
+  "pid": "compact-on-purpose",
+  "L": "L4",
+  "i": 1,
+  "claim": "Compacts at a threshold you set"
+ },
+ {
+  "pid": "isolate-side-work",
+  "L": "L2",
+  "i": 0,
+  "claim": "Side tasks you forked by hand (/subtask, /btw, /fork) with a short brief, whose result came back"
+ },
+ {
+  "pid": "lead-a-team-of-agents",
+  "L": "L2",
+  "i": 1,
+  "claim": "Dynamic workflows you started that spread one job over many agents"
+ },
+ {
+  "pid": "isolate-side-work",
+  "L": "L3",
+  "i": 0,
+  "claim": "Sub-agents you defined"
+ },
+ {
+  "pid": "isolate-side-work",
+  "L": "L3",
+  "i": 1,
+  "claim": "Main agent hands exploration to them by default"
+ },
+ {
+  "pid": "share-the-setup-with-the-team",
+  "L": "L3",
+  "i": 0,
+  "claim": "Instruction files and shared settings committed, personal ones apart"
+ },
+ {
+  "pid": "share-the-setup-with-the-team",
+  "L": "L3",
+  "i": 1,
+  "claim": "Some teammates edit them"
+ },
+ {
+  "pid": "share-the-setup-with-the-team",
+  "L": "L4",
+  "i": 1,
+  "claim": "A check that a fresh clone loads it"
+ },
+ {
+  "pid": "limit-what-the-agent-can-reach",
+  "L": "L3",
+  "i": 0,
+  "claim": "Ask and deny rules in your user and project settings"
+ },
+ {
+  "pid": "limit-what-the-agent-can-reach",
+  "L": "L3",
+  "i": 2,
+  "claim": "connections switched on only in the projects that need them"
+ },
+ {
+  "pid": "limit-what-the-agent-can-reach",
+  "L": "L4",
+  "i": 0,
+  "claim": "hooks wired before tool calls, with who wrote the script"
+ },
+ {
+  "pid": "run-the-agent-in-a-box",
+  "L": "L2",
+  "i": 0,
+  "claim": "throwaway copy or worktree made for the job"
+ },
+ {
+  "pid": "run-the-agent-in-a-box",
+  "L": "L3",
+  "i": 0,
+  "claim": "built-in sandbox switched on"
+ },
+ {
+  "pid": "run-the-agent-in-a-box",
+  "L": "L3",
+  "i": 1,
+  "claim": "dev container the repo opens in"
+ },
+ {
+  "pid": "ask-before-what-cant-be-undone",
+  "L": "L2",
+  "i": 0,
+  "claim": "Risky steps you refused (push, reset, delete, deploy, send, writes outside the repo)"
+ },
+ {
+  "pid": "ask-before-what-cant-be-undone",
+  "L": "L2",
+  "i": 1,
+  "claim": "sessions where the mode changed during the session"
+ },
+ {
+  "pid": "ask-before-what-cant-be-undone",
+  "L": "L2",
+  "i": 2,
+  "claim": "permission mode in force on each typed message"
+ },
+ {
+  "pid": "ask-before-what-cant-be-undone",
+  "L": "L3",
+  "i": 0,
+  "claim": "Ask and deny rules in your user and project settings"
+ },
+ {
+  "pid": "ask-before-what-cant-be-undone",
+  "L": "L3",
+  "i": 1,
+  "claim": "default mode and mode share"
+ },
+ {
+  "pid": "ask-before-what-cant-be-undone",
+  "L": "L4",
+  "i": 0,
+  "claim": "hooks wired before tool calls, with who wrote the script"
+ },
+ {
+  "pid": "enforce-fixed-rules-in-code",
+  "L": "L3",
+  "i": 0,
+  "claim": "a ready-made check wired into the project"
+ },
+ {
+  "pid": "enforce-fixed-rules-in-code",
+  "L": "L3",
+  "i": 2,
+  "claim": "hook blocks seen as attachments"
+ },
+ {
+  "pid": "enforce-fixed-rules-in-code",
+  "L": "L4",
+  "i": 0,
+  "claim": "Your own hooks that run before a tool call and can block it"
+ },
+ {
+  "pid": "enforce-fixed-rules-in-code",
+  "L": "L4",
+  "i": 1,
+  "claim": "Blocks recorded as attachments (not written by Claude Code for rule hooks: see the next line)"
+ },
+ {
+  "pid": "enforce-fixed-rules-in-code",
+  "L": "L4",
+  "i": 2,
+  "claim": "Times one of your own hooks blocked a tool call (Claude Code's 'hook error' results)"
+ },
+ {
+  "pid": "enforce-fixed-rules-in-code",
+  "L": "L4",
+  "i": 3,
+  "claim": "hooks that crashed instead of blocking"
+ },
+ {
+  "pid": "vet-what-gets-in",
+  "L": "L2",
+  "i": 0,
+  "claim": "agent adds packages (volume)"
+ },
+ {
+  "pid": "vet-what-gets-in",
+  "L": "L3",
+  "i": 0,
+  "claim": "versions pinned"
+ },
+ {
+  "pid": "vet-what-gets-in",
+  "L": "L3",
+  "i": 2,
+  "claim": "every new package visible in review via the lockfile"
+ },
+ {
+  "pid": "give-the-agent-tools-made-for-it",
+  "L": "L2",
+  "i": 1,
+  "claim": "the agent fumbled a tool (error output)"
+ },
+ {
+  "pid": "give-the-agent-tools-made-for-it",
+  "L": "L3",
+  "i": 0,
+  "claim": "small scripts/tools of your that the agent runs"
+ },
+ {
+  "pid": "give-the-agent-tools-made-for-it",
+  "L": "L4",
+  "i": 0,
+  "claim": "MCP servers whose code is yours (not a clone, not a package from a registry), called on 3 or more days"
+ },
+ {
+  "pid": "give-the-agent-tools-made-for-it",
+  "L": "L4",
+  "i": 2,
+  "claim": "a test keeps it working"
+ },
+ {
+  "pid": "test-the-setup-code",
+  "L": "L2",
+  "i": 0,
+  "claim": "edited a hook or launcher"
+ },
+ {
+  "pid": "test-the-setup-code",
+  "L": "L3",
+  "i": 0,
+  "claim": "fixture tests that target hook or launcher scripts"
+ },
+ {
+  "pid": "test-the-setup-code",
+  "L": "L3",
+  "i": 1,
+  "claim": "runnable with one command"
+ },
+ {
+  "pid": "test-the-setup-code",
+  "L": "L4",
+  "i": 0,
+  "claim": "tests run on every change (git hook or CI)"
+ },
+ {
+  "pid": "step-in-on-signals",
+  "L": "L2",
+  "i": 1,
+  "claim": "Times you came back within 5 minutes after a long run (5+ minutes) ended on its own, having worked elsewhere meanwhile"
+ },
+ {
+  "pid": "step-in-on-signals",
+  "L": "L2",
+  "i": 3,
+  "claim": "Stops it by hand when it drifts"
+ },
+ {
+  "pid": "step-in-on-signals",
+  "L": "L3",
+  "i": 1,
+  "claim": "Routine steps go through without asking (permission mode at each typed message, default mode in settings)"
+ },
+ {
+  "pid": "fresh-run-per-task",
+  "L": "L2",
+  "i": 1,
+  "claim": "Starts from a progress file that is updated after every task"
+ },
+ {
+  "pid": "fresh-run-per-task",
+  "L": "L2",
+  "i": 2,
+  "claim": "Or: the built-in loop repeats a saved prompt over the list"
+ },
+ {
+  "pid": "fresh-run-per-task",
+  "L": "L4",
+  "i": 0,
+  "claim": "A script keeps starting fresh agent runs over the list"
+ },
+ {
+  "pid": "parallel-work-kept-apart",
+  "L": "L2",
+  "i": 0,
+  "claim": "Two or more sessions worked at once (you typed in one while another was active)"
+ },
+ {
+  "pid": "parallel-work-kept-apart",
+  "L": "L2",
+  "i": 1,
+  "claim": "Each in its own worktree, or on files the others don't touch"
+ },
+ {
+  "pid": "parallel-work-kept-apart",
+  "L": "L3",
+  "i": 0,
+  "claim": "Your own agents set to run in their own worktree that were actually launched"
+ },
+ {
+  "pid": "runs-start-without-you",
+  "L": "L2",
+  "i": 0,
+  "claim": "Background or /loop runs where the agent kept working while you were away 10+ minutes"
+ },
+ {
+  "pid": "runs-start-without-you",
+  "L": "L3",
+  "i": 0,
+  "claim": "A schedule, pipeline step or ticket label starts the agent, set up once"
+ },
+ {
+  "pid": "runs-start-without-you",
+  "L": "L3",
+  "i": 1,
+  "claim": "Runs again and again, nobody types"
+ },
+ {
+  "pid": "runs-start-without-you",
+  "L": "L3",
+  "i": 2,
+  "claim": "A saved prompt; reads the result later"
+ },
+ {
+  "pid": "runs-start-without-you",
+  "L": "L4",
+  "i": 1,
+  "claim": "With limits on what each may do and spend"
+ },
+ {
+  "pid": "model-and-budget-per-step",
+  "L": "L2",
+  "i": 0,
+  "claim": "Switches model by hand"
+ },
+ {
+  "pid": "model-and-budget-per-step",
+  "L": "L3",
+  "i": 0,
+  "claim": "Your own agent files naming a model, when at least two name different models"
+ },
+ {
+  "pid": "model-and-budget-per-step",
+  "L": "L4",
+  "i": 1,
+  "claim": "Tracks cost against what each run left"
+ },
+ {
+  "pid": "lead-a-team-of-agents",
+  "L": "L2",
+  "i": 0,
+  "claim": "Splits the work across 2+ agents"
+ },
+ {
+  "pid": "lead-a-team-of-agents",
+  "L": "L3",
+  "i": 0,
+  "claim": "Sessions where 2 or more of your own agent roles were started by you or by a command of yours (2+ sessions)"
+ },
+ {
+  "pid": "bound-the-task",
+  "L": "L2",
+  "i": 1,
+  "claim": "Asks you typed that name a place (a file or folder) and a finish line (tests pass, 'done when', a check you run)"
+ },
+ {
+  "pid": "bound-the-task",
+  "L": "L3",
+  "i": 0,
+  "claim": "Own skill/agent/command files exist (the template material)"
+ },
+ {
+  "pid": "bound-the-task",
+  "L": "L3",
+  "i": 2,
+  "claim": "Own skills called by name (typed /skill-name, or Skill tool call), split own vs installed"
+ },
+ {
+  "pid": "bound-the-task",
+  "L": "L4",
+  "i": 0,
+  "claim": "A Stop hook of your exists in settings"
+ },
+ {
+  "pid": "bound-the-task",
+  "L": "L4",
+  "i": 2,
+  "claim": "The gate actually fired"
+ },
+ {
+  "pid": "settle-the-approach-first",
+  "L": "L2",
+  "i": 0,
+  "claim": "Plan mode used on typed messages, split by who started it"
+ },
+ {
+  "pid": "settle-the-approach-first",
+  "L": "L3",
+  "i": 0,
+  "claim": "A plan file exists"
+ },
+ {
+  "pid": "settle-the-approach-first",
+  "L": "L3",
+  "i": 1,
+  "claim": "The next session works from it and keeps it up to date"
+ },
+ {
+  "pid": "settle-the-approach-first",
+  "L": "L4",
+  "i": 0,
+  "claim": "Saved runner scripts exist"
+ },
+ {
+  "pid": "reword-the-ask",
+  "L": "L2",
+  "i": 6,
+  "claim": "Fork or rewind before the wrong turn"
+ },
+ {
+  "pid": "reword-the-ask",
+  "L": "L3",
+  "i": 0,
+  "claim": "Own skill/agent/command files exist (the template material)"
+ },
+ {
+  "pid": "reword-the-ask",
+  "L": "L3",
+  "i": 1,
+  "claim": "Your own skill, agent or command files rewritten substantively after they were used (your commits)"
+ },
+ {
+  "pid": "reword-the-ask",
+  "L": "L3",
+  "i": 2,
+  "claim": "Agent edits of prompt files in sessions (any author)"
+ },
+ {
+  "pid": "reword-the-ask",
+  "L": "L4",
+  "i": 0,
+  "claim": "An eval folder exists next to your plugins"
+ },
+ {
+  "pid": "reword-the-ask",
+  "L": "L4",
+  "i": 2,
+  "claim": "Rerun whenever a kept prompt or the model changes"
+ },
+ {
+  "pid": "ask-without-leading",
+  "L": "L3",
+  "i": 0,
+  "claim": "Own standing instructions or reviewer agent exist"
+ },
+ {
+  "pid": "built-for-the-agent-roll-call",
+  "L": "L4",
+  "i": 0,
+  "claim": "Per kind: built by you (git share of commits on the file/manifest)"
+ },
+ {
+  "pid": "built-for-the-agent-roll-call",
+  "L": "L4",
+  "i": 1,
+  "claim": "Per kind: switched on / wired"
+ },
+ {
+  "pid": "built-for-the-agent-roll-call",
+  "L": "L4",
+  "i": 2,
+  "claim": "Per kind: actually used in the last 30 days (fired, called, ran)"
+ },
+ {
+  "pid": "built-for-the-agent-roll-call",
+  "L": "L4",
+  "i": 3,
+  "claim": "Per kind: how a copied-in or installed one is told apart from one you built"
+ },
+ {
+  "pid": "built-for-the-agent-roll-call",
+  "L": "L4",
+  "i": 4,
+  "claim": "Number of distinct build kinds (one count for everyone)"
+ },
+ {
+  "pid": "write-a-program-that-runs-the-agent",
+  "L": "L2",
+  "i": 0,
+  "claim": "Runs claude -p by hand on piped input"
+ },
+ {
+  "pid": "write-a-program-that-runs-the-agent",
+  "L": "L3",
+  "i": 0,
+  "claim": "A script of your calls the agent and is rerun"
+ },
+ {
+  "pid": "write-a-program-that-runs-the-agent",
+  "L": "L3",
+  "i": 1,
+  "claim": "Fixed prompt, tool list and turn cap"
+ },
+ {
+  "pid": "write-a-program-that-runs-the-agent",
+  "L": "L4",
+  "i": 0,
+  "claim": "An Agent SDK program with its own tools and permission callback"
+ },
+ {
+  "pid": "work-with-the-prompt-cache",
+  "L": "L2",
+  "i": 0,
+  "claim": "Hit rate and cold restarts are visible per session"
+ },
+ {
+  "pid": "work-with-the-prompt-cache",
+  "L": "L2",
+  "i": 1,
+  "claim": "Avoids switching model mid-task"
+ },
+ {
+  "pid": "work-with-the-prompt-cache",
+  "L": "L2",
+  "i": 2,
+  "claim": "Avoids toggling servers and plugins mid-task"
+ },
+ {
+  "pid": "work-with-the-prompt-cache",
+  "L": "L2",
+  "i": 4,
+  "claim": "Cold restarts cost most of the cache writing"
+ },
+ {
+  "pid": "work-with-the-prompt-cache",
+  "L": "L3",
+  "i": 0,
+  "claim": "Model and effort set at the start, not changed"
+ },
+ {
+  "pid": "keep-client-code-and-data-in-bounds",
+  "L": "L3",
+  "i": 0,
+  "claim": "Project settings route the agent to a different provider"
+ },
+ {
+  "pid": "keep-client-code-and-data-in-bounds",
+  "L": "L3",
+  "i": 1,
+  "claim": "Each folder switches on only the connectors it allows"
+ },
+ {
+  "pid": "own-the-checks-the-agent-is-graded-by",
+  "L": "L2",
+  "i": 0,
+  "claim": "Test files in your commits that no Claude edit touched first"
+ },
+ {
+  "pid": "own-the-checks-the-agent-is-graded-by",
+  "L": "L2",
+  "i": 1,
+  "claim": "Tests written before the code in a session"
+ },
+ {
+  "pid": "own-the-checks-the-agent-is-graded-by",
+  "L": "L3",
+  "i": 1,
+  "claim": "Coverage set on the code the agent changes"
+ },
+ {
+  "pid": "own-the-checks-the-agent-is-graded-by",
+  "L": "L4",
+  "i": 0,
+  "claim": "Mutation tests"
+ },
+ {
+  "pid": "add-machinery-only-when-needed",
+  "L": "L2",
+  "i": 0,
+  "claim": "How much machinery sessions use"
+ },
+ {
+  "pid": "add-machinery-only-when-needed",
+  "L": "L2",
+  "i": 2,
+  "claim": "Frameworks tried then switched off"
+ },
+ {
+  "pid": "watch-what-runs-did-and-cost",
+  "L": "L2",
+  "i": 0,
+  "claim": "Opens a usage or cost view now and then (/usage, /cost, /stats, /insights typed by the person)"
+ },
+ {
+  "pid": "watch-what-runs-did-and-cost",
+  "L": "L2",
+  "i": 2,
+  "claim": "Reads back a run's transcript (a session .jsonl or history.jsonl)"
+ },
+ {
+  "pid": "watch-what-runs-did-and-cost",
+  "L": "L3",
+  "i": 2,
+  "claim": "Telemetry export switched on"
+ },
+ {
+  "pid": "watch-what-runs-did-and-cost",
+  "L": "L4",
+  "i": 1,
+  "claim": "Cost per run is recorded"
+ },
+ {
+  "pid": "review-past-sessions-to-fix-the-setup",
+  "L": "L2",
+  "i": 1,
+  "claim": "The person reads a transcript yourself"
+ },
+ {
+  "pid": "review-past-sessions-to-fix-the-setup",
+  "L": "L2",
+  "i": 2,
+  "claim": "Claude reads past transcripts in a typed session"
+ },
+ {
+  "pid": "review-past-sessions-to-fix-the-setup",
+  "L": "L3",
+  "i": 0,
+  "claim": "A command, skill or agent of your reads recent sessions"
+ },
+ {
+  "pid": "review-past-sessions-to-fix-the-setup",
+  "L": "L4",
+  "i": 0,
+  "claim": "A scheduled or hook-started miner runs over transcripts"
+ },
+ {
+  "pid": "retire-setup-that-no-longer-earns-its-place",
+  "L": "L2",
+  "i": 1,
+  "claim": "Deleted skills, agents, hooks, commands or plugin manifests in git"
+ },
+ {
+  "pid": "retire-setup-that-no-longer-earns-its-place",
+  "L": "L2",
+  "i": 2,
+  "claim": "Installed vs used, skills (split own vs installed)"
+ },
+ {
+  "pid": "retire-setup-that-no-longer-earns-its-place",
+  "L": "L2",
+  "i": 3,
+  "claim": "Installed vs used, plugins"
+ },
+ {
+  "pid": "retire-setup-that-no-longer-earns-its-place",
+  "L": "L2",
+  "i": 4,
+  "claim": "Installed vs used, MCP servers"
+ },
+ {
+  "pid": "retire-setup-that-no-longer-earns-its-place",
+  "L": "L2",
+  "i": 5,
+  "claim": "Installed vs used, sub-agent types"
+ },
+ {
+  "pid": "retire-setup-that-no-longer-earns-its-place",
+  "L": "L3",
+  "i": 0,
+  "claim": "Checks cost and use on a cadence"
+ },
+ {
+  "pid": "retire-setup-that-no-longer-earns-its-place",
+  "L": "L3",
+  "i": 1,
+  "claim": "Hooks that never fire"
+ },
+ {
+  "pid": "commit-in-small-revertible-steps",
+  "L": "L2",
+  "i": 0,
+  "claim": "A commit just before the first agent edit"
+ },
+ {
+  "pid": "commit-in-small-revertible-steps",
+  "L": "L2",
+  "i": 1,
+  "claim": "Commits between steps and cadence"
+ },
+ {
+  "pid": "commit-in-small-revertible-steps",
+  "L": "L2",
+  "i": 3,
+  "claim": "/rewind used"
+ },
+ {
+  "pid": "commit-in-small-revertible-steps",
+  "L": "L3",
+  "i": 1,
+  "claim": "Commits made by Claude vs by hand"
+ },
+ {
+  "pid": "prove-it-works",
+  "L": "L2",
+  "i": 1,
+  "claim": "A check ran after the agent's last edit and before the commit (the run the agent can show)"
+ },
+ {
+  "pid": "prove-it-works",
+  "L": "L2",
+  "i": 2,
+  "claim": "Who made each check happen: person vs Claude vs hook"
+ },
+ {
+  "pid": "prove-it-works",
+  "L": "L3",
+  "i": 3,
+  "claim": "Checks they set up run on every change (CI, git hooks, hooks in settings)"
+ },
+ {
+  "pid": "prove-it-works",
+  "L": "L4",
+  "i": 0,
+  "claim": "An unattended runner keeps the agent going until a check a script can decide passes"
+ },
+ {
+  "pid": "prove-it-works",
+  "L": "L4",
+  "i": 1,
+  "claim": "The hook or runner is something they built (not installed)"
+ },
+ {
+  "pid": "prove-it-works",
+  "L": "L4",
+  "i": 2,
+  "claim": "The check is outside the agent's reach"
+ },
+ {
+  "pid": "second-look",
+  "L": "L2",
+  "i": 2,
+  "claim": "Forked agents are not a fresh look"
+ },
+ {
+  "pid": "second-look",
+  "L": "L3",
+  "i": 0,
+  "claim": "A reviewer sub-agent or skill they wrote"
+ },
+ {
+  "pid": "second-look",
+  "L": "L4",
+  "i": 0,
+  "claim": "The builder can't finish until a separate reviewer passes (Stop hook or runner)"
+ },
+ {
+  "pid": "second-look",
+  "L": "L4",
+  "i": 2,
+  "claim": "In a hook or runner they wrote"
+ },
+ {
+  "pid": "retest-agent-setup",
+  "L": "L2",
+  "i": 0,
+  "claim": "Changed a prompt, rule or skill"
+ },
+ {
+  "pid": "retest-agent-setup",
+  "L": "L3",
+  "i": 0,
+  "claim": "Committed eval sets of yours with 3 or more cases that each state what a pass looks like"
+ },
+ {
+  "pid": "retest-agent-setup",
+  "L": "L3",
+  "i": 2,
+  "claim": "A command in your repo that anyone on the team can run to re-check the setup"
+ },
+ {
+  "pid": "retest-agent-setup",
+  "L": "L4",
+  "i": 1,
+  "claim": "Evals that run by themselves on every change, where a drop blocks the change"
+ },
+ {
+  "pid": "built-for-the-agent-roll-call",
+  "L": "L4",
+  "i": 5,
+  "claim": "Weeks with your changes to things you built for the agent (skills, agents, commands, hooks, servers): 3 or more is refining"
+ }
+]

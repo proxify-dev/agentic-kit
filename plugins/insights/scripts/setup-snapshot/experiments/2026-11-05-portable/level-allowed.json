@@ -1,0 +1,261 @@
+{
+ "note": "Which portable checks may set a level: the second Opus skeptic pass (11-05 night, four reviewers, one per checks file; default fail when it could not confirm). Reasons stay in skeptic-checks-*.json, which quote one laptop's data and are never committed. 11-06: a validity review (three Opus readers, code against the level guide; proxify-34) took out 7 that read the same on every laptop but do not measure the practice at that level: `not_valid`, shown on the page, never setting a level. Then the ruling for the ship (proxify-34, 11-06): on the substrate's practices only the 9 checks the review found valid set a level; the 16 partial ones are `partial`, shown, never setting a level. Other practices' checks are on no level list and stay. | 11-06 00:45 (session feccdc04): after the 16 partial fixes, an independent Opus review passed reword-the-ask L3#1, model-and-budget-per-step L3#0, put-rules-where-they-apply L3#1 into allowed. | 11-06 01:05: review passed compact-on-purpose L2#2 (judged against reset-with-a-handoff) and isolate-side-work L2#0. | 11-06 01:20: second-round review passed roll-call L4#5 (setup refined over >= 3 weeks), runs-start-without-you L2#0; give-the-agent-tools L4#0 after its runtime-path fix (reviewer's named change + trap). | 11-06 01:45: review passed ask-before L2#0 (refused risky steps), step-in L2#1 (came back when a long run ended), parallel-work L3#0 (own worktree agents launched); retest L3#0 after its reviewer-named fix (committed cases only). Held: bound-the-task L2#1, lead-a-team L3#0 (named fixes pending). | 11-06: isolate-side-work L2#2 (dynamic workflow runs) re-homed to lead-a-team-of-agents L2#1 (ruling 11). | 11-06 (session feccdc04): put-rules-where-they-apply L3#2 (deeper docs a rule file or skill points to, opened by the agent unprompted; his ruling 'progressive disclosure must count') passed a second independent Opus review after the first review's changes A-E (d99fb855): VALID.",
+ "allowed": [
+  {
+   "pid": "lead-a-team-of-agents",
+   "L": "L2",
+   "i": 1
+  },
+  {
+   "pid": "write-a-program-that-runs-the-agent",
+   "L": "L3",
+   "i": 1
+  },
+  {
+   "pid": "write-a-program-that-runs-the-agent",
+   "L": "L4",
+   "i": 0
+  },
+  {
+   "pid": "commit-in-small-revertible-steps",
+   "L": "L2",
+   "i": 0
+  },
+  {
+   "pid": "commit-in-small-revertible-steps",
+   "L": "L2",
+   "i": 1
+  },
+  {
+   "pid": "commit-in-small-revertible-steps",
+   "L": "L2",
+   "i": 3
+  },
+  {
+   "pid": "notes-the-next-chat-reads",
+   "L": "L2",
+   "i": 0
+  },
+  {
+   "pid": "built-for-the-agent-roll-call",
+   "L": "L4",
+   "i": 0
+  },
+  {
+   "pid": "built-for-the-agent-roll-call",
+   "L": "L4",
+   "i": 1
+  },
+  {
+   "pid": "built-for-the-agent-roll-call",
+   "L": "L4",
+   "i": 4
+  },
+  {
+   "pid": "own-the-checks-the-agent-is-graded-by",
+   "L": "L2",
+   "i": 1
+  },
+  {
+   "pid": "own-the-checks-the-agent-is-graded-by",
+   "L": "L4",
+   "i": 0
+  },
+  {
+   "pid": "ask-before-what-cant-be-undone",
+   "L": "L3",
+   "i": 0
+  },
+  {
+   "pid": "watch-what-runs-did-and-cost",
+   "L": "L2",
+   "i": 0
+  },
+  {
+   "pid": "watch-what-runs-did-and-cost",
+   "L": "L2",
+   "i": 2
+  },
+  {
+   "pid": "retest-agent-setup",
+   "L": "L3",
+   "i": 2
+  },
+  {
+   "pid": "retest-agent-setup",
+   "L": "L4",
+   "i": 1
+  },
+  {
+   "pid": "keep-client-code-and-data-in-bounds",
+   "L": "L3",
+   "i": 0
+  },
+  {
+   "pid": "keep-client-code-and-data-in-bounds",
+   "L": "L3",
+   "i": 1
+  },
+  {
+   "pid": "enforce-fixed-rules-in-code",
+   "L": "L4",
+   "i": 0
+  },
+  {
+   "pid": "enforce-fixed-rules-in-code",
+   "L": "L4",
+   "i": 2
+  },
+  {
+   "pid": "put-rules-where-they-apply",
+   "L": "L3",
+   "i": 0
+  },
+  {
+   "pid": "limit-what-the-agent-can-reach",
+   "L": "L3",
+   "i": 0
+  },
+  {
+   "pid": "reword-the-ask",
+   "L": "L3",
+   "i": 1
+  },
+  {
+   "pid": "model-and-budget-per-step",
+   "L": "L3",
+   "i": 0
+  },
+  {
+   "pid": "put-rules-where-they-apply",
+   "L": "L3",
+   "i": 1
+  },
+  {
+   "pid": "compact-on-purpose",
+   "L": "L2",
+   "i": 2
+  },
+  {
+   "pid": "isolate-side-work",
+   "L": "L2",
+   "i": 0
+  },
+  {
+   "pid": "built-for-the-agent-roll-call",
+   "L": "L4",
+   "i": 5
+  },
+  {
+   "pid": "runs-start-without-you",
+   "L": "L2",
+   "i": 0
+  },
+  {
+   "pid": "give-the-agent-tools-made-for-it",
+   "L": "L4",
+   "i": 0
+  },
+  {
+   "pid": "ask-before-what-cant-be-undone",
+   "L": "L2",
+   "i": 0
+  },
+  {
+   "pid": "step-in-on-signals",
+   "L": "L2",
+   "i": 1
+  },
+  {
+   "pid": "parallel-work-kept-apart",
+   "L": "L3",
+   "i": 0
+  },
+  {
+   "pid": "retest-agent-setup",
+   "L": "L3",
+   "i": 0
+  },
+  {
+   "pid": "put-rules-where-they-apply",
+   "L": "L3",
+   "i": 2
+  }
+ ],
+ "not_valid": [
+  {
+   "pid": "compact-on-purpose",
+   "L": "L4",
+   "i": 1,
+   "why": "one env line in settings reads as L4: a setting, not a build, and a high value only delays compaction"
+  },
+  {
+   "pid": "notes-the-next-chat-reads",
+   "L": "L3",
+   "i": 0,
+   "why": "any early read of an earlier file counts, asked for or not; a read the person asked for is L2 behaviour"
+  },
+  {
+   "pid": "reword-the-ask",
+   "L": "L3",
+   "i": 0,
+   "why": "having a skill file is not rewording the ask after a miss"
+  },
+  {
+   "pid": "reword-the-ask",
+   "L": "L3",
+   "i": 2,
+   "why": "any agent edit to a prompt file counts, appends to CLAUDE.md included, the very move L3 rejects"
+  },
+  {
+   "pid": "reword-the-ask",
+   "L": "L4",
+   "i": 0,
+   "why": "an evals folder existing is not a practice; the same evidence as retest-after-changes L3#0"
+  },
+  {
+   "pid": "step-in-on-signals",
+   "L": "L2",
+   "i": 3,
+   "why": "every Esc and rejected permission: the same moments ask-before L2#0 and the correction check already count"
+  },
+  {
+   "pid": "limit-what-the-agent-can-reach",
+   "L": "L4",
+   "i": 0,
+   "why": "the same PreToolUse-hook count as enforce-fixed-rules-in-code L4#0, so one hook is L4 twice; most blocking hooks are not access limits"
+  }
+ ],
+ "partial": [
+  {
+   "pid": "compact-on-purpose",
+   "L": "L2",
+   "i": 3,
+   "why": "measures part of the practice at that level; held until fixed and re-reviewed"
+  },
+  {
+   "pid": "bound-the-task",
+   "L": "L2",
+   "i": 1,
+   "why": "measures part of the practice at that level; held until fixed and re-reviewed"
+  },
+  {
+   "pid": "let-the-agent-fetch",
+   "L": "L2",
+   "i": 1,
+   "why": "measures part of the practice at that level; held until fixed and re-reviewed"
+  },
+  {
+   "pid": "lead-a-team-of-agents",
+   "L": "L3",
+   "i": 0,
+   "why": "measures part of the practice at that level; held until fixed and re-reviewed"
+  },
+  {
+   "pid": "enforce-fixed-rules-in-code",
+   "L": "L4",
+   "i": 1,
+   "why": "measures part of the practice at that level; held until fixed and re-reviewed (named fix: keep PreToolUse hooks only)"
+  }
+ ]
+}

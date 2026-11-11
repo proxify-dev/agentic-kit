@@ -1,0 +1,5 @@
+{"note": "Checks that may not set a level until verified, whatever the skeptic said: their reading changed on the real laptop after a speed rewrite with no named bug (11-05). Shown on the page, never raise a level.",
+ "hold": [
+  {"pid": "keep-always-loaded-small", "L": "L2", "i": 0, "why": "speed rewrite reads 590 trims where the slow version read 85; not explained"},
+  {"pid": "keep-always-loaded-small", "L": "L3", "i": 0, "why": "speed rewrite reads 42 where the slow version read 14; not explained"}
+ ]}

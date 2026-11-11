@@ -6,24 +6,18 @@ How you really work with Claude Code, rebuilt from the files Claude Code keeps o
 /insights:my-agentic-setup
 ```
 
-It reads your session logs, settings, plugins, skills and the instruction files in your repos, and writes
-`~/agentic-setup/my-setup.html`: how you run sessions and helpers, what the agent knows before it starts, how you
-hand work over, check it and correct it, what you built for yourself, and what runs when you're not there.
-One page, `~/agentic-setup/my-setup.html`, with two tabs:
-- **How you work**: each finding, with how we know it folded underneath.
-- **What to try next**: a few small steps picked from what your logs don't show yet. For the ones that change a
-  repo, `~/agentic-setup/next-steps-brief.md` is a brief you can hand to your own agent. It works one step at a time,
-  asks you first, and opens a pull request it never merges.
+It reads your session logs, settings, plugins, skills, hooks and the git repos Claude Code ran in, asks one AI pass
+(a subagent in your own Claude Code session) to fill in what code alone can't tell, and writes one page,
+`~/agentic-setup/my-setup.html`: what you do, what you built, each discipline part by part, and what to try next.
 
-It doesn't give you a level or a score.
+It shows the level your laptop reads: a starting point a call confirms or raises, never a final score. Set `AGENTIC_SETUP_MEMBER=1` before running for a copy with no level.
 
 ## Privacy
 
-- It reads only. Nothing is installed, changed or sent. What it writes goes to `~/agentic-setup/` in your home folder; delete that folder whenever you like.
-- Your page holds real project names and excerpts of your prompts. It stays on your machine; the skill keeps it
-  out of the conversation.
-- A version to share with Proxify is shown only if you say yes. It holds counts and plain sentences, no names and no prompt
-  text. Read it before you share it: it is exactly what the other side would see.
+- It reads only. Nothing is installed or changed. What it writes goes to `~/agentic-setup/`; delete that folder whenever you like.
+- The page holds real project names and excerpts of your prompts. It stays on your machine.
+- The page's Share tab sends Proxify a short summary (practice ids and how far each goes, no file names, no prompt
+  text) only when you press Send there.
 
 ## Install
 
@@ -32,7 +26,7 @@ It doesn't give you a level or a score.
 /plugin install insights@agentic-kit
 ```
 
-Needs `python3` (stdlib only). No other plugin.
+Needs Python 3.12+, or `uv` (it brings its own Python and PyYAML).
 
 ## Update
 
@@ -42,18 +36,3 @@ In a terminal (not inside a Claude Code chat):
 claude plugin marketplace update agentic-kit
 claude plugin update insights@agentic-kit
 ```
-
-Then restart Claude Code. Inside a chat there is no `/plugin update`: typing it just opens the plugin panel.
-In a chat, use `/plugin marketplace update agentic-kit`, then `/plugin` → **Installed** → insights → **Update now**,
-then `/reload-plugins`.
-
-## Limits
-
-An early version. The numbers were tuned on few machines; a view that says "can't tell" means the logs held too
-little to say, never "you don't do it". It cannot see work on other machines, how other agent tools are used, or
-anything older than Claude Code's log retention (`cleanupPeriodDays`).
-
-## Development
-
-The scripts are stdlib Python under `skills/my-agentic-setup/scripts/`; `STORY-SCHEMA.md` and `REPORT-SCHEMA.md`
-describe their output. Try it from this checkout: `claude --plugin-dir plugins/insights`.

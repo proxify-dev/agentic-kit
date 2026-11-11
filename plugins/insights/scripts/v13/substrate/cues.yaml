@@ -1,0 +1,840 @@
+substrate_version: v4-draft
+generated: '2026-08-17'
+note: bootstrapped from card.py + substrate.py + catalog.json; edited by hand from here on
+cues:
+- id: pr-spec-voice
+  badge: prompt
+  detects: 'Specifies the change in technical terms: names the model, its fields and types, or the target
+    architecture'
+  polarity: positive
+  fires: 7/36
+  signal: null
+- id: pr-narrow-brief
+  badge: prompt
+  detects: Tells the agent to work on one named use case or ticket only
+  polarity: positive
+  fires: 15/36
+  signal: null
+- id: pr-name-defect
+  badge: prompt
+  detects: Names what is wrong with the output when he sends it back to the model
+  polarity: positive
+  fires: 12/36
+  signal: null
+- id: pr-point-location
+  badge: prompt
+  detects: Names the exact file, method or endpoint the agent must change
+  polarity: positive
+  fires: 8/36
+  signal: null
+- id: pr-ask-orientation
+  badge: prompt
+  detects: 'Asks the model a question instead of instructing a change: where to look, which database to
+    use'
+  polarity: positive
+  fires: 6/36
+  signal: null
+- id: pr-prohibit
+  badge: prompt
+  detects: 'Tells the agent what not to do: do not test it that way, do not put logging in'
+  polarity: positive
+  fires: 7/36
+  signal: null
+- id: pr-metaprompt
+  badge: prompt
+  detects: Gives the coding agent a prompt that he asked another model to write for him
+  polarity: positive
+  fires: 4/36
+  signal: null
+- id: pr-spec-doc
+  badge: prompt
+  detects: Writes the spec out in full before letting the agent start
+  polarity: positive
+  fires: 10/36
+  signal: null
+- id: pr-role-prefix
+  badge: prompt
+  detects: 'Opens the prompt by telling the model what role to play: act as an expert devops'
+  polarity: positive
+  fires: 3/36
+  signal: null
+- id: pr-plan-first
+  badge: prompt
+  detects: Asks the agent for a detailed plan of what it is going to do before it writes code
+  polarity: positive
+  fires: 15/36
+  signal:
+    survey_rb: 0.409
+    mean_fired: 64.7
+    mean_silent: 53.1
+    n: 11/10
+    strength: strong
+- id: pr-own-wording
+  badge: prompt
+  detects: Points at their own prompt wording as the cause when the output came back wrong
+  polarity: positive
+  fires: 4/36
+  signal: null
+- id: pr-prompt-library
+  badge: prompt
+  detects: Reuses a prompt from a folder of prompts he keeps, changing little details
+  polarity: positive
+  fires: 4/36
+  signal: null
+- id: pr-spec-snippet
+  badge: prompt
+  detects: Puts code snippets showing how he wants it written into the spec document
+  polarity: positive
+  fires: 1/36
+  signal: null
+- id: ctx-instr-file
+  badge: context
+  detects: Keeps a written instructions file in the project for the agent to read
+  polarity: positive
+  fires: 64/113
+  signal:
+    survey_rb: 0.5
+    mean_fired: 69.4
+    mean_silent: 55.2
+    n: 39/36
+    strength: strong
+- id: ctx-cost
+  badge: context
+  detects: Treats token spend as a live constraint that changes which approach they take
+  polarity: positive
+  fires: 49/113
+  signal:
+    survey_rb: -0.038
+    mean_fired: 61.6
+    mean_silent: 63.5
+    n: 36/39
+    strength: 'null'
+- id: ctx-agent-searches
+  badge: context
+  detects: Sends the agent through the whole codebase to work out how it fits together
+  polarity: positive
+  fires: 26/113
+  signal:
+    survey_rb: -0.046
+    mean_fired: 61.0
+    mean_silent: 62.9
+    n: 14/61
+    strength: 'null'
+- id: ctx-one-thread
+  badge: context
+  detects: Goes back to an existing chat to continue the work, instead of opening a new one
+  polarity: positive
+  fires: 10/113
+  signal: null
+- id: ctx-paste-files
+  badge: context
+  detects: Passes the agent the specific files or folder to work from, instead of letting it find them
+  polarity: positive
+  fires: 27/113
+  signal:
+    survey_rb: -0.386
+    mean_fired: 54.2
+    mean_silent: 65.2
+    n: 18/57
+    strength: strong
+- id: ctx-outside-data
+  badge: context
+  detects: Brings data from outside the repository - production logs, a database export, an event payload
+    - in front of the agent
+  polarity: positive
+  fires: 23/113
+  signal:
+    survey_rb: 0.16
+    mean_fired: 65.7
+    mean_silent: 61.7
+    n: 16/59
+    strength: 'null'
+- id: ctx-wide-root
+  badge: context
+  detects: Launches the agent from the parent directory holding all his projects, so it reaches every
+    repository
+  polarity: positive
+  fires: 6/113
+  signal: null
+- id: ctx-screenshot
+  badge: context
+  detects: Gives the agent a picture of what he is working on - a screenshot, or his screen
+  polarity: positive
+  fires: 7/113
+  signal: null
+- id: ctx-agent-writes-docs
+  badge: context
+  detects: Asks the agent to write the instructions file itself
+  polarity: negative
+  fires: 21/113
+  signal:
+    survey_rb: 0.289
+    mean_fired: 68.6
+    mean_silent: 61.2
+    n: 14/61
+    strength: moderate
+- id: ctx-per-client
+  badge: context
+  detects: Keeps a separate instructions file for each client, describing that client's systems
+  polarity: positive
+  fires: 9/113
+  signal: null
+- id: ctx-rules-from-review
+  badge: context
+  detects: Decides for each piece of pull-request feedback whether it is worth adding to the agent's instructions
+    file
+  polarity: positive
+  fires: 14/113
+  signal:
+    survey_rb: -0.126
+    mean_fired: 57.2
+    mean_silent: 63.5
+    n: 11/64
+    strength: 'null'
+- id: ctx-no-instr-file
+  badge: context
+  detects: Says he keeps no instructions file for the agent in any of his projects
+  polarity: negative
+  fires: 23/113
+  signal:
+    survey_rb: -0.49
+    mean_fired: 52.0
+    mean_silent: 66.2
+    n: 19/56
+    strength: strong
+- id: ctx-route-trigger
+  badge: context
+  detects: Says a line in the instructions file names the situation that should send the agent to another
+    file
+  polarity: positive
+  fires: null
+  signal: null
+- id: ctx-file-oversize
+  badge: context
+  detects: Names his instructions file as several hundred lines, or says it has grown too broad
+  polarity: negative
+  fires: null
+  signal: null
+- id: ctx-file-split-plan
+  badge: context
+  detects: Says he is pulling material out of the instructions file into separate files and pointing at
+    them
+  polarity: positive
+  fires: null
+  signal: null
+- id: mem-note-handoff
+  badge: context
+  detects: Writes where the work got to into a file at the end of a session, and tells the next session
+    to open it
+  polarity: positive
+  fires: null
+  signal: null
+- id: mem-agent-writes
+  badge: context
+  detects: Has the agent write the record of what it did into a file the agent's own next session
+    reads back. Does NOT fire on reports written for people (commit summaries, test reports, docs
+    used for reporting), on a built-in memory feature "just remembering", or on files the developer
+    neither designed nor reads back
+  polarity: positive
+  fires: null
+  signal: null
+- id: mem-write-gated
+  badge: context
+  detects: Has a hook or a commit step that will not let the work land until the record is written
+  polarity: positive
+  fires: null
+  signal: null
+- id: mem-external-store
+  badge: context
+  detects: Points the agent at a store of written notes or knowledge outside the repository
+    (vault, wiki, knowledge base) as the place to look things up. Does NOT fire on an index or
+    graph built from the code itself, or on artifact/experiment tracking stores
+  polarity: positive
+  fires: null
+  signal: null
+- id: mem-indexed-store
+  badge: context
+  homeless: reclassified 2026-08-26 — LSP-class context tooling, not memory; parked pending a retrieval axis
+  detects: Runs an indexer or server that answers the agent's questions about the codebase from a built
+    index
+  polarity: positive
+  fires: null
+  signal: null
+- id: mem-transcript-handoff
+  badge: context
+  detects: Says he carries the state to the next session by handing it a summary, not a file
+  polarity: negative
+  fires: null
+  signal: null
+- id: mem-compact-only
+  badge: context
+  detects: Says the tool's automatic compaction is what carries his context through a long session
+  polarity: negative
+  fires: null
+  signal: null
+- id: mem-none
+  badge: context
+  detects: Says he keeps no memory for the agent between sessions
+  polarity: negative
+  fires: null
+  signal: null
+- id: mem-native-feature
+  badge: context
+  detects: Credits a built-in memory feature with just remembering — "I add it to memory and it
+    remembers" — without naming a file, a store, or a mechanism he designed
+  polarity: negative
+  fires: null
+  signal: null
+- id: mem-file-grows
+  badge: context
+  detects: Says his knowledge file keeps growing and he has no way to keep it useful
+  polarity: negative
+  fires: null
+  signal: null
+- id: hn-tool-named
+  badge: harness
+  detects: Names the coding agent he uses day to day, or the editor or terminal he runs it in
+  polarity: positive
+  fires: 95/110
+  signal: null
+- id: hn-skill-used
+  badge: harness
+  detects: Names a skill they run for a particular job
+  polarity: positive
+  fires: 37/110
+  signal:
+    survey_rb: 0.293
+    mean_fired: 64.8
+    mean_silent: 56.3
+    n: 27/47
+    strength: moderate
+- id: hn-model-switch
+  badge: harness
+  detects: Switches which model runs the work
+  polarity: positive
+  fires: 45/110
+  signal:
+    survey_rb: 0.007
+    mean_fired: 58.9
+    mean_silent: 59.9
+    n: 38/36
+    strength: 'null'
+- id: hn-second-tool
+  badge: harness
+  detects: Names a second agent tool they use alongside their main one
+  polarity: positive
+  fires: 65/110
+  signal:
+    survey_rb: 0.018
+    mean_fired: 59.6
+    mean_silent: 59.1
+    n: 48/26
+    strength: 'null'
+- id: hn-mcp
+  badge: harness
+  detects: Names an MCP server they connected to their agent
+  polarity: positive
+  fires: 35/110
+  signal:
+    survey_rb: 0.175
+    mean_fired: 62.3
+    mean_silent: 58.4
+    n: 19/55
+    strength: 'null'
+- id: hn-service-wired
+  badge: harness
+  detects: 'Names a system outside the codebase that the agent reaches: the database, the deploy platform,
+    the error tracker'
+  polarity: positive
+  fires: 44/110
+  signal:
+    survey_rb: 0.226
+    mean_fired: 63.7
+    mean_silent: 57.0
+    n: 27/47
+    strength: moderate
+- id: hn-own-skills
+  badge: context  # was harness; on context-8 since 2026-10-21 (skills are Level 3)
+  detects: Names a skill or slash command they wrote themselves for a recurring need
+  polarity: positive
+  fires: 25/110
+  signal:
+    survey_rb: 0.623
+    mean_fired: 73.0
+    mean_silent: 55.7
+    n: 16/58
+    strength: strong
+- id: hn-event-trigger
+  badge: harness
+  detects: Fires agent runs from a ticket board or a webhook
+  polarity: positive
+  fires: 8/110
+  signal: null
+- id: hn-agent-team
+  badge: harness
+  detects: Runs several agents at the same time
+  polarity: positive
+  fires: 24/110
+  signal:
+    survey_rb: 0.504
+    mean_fired: 71.0
+    mean_silent: 56.2
+    n: 16/58
+    strength: strong
+- id: hn-subagent
+  badge: harness
+  detects: Runs sub agents in their workflow
+  polarity: positive
+  fires: 23/110
+  signal:
+    survey_rb: 0.349
+    mean_fired: 67.3
+    mean_silent: 57.2
+    n: 16/58
+    strength: strong
+- id: hn-own-rig
+  badge: harness
+  detects: Writes their own program that drives the agent
+  polarity: positive
+  fires: 13/110
+  signal: null
+- id: hn-model-per-step
+  badge: harness
+  detects: Uses a different model for planning than for writing the code
+  polarity: positive
+  fires: 15/110
+  signal:
+    survey_rb: 0.265
+    mean_fired: 65.4
+    mean_silent: 58.3
+    n: 12/62
+    strength: moderate
+- id: hn-local-model
+  badge: harness
+  detects: Runs a model on hardware they own
+  polarity: positive
+  fires: 6/110
+  signal: null
+- id: lp-keep-ownership
+  badge: loop
+  detects: Reads through the agent's changes himself before the work ships
+  polarity: positive
+  fires: 60/92
+  signal:
+    survey_rb: 0.161
+    mean_fired: 60.7
+    mean_silent: 56.8
+    n: 41/22
+    strength: 'null'
+- id: lp-verify-as-user
+  badge: loop
+  detects: Tests the change through the actual UI or the API, like a real user
+  polarity: positive
+  fires: 20/92
+  signal:
+    survey_rb: -0.038
+    mean_fired: 57.6
+    mean_silent: 59.8
+    n: 12/51
+    strength: 'null'
+- id: lp-small-batch
+  badge: loop
+  detects: Gives the agent one small task at a time
+  polarity: positive
+  fires: 48/92
+  signal:
+    survey_rb: -0.247
+    mean_fired: 55.3
+    mean_silent: 63.6
+    n: 32/31
+    strength: moderate
+- id: lp-caught-defect
+  badge: loop
+  detects: Names a specific defect the agent's code turned out to have
+  polarity: positive
+  fires: 51/92
+  signal:
+    survey_rb: -0.123
+    mean_fired: 57.0
+    mean_silent: 62.3
+    n: 35/28
+    strength: 'null'
+- id: lp-graded-rope
+  badge: loop
+  detects: Writes part of the code himself instead of giving it to the agent
+  polarity: positive
+  fires: 31/92
+  signal:
+    survey_rb: -0.186
+    mean_fired: 55.8
+    mean_silent: 61.4
+    n: 23/40
+    strength: moderate
+- id: lp-output-is-draft
+  badge: loop
+  homeless: retired from scoring, definition kept as the audit trail
+  detects: Rewrites part of the agent's code by hand before it ships
+  polarity: positive
+  fires: 19/92
+  signal:
+    survey_rb: -0.136
+    mean_fired: 55.5
+    mean_silent: 60.6
+    n: 15/48
+    strength: 'null'
+- id: lp-report-back
+  badge: loop
+  detects: Takes the problem back to the agent when its work comes out wrong
+  polarity: positive
+  fires: 46/92
+  signal:
+    survey_rb: -0.215
+    mean_fired: 56.0
+    mean_silent: 63.9
+    n: 36/27
+    strength: moderate
+- id: lp-step-gate
+  badge: loop
+  detects: Checks the result of one step before letting the agent start the next
+  polarity: positive
+  fires: 43/92
+  signal:
+    survey_rb: -0.033
+    mean_fired: 57.9
+    mean_silent: 60.5
+    n: 27/36
+    strength: 'null'
+- id: lp-ship-unread
+  badge: loop
+  detects: Says some of the agent's output goes in unreviewed
+  polarity: negative
+  fires: 11/92
+  signal:
+    survey_rb: 0.398
+    mean_fired: 69.5
+    mean_silent: 57.9
+    n: 8/55
+    strength: strong
+- id: lp-plan-gate
+  badge: loop
+  detects: Reads the agent's plan before telling it to start implementing
+  polarity: positive
+  fires: 41/92
+  signal:
+    survey_rb: 0.202
+    mean_fired: 61.8
+    mean_silent: 57.0
+    n: 31/32
+    strength: moderate
+- id: lp-agent-first-draft
+  badge: loop
+  homeless: dropped from loop-16 2026-08-21, definition kept as the audit trail
+  detects: Has the agent write the first version of new code rather than starting it himself
+  polarity: negative
+  fires: 74/92
+  signal:
+    survey_rb: 0.025
+    mean_fired: 59.5
+    mean_silent: 58.8
+    n: 54/9
+    strength: 'null'
+- id: lp-agent-tests
+  badge: loop
+  detects: Has the agent handle the testing
+  polarity: positive
+  fires: 35/92
+  signal:
+    survey_rb: 0.028
+    mean_fired: 58.6
+    mean_silent: 59.7
+    n: 21/42
+    strength: 'null'
+- id: lp-second-gate
+  badge: loop
+  detects: Has another agent review the work before he takes it further
+  polarity: positive
+  fires: 24/92
+  signal:
+    survey_rb: 0.381
+    mean_fired: 66.4
+    mean_silent: 56.7
+    n: 17/46
+    strength: strong
+- id: lp-review-bottleneck
+  badge: loop
+  detects: Names his own review of the code as the bottleneck
+  polarity: positive
+  fires: 16/92
+  signal:
+    survey_rb: 0.082
+    mean_fired: 60.7
+    mean_silent: 59.1
+    n: 11/52
+    strength: 'null'
+- id: reach-committed
+  badge: context
+  detects: Says the agent instruction or config files are committed to the shared repo — in the repository,
+    pushed, part of the codebase
+  polarity: positive
+  fires: null
+  signal: null
+- id: reach-split-deliberate
+  badge: context
+  detects: Names a deliberate split between team-shared instruction files and a personal local one, both
+    sides named — committed team file alongside CLAUDE.local.md or an untracked personal file
+  polarity: positive
+  fires: null
+  signal: null
+- id: reach-team-uses
+  badge: context
+  detects: Names teammates actually using his instruction files or shared agent config — specific people,
+    or the team running against the same files; a tool, app or product he built does NOT count
+  polarity: positive
+  fires: null
+  signal: null
+- id: reach-team-contributes
+  badge: context
+  detects: Says teammates also edit or add to the shared instruction files — co-maintained, not one
+    man's file
+  polarity: positive
+  fires: null
+  signal: null
+- id: reach-local-only
+  badge: context
+  detects: Says his instruction files live only on his machine — not committed, not in the repo, a local
+    or gitignored folder
+  polarity: negative
+  fires: null
+  signal: null
+- id: ctx-dir-scoped
+  badge: context
+  detects: Says the instruction layer is scoped to parts of ONE codebase — an instruction file per
+    directory or module, rules keyed by path or glob, or a folder-level file that orients the agent to
+    what lies outside it. Does NOT fire on one file per project or repo, and does NOT fire on narrowing
+    what the agent can see when no instruction structure is named
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-own-rig
+  badge: loop
+  detects: Says he wrote the program or script that invokes the agent — a runner, a binary, an SDK
+    script, a headless call — not a feature the tool already ships
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-event-fired
+  badge: loop
+  detects: Says agent runs start from an event rather than from him — a ticket board, a webhook, a
+    schedule; nobody types the command that starts it
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-acts-unattended
+  badge: loop
+  detects: Says something he built takes an action on its own when it sees a condition — files the
+    ticket, merges the duplicates, posts the summary — with nobody asking it at that moment; what
+    happens to the result afterwards may still wait for him
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-walks-a-set
+  badge: loop
+  detects: Says the system works through a whole set on its own — every ticket, every file in the
+    folder, the backlog — handling each item itself rather than one task he hands it
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-self-heal
+  badge: loop
+  detects: 'Says a system he built hit a problem mid-run and carried on to the goal without him stepping
+    in. Does NOT fire on the coding agent retrying or fixing its own failing step — lint, tests, CI —
+    inside a run he is supervising'
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-loop-resumes
+  badge: loop
+  detects: Says the work survives the process dying — state written outside the chat that a restart
+    picks up from, instead of starting over
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-loop-learns
+  badge: loop
+  detects: Says the system changed its own later behaviour from a failure it recorded, without him
+    writing the fix by hand
+  polarity: positive
+  fires: null
+  signal: null
+- id: hn-hook-fired
+  badge: harness
+  detects: 'Names a hook he wrote and the moment it fires — before a tool call, on stop, on file
+    write, at session start — something that runs or blocks automatically whether or not he is watching'
+  polarity: positive
+  fires: null
+  signal: null
+- id: lp-eval-suite
+  badge: loop
+  detects: 'Says he keeps a set of test cases he re-runs when he changes a prompt, skill or agent
+    setup, and can say what the check looks at. The object must be his own agent tooling — an
+    AI-powered script grading unrelated content does not fire, and asking a model to suggest test
+    cases does not fire'
+  polarity: positive
+  fires: null
+  signal: null
+- id: wf-company-practice
+  badge: harness
+  detects: Describes a team or company agent workflow he does not personally direct — "we define
+    specs and put agents to work", "they have a pipeline" — practice narrated, no run of his own
+  polarity: negative
+  fires: null
+  signal: null
+- id: hn-workflow-run
+  badge: harness
+  detects: 'Says he directs scripted multi-agent workflows — an orchestration script that fans agents
+    out or chains them, which he scopes, reads or reruns. Does NOT fire on a CI bot or automated
+    review set up once, on parallel sessions, or on naming the feature — there must be an
+    orchestration run of his own he can rerun'
+  polarity: positive
+  fires: null
+  signal: null
+- id: hn-perm-scoped
+  badge: harness
+  detects: 'Names something the agent is not allowed to reach and the mechanism HE SET UP that enforces
+    it — permission config he wrote, sandbox, container, deny-list — or a rollback point he creates
+    before letting it run loose. Does NOT fire on the tool''s default approval prompts, or on access
+    he simply happens not to have'
+  polarity: positive
+  fires: null
+  signal: null
+- id: hn-plugin-own
+  badge: harness
+  detects: 'Says he packaged his own plugin — commands, skills, agents or hooks bundled so someone
+    else can install them; a skill kept for himself is hn-own-skills, not this'
+  polarity: positive
+  fires: null
+  signal: null
+- id: hn-sdk-used
+  badge: harness
+  detects: 'Says he wrote code against an agent SDK — his program creates or drives agent sessions
+    programmatically; naming the SDK without code of his own is a claim, not a fire'
+  polarity: positive
+  fires: null
+  signal: null
+- id: hn-mcp-authored
+  badge: harness
+  detects: 'Says he wrote and runs his own MCP server — a tool schema he defined, a server he owns;
+    wiring up someone else''s server is hn-mcp, not this'
+  polarity: positive
+  fires: null
+  signal: null
+- id: hn-hook-authored
+  badge: harness
+  detects: 'Says he wrote an agent lifecycle hook himself and names the event it fires on and what
+    it blocks or adds. Does NOT fire on using hooks, a planned hook, a team''s or tool''s hook, or
+    a git hook'
+  polarity: positive
+  fires: '1/35'  # build-leg probe 2026-10-09 (35 picked transcripts, not the population)
+  signal: null
+- id: hn-runner-authored
+  badge: harness
+  detects: 'Says he himself wrote the script or program that starts the agent — cron, webhook, CI
+    job, a headless claude -p or SDK call. Does NOT fire on automation his team runs ("we have a
+    cron"), a tool''s own scheduler, a script the agent merely calls, or a product built with the
+    agent'
+  polarity: positive
+  fires: '3/35'  # build-leg probe 2026-10-09 (35 picked transcripts, not the population)
+  signal: null
+- id: hn-agent-file-authored
+  badge: harness
+  detects: 'Says he wrote his own agent or subagent definition and names its role — what it does,
+    its tools or its model. Does NOT fire on built-in, installed or team agents, or on simply delegating
+    a task to a subagent'
+  polarity: positive
+  fires: '9/35'  # build-leg probe 2026-10-09 (35 picked transcripts, not the population)
+  signal: null
+- id: hn-extension-runtime
+  badge: harness
+  detects: 'Says a plugin or MCP server he wrote changes how the agent runs or behaves — injects context,
+    blocks or gates actions, defines agents. Does NOT fire on one that only bundles skills, commands
+    or tools'
+  polarity: positive
+  fires: '0/35'  # build-leg probe 2026-10-09 (35 picked transcripts, not the population)
+  signal: null
+- id: hn-git-hook-for-agent
+  badge: harness
+  detects: 'Says he himself wrote a git hook — pre-commit, pre-push — to check or record the agent''s
+    work, and what it checks. Does NOT fire on hooks a project, team or framework ships, or on CI lint'
+  polarity: positive
+  fires: '2/35'  # build-leg probe 2026-10-09 (35 picked transcripts, not the population)
+  signal: null
+- id: hn-output-style
+  badge: harness
+  detects: 'Names an output style he set or wrote — the mode that replaces the agent''s system prompt,
+    not an instructions file it reads'
+  polarity: positive
+  fires: null
+  signal: null
+- id: hn-telemetry
+  badge: harness
+  detects: 'Says he watches what his agent runs cost or do — token or dollar tracking, logs or traces
+    of runs, a counter or dashboard he actually checks'
+  polarity: positive
+  fires: null
+  signal: null
+- id: in-retypes-fact
+  badge: context
+  from: [l3-s-01]
+  homeless: counter-evidence for the L3 gate, read by allocations.yaml instead (2026-10-22)
+  detects: Says they type the same project fact or rule into the chat again each time
+  polarity: negative
+  fires: null
+  signal: null
+- id: in-pastes-docs
+  badge: context
+  from: [l3-s-03]
+  homeless: counter-evidence for the L3 gate, read by allocations.yaml instead (2026-10-22)
+  detects: Says they paste docs into the chat whenever the agent needs them
+  polarity: negative
+  fires: null
+  signal: null
+- id: in-unread-notes
+  badge: context
+  from: [l3-s-04]
+  homeless: counter-evidence for the L3 gate, read by allocations.yaml instead (2026-10-22)
+  detects: Says the agent wrote its own notes file and they haven't really looked at it since
+  polarity: negative
+  fires: null
+  signal: null
+- id: in-corrects-again
+  badge: context
+  from: [l3-s-05]
+  homeless: counter-evidence for the L3 gate, read by allocations.yaml instead (2026-10-22)
+  detects: Says they correct the same mistake in the chat again each time it happens
+  polarity: negative
+  fires: null
+  signal: null
+- id: in-pastes-summary
+  badge: context
+  from: [l3-s-09, l3-s-07]
+  homeless: counter-evidence for the L3 gate, read by allocations.yaml instead (2026-10-22)
+  detects: Says they paste a summary of the old chat into the new one, or explain everything again
+  polarity: negative
+  fires: null
+  signal: null
+- id: in-team-file-unknown
+  badge: context
+  from: [l3-s-15]
+  homeless: counter-evidence for the L3 gate, read by allocations.yaml instead (2026-10-22)
+  detects: Mentions that their team has notes or rules files for agents, without saying what is in them
+  polarity: negative
+  fires: null
+  signal: null
+- id: in-endless-chat
+  badge: context
+  from: [l3-s-07, l3-s-10]
+  homeless: counter-evidence for the L3 gate, read by allocations.yaml instead (2026-10-22)
+  detects: Says they keep working in one very long chat for days
+  polarity: negative
+  fires: null
+  signal: null

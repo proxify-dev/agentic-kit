@@ -1,0 +1,488 @@
+substrate_version: v4-draft
+generated: '2026-08-17'
+note: bootstrapped from card.py + substrate.py + catalog.json; edited by hand from here on
+practices:
+- id: harness-1
+  badge: harness
+  question: Daily agent practice
+  cues:
+  - hn-tool-named
+  - hn-second-tool
+  taught: 0
+  status: active
+- id: harness-2
+  badge: harness
+  question: Custom tooling
+  absorbs:
+  - harness-3
+  surfaces:
+  - id: h2-rig
+    surface: Their own program that drives the agent
+    weight: core
+    cues:
+    - hn-own-rig
+    state: measured-thin
+  - id: h2-localmodel
+    surface: Runs a model on hardware they own
+    weight: supporting
+    cues:
+    - hn-local-model
+    state: measured-thin
+  - id: h2-triggers
+    surface: Agent runs fired from a board or a webhook
+    weight: supporting
+    cues:
+    - hn-event-trigger
+    state: measured-thin
+  - id: h2-installs
+    surface: Runs skills or plugins someone else wrote
+    weight: supporting
+    cues:
+    - hn-skill-used
+    state: measured
+  - id: h2-output-style
+    surface: Wrote or set an output style — the mode that replaces the agent's system prompt
+    weight: supporting
+    cues:
+    - hn-output-style
+    state: never-asked
+  cues:
+  - hn-own-rig
+  - hn-local-model
+  - hn-event-trigger
+  - hn-skill-used
+  - hn-output-style
+  taught: 57
+  status: active
+- id: harness-4
+  badge: harness
+  question: System integration
+  cues:
+  - hn-mcp
+  - hn-service-wired
+  taught: 8
+  status: active
+- id: harness-5
+  badge: harness
+  question: Multi-agent orchestration
+  surfaces:
+  - id: h5-parallel
+    surface: Several sessions at once, each on its own task
+    weight: supporting
+    cues:
+    - hn-agent-team
+    state: measured
+  - id: h5-delegate
+    surface: Hands sub-tasks down to subagents
+    weight: core
+    cues:
+    - hn-subagent
+    state: measured
+  - id: h5-team
+    surface: A coordinated team — lead, roles, agents talking to each other
+    weight: core
+    cues: []
+    state: no-detector
+  - id: h5-pipeline
+    surface: Plan agreed first, then agents execute it in stages
+    weight: core
+    cues: []
+    state: no-detector
+  - id: h5-watcher
+    surface: A watcher agent running alongside the main work
+    weight: supporting
+    cues: []
+    state: no-detector
+  - id: h5-workflow
+    surface: Directs a scripted multi-agent orchestration of his own — scopes it, reads it, reruns it
+    weight: core
+    cues:
+    - hn-workflow-run
+    state: never-asked
+  cues:
+  - hn-agent-team
+  - hn-subagent
+  - hn-workflow-run
+  - wf-company-practice
+  taught: 22
+  status: active
+- id: harness-6
+  badge: harness
+  question: Model routing
+  surfaces:
+  - id: h6-per-step
+    surface: Gives different models different roles inside one job (plan vs code, write vs review)
+    weight: core
+    cues:
+    - hn-model-per-step
+    state: measured
+  - id: h6-switch
+    surface: Switches which model or tool runs the work
+    weight: supporting
+    cues:
+    - hn-model-switch
+    state: measured
+  cues:
+  - hn-model-switch
+  - hn-model-per-step
+  taught: 5
+  status: active
+- id: context-7
+  badge: context
+  question: Instruction layer ownership
+  surfaces:
+  - id: c7-has-file
+    surface: A written instruction file exists for the agent
+    weight: core
+    cues:
+    - ctx-instr-file
+    - ctx-no-instr-file
+    - ctx-per-client
+    state: measured
+  - id: c7-hand-authored
+    surface: Writes the instruction file themselves, not the agent
+    weight: core
+    cues:
+    - ctx-agent-writes-docs
+    state: measured
+  - id: c7-corrections-land
+    surface: Corrections land in the file — decides what earns a line
+    weight: core
+    cues:
+    - ctx-rules-from-review
+    state: measured-thin
+  - id: c7-rules-retire
+    surface: Fixes the cause and retires the rule
+    weight: supporting
+    cues: []
+    state: no-detector
+  cues:
+  - ctx-instr-file
+  - ctx-no-instr-file
+  - ctx-per-client
+  - ctx-agent-writes-docs
+  - ctx-rules-from-review
+  taught: 7
+  status: active
+- id: context-8
+  badge: context
+  question: Instruction scoping
+  surfaces:
+  - id: c8-prune
+    surface: Keeps the always-loaded surface slim — every line earns its slot
+    weight: core
+    cues:
+    - ctx-file-split-plan
+    state: measured-thin
+  - id: c8-scope
+    surface: Splits instructions by scope so rules load only where they apply
+    weight: core
+    cues:
+    - ctx-dir-scoped
+    state: measured-thin  # ctx-dir-scoped drafted 2026-08-23, probe-gated
+  - id: c8-wide-root
+    surface: Opens the agent from a parent folder that holds several repos
+    weight: supporting
+    cues:
+    - ctx-wide-root
+    state: measured-thin
+  - id: c8-route
+    surface: Pointers name the trigger — depth loads only when it fires
+    weight: core
+    cues:
+    - ctx-route-trigger
+    state: measured-thin
+  - id: c8-skill
+    surface: Packs a repeated procedure as a skill they wrote — it loads only when the task calls for it
+    weight: core
+    cues:
+    - hn-own-skills
+    state: measured
+  cues:
+  - hn-own-skills
+  - ctx-wide-root
+  - ctx-dir-scoped
+  - ctx-route-trigger
+  - ctx-file-split-plan
+  - ctx-file-oversize
+  taught: 20
+  status: active
+- id: context-10
+  badge: context
+  question: Memory across sessions
+  surfaces:
+  - id: c10-note
+    surface: A note the next session must be told to open (handoff/progress file)
+    weight: core
+    cues:
+    - mem-note-handoff
+    - mem-external-store
+    state: measured-thin
+  - id: c10-auto
+    surface: Memory that arrives on its own at session start
+    weight: core
+    cues: []
+    state: no-detector
+  - id: c10-agent-fills
+    surface: Agent maintains it inside a structure the human designed
+    weight: core
+    cues:
+    - mem-agent-writes
+    - mem-write-gated
+    state: measured-thin
+  - id: c10-governed
+    surface: Governed architecture — layers, retirement, dated decision logs
+    weight: supporting
+    cues:
+    - mem-write-gated
+    state: measured-thin
+  cues:
+  - mem-note-handoff
+  - mem-agent-writes
+  - mem-write-gated
+  - mem-external-store
+  - mem-native-feature
+  - mem-transcript-handoff
+  - mem-compact-only
+  - mem-none
+  - mem-file-grows
+  taught: 6
+  status: active
+- id: context-11
+  badge: context
+  question: Instruction reach
+  surfaces:
+  - id: c11-committed
+    surface: Instruction files live in the team repo, committed — not local-only
+    weight: core
+    cues:
+    - reach-committed
+    - reach-split-deliberate
+    - reach-local-only
+    state: no-detector  # cues drafted 2026-08-23, probe-gated — flip on promotion
+  - id: c11-team-adopts
+    surface: Teammates run against the same files — named people, real use
+    weight: supporting
+    cues:
+    - reach-team-uses
+    - reach-team-contributes
+    state: no-detector  # cues drafted 2026-08-23, probe-gated — flip on promotion
+  cues:
+  - reach-committed
+  - reach-split-deliberate
+  - reach-team-uses
+  - reach-team-contributes
+  - reach-local-only
+  taught: 0
+  status: active
+- id: context-9
+  badge: prompt
+  question: Session management
+  cues:
+  - ctx-agent-searches
+  - ctx-paste-files
+  - ctx-screenshot
+  - ctx-outside-data
+  - ctx-one-thread
+  - ctx-cost
+  taught: 6
+  status: active
+- id: prompt-11
+  badge: prompt
+  question: Plan-first development
+  cues:
+  - pr-plan-first
+  - pr-spec-doc
+  taught: 6
+  status: active
+- id: prompt-12
+  badge: prompt
+  question: Prompt precision
+  cues:
+  - pr-point-location
+  - pr-narrow-brief
+  - pr-spec-voice
+  - pr-prohibit
+  - pr-spec-snippet
+  - pr-role-prefix
+  - pr-metaprompt
+  - pr-prompt-library
+  - pr-ask-orientation
+  taught: 24
+  status: active
+- id: prompt-13
+  badge: prompt
+  question: Prompt accountability
+  cues:
+  - pr-own-wording
+  - pr-name-defect
+  taught: 2
+  status: active
+- id: loop-14
+  badge: loop
+  question: Review gates
+  cues:
+  - lp-plan-gate
+  - lp-step-gate
+  - lp-small-batch
+  taught: 14
+  status: active
+- id: loop-15
+  badge: loop
+  question: Independent verification
+  cues:
+  - lp-second-gate
+  - lp-agent-tests
+  taught: 18
+  status: active
+- id: loop-16
+  badge: loop
+  question: Output ownership
+  cues:
+  - lp-keep-ownership
+  - lp-verify-as-user
+  - lp-graded-rope
+  - lp-ship-unread
+  taught: 5
+  status: active
+- id: loop-17
+  badge: loop
+  question: Failure capture
+  cues:
+  - lp-caught-defect
+  - lp-report-back
+  taught: 8
+  status: active
+- id: loop-18
+  badge: loop
+  question: Bottleneck awareness
+  cues:
+  - lp-review-bottleneck
+  taught: 0
+  status: active
+- id: loop-19
+  badge: loop
+  question: Built the runner
+  cues:
+  - lp-own-rig
+  taught: 0
+  status: active
+- id: loop-20
+  badge: loop
+  question: Runs without being asked
+  cues:
+  - lp-event-fired
+  - lp-acts-unattended
+  taught: 0
+  status: active
+- id: loop-21
+  badge: loop
+  question: Walks a set on its own
+  cues:
+  - lp-walks-a-set
+  taught: 0
+  status: active
+- id: loop-22
+  badge: loop
+  question: Recovers and improves itself
+  cues:
+  - lp-self-heal
+  - lp-loop-resumes
+  - lp-loop-learns
+  surfaces:
+  - id: l22-self-heal
+    surface: Carried on to the goal after hitting a problem mid-run, with nobody stepping in
+    weight: core
+    cues: [lp-self-heal]
+  - id: l22-resumes
+    surface: The work survives the process dying — state outside the chat a restart picks up from
+    weight: supporting
+    state: never-asked
+    cues: [lp-loop-resumes]
+  - id: l22-learns
+    surface: Changed its own later behaviour from a failure it recorded, with no hand-written fix
+    weight: supporting
+    state: never-asked
+    cues: [lp-loop-learns]
+  taught: 0
+  status: active
+- id: harness-7
+  badge: harness
+  question: Uses hooks
+  cues:
+  - hn-hook-fired
+  taught: 0
+  status: active
+- id: loop-23
+  badge: loop
+  question: Runs evals
+  cues:
+  - lp-eval-suite
+  taught: 0
+  status: active
+- id: harness-8
+  badge: harness
+  question: Builds agent infrastructure
+  cues:
+  - hn-plugin-own
+  - hn-mcp-authored
+  - hn-sdk-used
+  taught: 0
+  status: active
+- id: harness-9
+  badge: harness
+  question: Bounds and watches the run
+  cues:
+  - hn-perm-scoped
+  - hn-telemetry
+  taught: 0
+  status: active
+- id: harness-10
+  badge: harness
+  question: Builds machinery the agent runs inside
+  surfaces:
+  - id: h10-hook
+    surface: A hook he wrote — the event it fires on and what it blocks or adds
+    weight: core
+    cues:
+    - hn-hook-authored
+    state: measured-thin
+  - id: h10-runner
+    surface: A script or program he wrote that starts the agent — cron, webhook, CI, claude -p, SDK
+    weight: core
+    cues:
+    - hn-runner-authored
+    state: measured-thin
+  - id: h10-agent-file
+    surface: Agent or subagent files he wrote, each with a role
+    weight: core
+    cues:
+    - hn-agent-file-authored
+    state: measured-thin
+  - id: h10-runtime-ext
+    surface: His own plugin or MCP server that changes how the agent runs or behaves
+    weight: core
+    cues:
+    - hn-extension-runtime
+    state: measured-thin
+  - id: h10-mcp-tools
+    surface: An MCP server he wrote that adds tools
+    weight: supporting
+    cues:
+    - hn-mcp-authored
+    state: measured-thin
+  - id: h10-git-hook
+    surface: A git hook he wrote to check the agent's work
+    weight: supporting
+    cues:
+    - hn-git-hook-for-agent
+    state: measured-thin
+  cues:
+  - hn-hook-authored
+  - hn-runner-authored
+  - hn-agent-file-authored
+  - hn-extension-runtime
+  - hn-mcp-authored
+  - hn-git-hook-for-agent
+  taught: 0
+  status: active

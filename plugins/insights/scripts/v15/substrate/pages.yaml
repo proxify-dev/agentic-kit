@@ -1,0 +1,33 @@
+# Substrate v15 · the framing of the public pages built from the substrate (tools/publish.py). Only the words around
+# the entries live here: front matter, intros, group headings. The entries themselves come from the challenges
+# (`pitfall:`) and practices (`practice_card:`). The vocabulary page's framing lives in vocabulary.yaml (page_layout).
+common-pitfalls:
+  front_matter: |-
+    title: "Common Pitfalls"
+    description: "The mistakes engineers make with coding agents, why they hurt, and what to do instead."
+  intro: |-
+    The mistakes we see most often when engineers work with coding agents, from our calls with engineers across the
+    network. Each one says what goes wrong, why it hurts, and what to do instead. Most have a name in the field; the
+    [Vocabulary](/reference/vocabulary) page says who named it.
+  glance_heading: At a glance
+  glance_header: |-
+    | Pitfall | What goes wrong |
+    |---|---|
+  groups:
+  - id: context
+    title: What the agent knows
+  - id: prompt
+    title: Handing work over
+  - id: verification
+    title: Checking the work
+  - id: harness
+    title: Access and safety
+  - id: orchestration
+    title: Running several agents
+  - id: team
+    title: As a team
+    intro: Pitfalls that only show when several people work with agents on the same codebase.
+  what_works_heading: What works
+  what_works_intro: The habits that prevent most of the pitfalls above.
+  outro: |-
+    <Tip>**Keep learning** — For more on working effectively with Claude Code, see the [official best practices](https://code.claude.com/docs/en/best-practices).</Tip>

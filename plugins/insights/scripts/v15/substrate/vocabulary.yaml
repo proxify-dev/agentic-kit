@@ -1,0 +1,3189 @@
+# Substrate v15 · vocabulary: the industry's named problems and moves, one entry per term, each sourced
+# and graded (standard · emerging · single-source · folk). THE home of every term: challenges and
+# practices point here with `vocab:`, the public page /reference/vocabulary is built from this file
+# (tools/publish.py), tools/check.py keeps the copies honest. Imported 2026-11-03 from the 10-26/10-27
+# research (tools/vocab_import.py); edit here from now on.
+terms:
+- id: context-rot
+  term: context rot
+  kind: problem
+  family: context
+  grade: standard
+  year: '2025'
+  meaning: 'A model''s accuracy and recall degrade as the number of tokens in its context grows, so more context is not automatically
+    better. Anthropic: ''As token count grows, accuracy and recall degrade, a phenomenon known as context rot''.'
+  who: Hacker News user Workaccount2 (comment of 2025-06-18; Simon Willison replied 'I think you just coined context rot').
+    Measured by Chroma (Kelly Hong, Anton Troynikov, Jeff Huber, 2025-07-14, 18 models), whose report uses the term only in
+    its title. Defined in Anthropic's docs and engineering post (2025-09-29).
+  source: https://news.ycombinator.com/item?id=44310054
+  checked_against_source: true
+  also_called:
+  - context degradation
+  - long-context degradation
+  fixed_by:
+  - compaction
+  - intentional compaction
+  - context reset
+  - sub-agent architectures (context isolation)
+  - tool result clearing (context editing)
+  - structured note-taking (agentic memory)
+  - context pruning
+  - context offloading
+  - smallest set of high-signal tokens
+  - just-in-time context retrieval
+  - progressive disclosure
+  - RAG (as a context fix)
+  - context engineering
+  - write, select, compress, isolate
+  - own your context window
+  - context folding
+  - Recursive Language Models (RLMs)
+  - sleep-time compute
+  - Ralph Wiggum technique (Ralph loop)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context rot
+    link: https://www.trychroma.com/research/context-rot
+    text: The more tokens in the context, the worse the model recalls and reasons. More context is not automatically better.
+    named_by: A Hacker News comment (June 2025), measured by Chroma, defined by Anthropic
+- id: lost-in-the-middle
+  term: lost in the middle
+  kind: problem
+  family: context
+  grade: standard
+  year: '2023'
+  meaning: Language model performance is often highest when the relevant information sits at the beginning or end of the input.
+    It degrades significantly when that information sits in the middle of a long context, even for explicitly long-context
+    models.
+  who: 'Nelson F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua, Fabio Petroni, Percy Liang (TACL 2023).
+    The labels U-shaped, primacy and recency come from later writers. This is a different measured effect from context rot:
+    Chroma found no position effect in its own setup.'
+  source: https://arxiv.org/abs/2307.03172
+  checked_against_source: true
+  also_called:
+  - U-shaped attention curve
+  - positional bias (primacy and recency)
+  fixed_by:
+  - recitation (todo.md)
+  - context engineering
+  - placing critical information at the start or end of the prompt
+  imported_from: research-2026-10-26.json
+  page:
+    label: Lost in the middle
+    link: https://arxiv.org/abs/2307.03172
+    text: Facts at the start or end of a long input get used; facts in the middle get missed.
+    named_by: Liu et al., 2023
+- id: context-poisoning
+  term: context poisoning
+  kind: problem
+  family: context
+  grade: emerging
+  grade_note: one researcher and the checker rate it standard
+  year: '2025'
+  meaning: A hallucination or other error gets into the context. The model refers back to it again and again, and it keeps
+    steering the model.
+  who: Google DeepMind's Gemini 2.5 team, in the Gemini Plays Pokemon section of the technical report (arXiv 2507.06261).
+    Drew Breunig generalised it as a failure mode and popularised it (2025-06-22). Adopted by LangChain, Simon Willison and
+    OpenAI's Agents SDK cookbook. Not the same as trajectory poisoning.
+  source: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - sub-agent architectures (context isolation)
+  - context pruning
+  - context reset
+  - context engineering
+  - compaction (only with a clean summary; a bad fact in a summary keeps poisoning)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context poisoning
+    link: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+    text: A wrong fact or hallucination gets into the context, and the model keeps building on it.
+    named_by: Gemini 2.5 report; Drew Breunig, 2025
+- id: context-distraction
+  term: context distraction
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: A context grows so long that the model over-focuses on the context and neglects what it learned during training.
+  who: Drew Breunig (2025-06-22). LangChain ('When the context overwhelms the training') and Willison adopted it, citing him.
+    Not the same as Chroma's 'distractors'.
+  source: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - compaction
+  - context offloading
+  - context pruning
+  - context reset
+  - sub-agent architectures (context isolation)
+  - programmatic tool calling
+  - context engineering
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context distraction
+    link: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+    text: The context grows so long that the model leans on it and neglects what it learned in training.
+    named_by: Drew Breunig, 2025
+- id: context-confusion
+  term: context confusion
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: 'The model uses superfluous content in the context to generate a low-quality response. Breunig''s main evidence
+    is too many tool definitions: the Berkeley Function-Calling Leaderboard, and a GeoEngine study where a quantized Llama
+    3.1 8b failed with 46 tools and succeeded with 19. It does not mean the agent is confused about which task or project
+    it is on.'
+  who: Drew Breunig, 'How Long Contexts Fail' (2025-06-22), restated in 'How to Fix Your Context' (2025-06-26). Lance Martin/LangChain,
+    Simon Willison, O'Reilly Radar and Redis repeat it and credit him. Anthropic, OpenAI, Google, Chroma and academic papers
+    do not use it.
+  source: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - tool loadout
+  - Tool Search Tool (deferred tool loading)
+  - progressive disclosure
+  - RAG (as a context fix)
+  - context pruning
+  - sub-agent architectures (context isolation)
+  - smallest set of high-signal tokens
+  - just-in-time context retrieval
+  - right altitude
+  - context engineering
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context confusion
+    link: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+    text: Extra content, most often too many tool definitions, drags the answer down.
+    named_by: Drew Breunig, 2025
+- id: context-clash
+  term: context clash
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: New information and tools added to the context conflict with information already in it.
+  who: Drew Breunig (2025-06-22). He builds it on Laban et al. (arXiv 2505.06120), who found an average 39% drop when prompts
+    are split across turns. LangChain lists it and Willison quotes it.
+  source: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - context pruning
+  - sub-agent architectures (context isolation)
+  - context engineering
+  - single-threaded agents with shared full traces (Cognition)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context clash
+    link: https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html
+    text: New information conflicts with what is already in the context.
+    named_by: Drew Breunig, 2025
+- id: lost-in-conversation
+  term: lost in conversation
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: When an LLM takes a wrong turn in a multi-turn conversation, it gets lost and does not recover. It makes assumptions
+    early and attempts final answers too soon, then over-relies on them. The study measured an average 39% drop versus single-turn
+    prompts.
+  who: Philippe Laban, Hiroaki Hayashi, Yingbo Zhou, Jennifer Neville, 'LLMs Get Lost In Multi-Turn Conversation' (2025-05-09).
+    'Lost in conversation' is the name of the code repository.
+  source: https://github.com/microsoft/lost_in_conversation
+  checked_against_source: true
+  also_called:
+  - LLMs get lost in multi-turn conversation
+  fixed_by:
+  - context reset
+  - consolidating requirements into a fresh single-turn prompt
+  imported_from: research-2026-10-26.json
+  page:
+    label: Lost in conversation
+    link: https://github.com/microsoft/lost_in_conversation
+    text: One wrong turn early in a multi-turn session and the model rarely recovers. The study measured a 39% average drop versus
+      one complete prompt.
+    named_by: Laban et al. (Microsoft), 2025
+- id: context-pollution
+  term: context pollution
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: Irrelevant or stale content builds up in the context window, such as unrelated tasks or failed approaches, and
+    degrades the model's output.
+  who: 'No known coiner. Anthropic uses it descriptively without defining it: in its engineering post (2025-09-29) and in
+    the Claude Code docs (''Context is polluted with failed approaches''). Per the checker, Phil Schmid (Dec 2025) and Liip
+    (Mar 2026) define it independently.'
+  source: https://www.philschmid.de/context-engineering-part-2
+  checked_against_source: true
+  also_called:
+  - polluted context
+  fixed_by:
+  - compaction
+  - structured note-taking (agentic memory)
+  - sub-agent architectures (context isolation)
+  - context reset
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context pollution
+    link: https://www.philschmid.de/context-engineering-part-2
+    text: Irrelevant or stale content, such as failed attempts and unrelated tasks, piles up and degrades the output.
+    named_by: No single author; used by Anthropic
+- id: attention-budget
+  term: attention budget
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: LLMs have an attention budget that they draw on when parsing large volumes of context, and every new token depletes
+    it by some amount. Anthropic grounds the idea in the transformer's n-squared pairwise relationships being stretched thin.
+  who: Anthropic Applied AI team (Prithvi Rajasekaran, Ethan Dixon, Carly Ryan, Jeremy Hadfield), 2025-09-29.
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - n-squared pairwise relationships stretched thin
+  fixed_by:
+  - smallest set of high-signal tokens
+  - just-in-time context retrieval
+  - compaction
+  - context engineering
+  imported_from: research-2026-10-26.json
+  page:
+    label: Attention budget
+    link: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    text: The model has a limited budget of attention, and every token spends some of it.
+    named_by: Anthropic, 2025
+- id: attention-dilution
+  term: attention dilution
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2026'
+  meaning: As context grows, attention is spread over more tokens, which starves the content tokens that matter. One paper
+    defines it as 'the starvation of content tokens in the attention distribution'.
+  who: Unknown. The earliest uses found are in Shangding Gu, 'Long Context, Less Focus' (arXiv 2602.15028, 2026-02-16), and
+    Pei et al., FocuSFT (arXiv 2605.09932, 2026-05-11). The first is about inference and the second about training, so the
+    two papers use the term somewhat differently.
+  source: https://arxiv.org/abs/2605.09932
+  checked_against_source: true
+  also_called:
+  - diluted attention
+  - long context, less focus
+  fixed_by:
+  - context pruning
+  - dilution-aware fine-tuning (FocuSFT)
+  imported_from: research-2026-10-26.json
+- id: real-context-size
+  term: real context size (claimed versus effective context length)
+  kind: problem
+  family: context
+  grade: standard
+  year: '2024'
+  meaning: 'Effective context length is the longest input at which a model still performs above a quality threshold. It is
+    often far below the context length the model claims or was trained on: RULER tested 17 models and found only half held
+    up at 32K.'
+  who: No single coiner. RULER (Hsieh et al., NVIDIA, 2024-04-09) popularised measuring claimed against effective length,
+    and An et al. (2024-10-24) use 'effective context length' in their title.
+  source: https://github.com/NVIDIA/RULER
+  checked_against_source: true
+  also_called:
+  - effective context length
+  - RULER
+  fixed_by:
+  - evals
+  - RULER benchmark (measures it)
+  imported_from: research-2026-10-26.json
+- id: context-anxiety
+  term: context anxiety
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: A model that knows the size of its own context window takes shortcuts or wraps tasks up early because it believes
+    it is near the end of the window, even when plenty of room is left.
+  who: Cognition (the Devin team), in 'Rebuilding Devin for Claude Sonnet 4.5' (2025-09-29). Adopted by Inkeep (2025-10-03)
+    and in Anthropic's harness post (2026-03-24). A 2026 ICML paper (arXiv 2607.21616) calls it 'informally known as context
+    anxiety'.
+  source: https://cognition.com/blog/devin-sonnet-4-5-lessons-and-challenges
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - context reset
+  - compaction
+  - structured note-taking (agentic memory)
+  - enable the 1M-token window but cap usage at 200k (Cognition)
+  - reminders at the start and end of the prompt
+  - tell the model its context will be compacted and not to stop early
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context anxiety
+    link: https://cognition.com/blog/devin-sonnet-4-5-lessons-and-challenges
+    text: A model that knows its window size rushes or wraps up early, believing it is near the end when it isn't.
+    named_by: Cognition (Devin), 2025
+- id: dumb-zone
+  term: dumb zone
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: The stretch of a filled-up context window where a coding agent's decisions get noticeably worse. In that stretch
+    it starts doing increasingly stupid things, such as deleting your .env file. The low-utilisation counterpart is the smart
+    zone.
+  who: Attributed to Dex Horthy (HumanLayer), who introduced it jokingly in his AI Engineer Code 2025 talk 'No Vibes Allowed'.
+    No fetched source states that he coined it. He credits Geoff Huntley for the idea that the more of the window you use,
+    the worse the outcomes.
+  source: https://ai.engineer/talks/rmvDxxNubIg-context-engineering-for-complex-codebases
+  checked_against_source: true
+  also_called:
+  - smart zone (counterpart)
+  fixed_by:
+  - intentional compaction
+  - context reset
+  - sub-agent architectures (context isolation)
+  - tool loadout
+  - keep context utilisation low (Horthy's ~40% heuristic, a feel not a measured constant)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Dumb zone
+    link: https://ai.engineer/talks/rmvDxxNubIg-context-engineering-for-complex-codebases
+    text: Past a certain fill level, the agent's decisions get noticeably worse.
+    named_by: Dex Horthy (HumanLayer), 2025
+- id: trajectory-poisoning
+  term: trajectory poisoning
+  kind: problem
+  family: context
+  grade: single-source
+  year: '2026'
+  meaning: The agent falls into a pattern of doing things you do not want. After repeated mistakes, the model computes that
+    the most probable next message is another mistake. Replies such as 'You're completely right!' are a symptom.
+  who: Gergely Orosz's write-up of Dex Horthy (2026-07-15). The wording may be Orosz's.
+  source: https://newsletter.pragmaticengineer.com/p/context-engineering-with-dex-horthy
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - context reset
+  - intentional compaction
+  imported_from: research-2026-10-26.json
+- id: summary-drift
+  term: summary drift
+  kind: problem
+  family: context
+  grade: single-source
+  year: unknown
+  meaning: When history is compressed into a summary, facts get reinterpreted or altered, so errors can compound across repeated
+    summarisation.
+  who: Unknown. The exact phrase appears in OpenAI's Agents SDK cookbook (undated). Factory Research (2025-12-16) calls the
+    same effect 'silent drift'.
+  source: https://developers.openai.com/cookbook/examples/agents_sdk/session_memory
+  checked_against_source: true
+  also_called:
+  - silent drift (Factory)
+  - context distortion
+  - compaction loss (not a coined term)
+  fixed_by:
+  - anchored iterative summarization
+  - context pruning
+  - context reset
+  - evals
+  - tailored compression prompts
+  imported_from: research-2026-10-26.json
+- id: context-collapse
+  term: context collapse
+  kind: problem
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: When an LLM repeatedly rewrites an accumulated context, details erode over time and the context degrades into shorter,
+    less informative summaries.
+  who: Qizheng Zhang et al., 'Agentic Context Engineering' (arXiv 2510.04618, 2025-10-06; ICLR 2026). Unrelated to 'model
+    collapse'.
+  source: https://arxiv.org/abs/2510.04618
+  checked_against_source: true
+  also_called:
+  - brevity bias (sibling term from the same paper)
+  fixed_by:
+  - Agentic Context Engineering (ACE)
+  - anchored iterative summarization
+  - incremental delta updates
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context collapse
+    link: https://arxiv.org/abs/2510.04618
+    text: Summarising a context again and again erodes the details until little useful is left.
+    named_by: Zhang et al. (ACE paper), 2025
+- id: lobotomization
+  term: lobotomization (post-compaction)
+  kind: problem
+  family: context
+  grade: folk
+  year: '2026'
+  meaning: After auto-compaction, a coding agent loses track of which repo it is in, forgets constraints you set and drops
+    skills it had invoked, so session quality falls immediately.
+  who: 'Unknown; community slang. Ian L. Paterson (2026-03-25, updated 2026-08-15) reports ''The community calls this lobotomization''.
+    The behaviour is documented in Claude Code issue #24460 (2026-02-09): /compact summarises CLAUDE.md rules along with the
+    conversation, and they may be lost. The issue was closed as not planned.'
+  source: https://ianlpaterson.com/blog/stop-claude-code-from-lobotomizing-itself-mid-task/
+  checked_against_source: true
+  also_called:
+  - post-compaction amnesia
+  - context amnesia
+  - instruction amnesia
+  fixed_by:
+  - context reset
+  - structured note-taking (agentic memory)
+  - sub-agent architectures (context isolation)
+  - hooks
+  - disable auto-compact
+  - manual /compact with explicit instructions
+  - statusline context monitoring
+  imported_from: research-2026-10-26.json
+- id: instruction-drift
+  term: instruction drift
+  kind: problem
+  family: context
+  grade: single-source
+  grade_note: '''context drift'' is folk'
+  year: '2024'
+  meaning: A model follows its initial instructions less and less as a conversation or session grows, even though the instructions
+    are still in context. Li et al. report significant drift within eight rounds and tie it to attention decay. Bui's name,
+    instruction fade-out, describes the model progressively deprioritising initial instructions as history grows.
+  who: '''Instruction drift'': Kenneth Li, Tianle Liu, Naomi Bashkansky, David Bau, Fernanda Viegas, Hanspeter Pfister, Martin
+    Wattenberg (arXiv 2402.10962, 2024-02-13; COLM 2024; first framed as ''persona drift''). ''Instruction fade-out'': Nghi
+    D. Q. Bui''s OPENDEV paper (arXiv 2603.05344, 2026-03-05), defined by agentpatterns.ai. ''Context drift'': practitioner
+    usage with no coiner, also used for state lost between sessions. No settled name exists.'
+  source: https://arxiv.org/abs/2402.10962
+  checked_against_source: true
+  also_called:
+  - instruction fade-out
+  - prompt fade
+  - persona drift
+  - context drift (folk)
+  - context degradation syndrome (James Howard, 2024-11-26)
+  - instruction (in)stability
+  fixed_by:
+  - context reset
+  - event-driven system reminders (re-inject instructions)
+  - split-softmax (attention reweighting)
+  - CLAUDE.md anchoring and checkpoints
+  imported_from: research-2026-10-26.json
+- id: goal-drift
+  term: goal drift
+  kind: problem
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: An agent's tendency to deviate from its original objective over time. Arike et al. find that it correlates with
+    growing susceptibility to pattern-matching as context length grows.
+  who: Rauno Arike, Elizabeth Donoway, Henning Bartsch, Marius Hobbhahn (arXiv 2505.02709, 2025-05-05; AIES 2025). Follow-ups
+    by other authors reuse the term (arXiv 2603.03258, 2603.03456).
+  source: https://arxiv.org/abs/2505.02709
+  checked_against_source: true
+  also_called:
+  - inherited goal drift
+  - asymmetric goal drift
+  fixed_by:
+  - recitation (todo.md)
+  - context reset
+  - instruction hierarchy
+  - agent harness
+  imported_from: research-2026-10-26.json
+  page:
+    label: Goal drift
+    link: https://arxiv.org/abs/2505.02709
+    text: Over a long run, the agent wanders away from its original objective.
+    named_by: Arike et al., 2025
+- id: agent-drift
+  term: agent drift
+  kind: problem
+  family: context
+  grade: single-source
+  year: '2026'
+  meaning: The progressive degradation of agent behavior, decision quality and inter-agent coherence over extended interaction
+    sequences.
+  who: Abhishek Rath (independent researcher), arXiv 2601.04170, 2026-01-07. The results come from simulation and the researchers
+    read only the abstract.
+  source: https://arxiv.org/abs/2601.04170
+  checked_against_source: true
+  also_called:
+  - behavioral degradation
+  fixed_by: []
+  imported_from: research-2026-10-26.json
+- id: instruction-induction-conflict
+  term: instruction-induction conflict
+  kind: problem
+  family: context
+  grade: single-source
+  year: '2026'
+  meaning: In a long conversation, the user's instruction can compete with the pattern set by earlier assistant turns. When
+    it does, the model switches from following the instruction to continuing the pattern.
+  who: Carolina Camassa and Derek Shiller (arXiv 2605.20382, 2026-05-19; poster at the COLM 2026 Sci-FM workshop).
+  source: https://arxiv.org/abs/2605.20382
+  checked_against_source: true
+  also_called:
+  - instruction-following to pattern-following transition
+  fixed_by:
+  - context reset
+  - varied, multi-token outputs
+  - chain-of-thought (helps but does not remove it)
+  imported_from: research-2026-10-26.json
+- id: context-inertia
+  term: context inertia
+  kind: problem
+  family: context
+  grade: single-source
+  year: '2026'
+  meaning: The model commits to a hypothesis, subtask or goal in its context and keeps pursuing it after the evidence says
+    to stop or change course.
+  who: Drew Breunig, 2026-10-14. He says compaction alone does not fix it. Nobody checked whether the works he cites use the
+    term themselves.
+  source: https://www.dbreunig.com/2026/10/14/context-inertia.html
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - context reset
+  - sub-agent architectures (context isolation)
+  - context offloading
+  imported_from: research-2026-10-26.json
+- id: kitchen-sink-session
+  term: kitchen sink session
+  kind: problem
+  family: context
+  grade: single-source
+  year: unknown
+  meaning: You start with one task, ask something unrelated, then return to the first task. The context is left full of irrelevant
+    information.
+  who: Anthropic, in the Claude Code best-practices docs, next to its sibling anti-patterns 'Correcting over and over' and
+    'The infinite exploration'.
+  source: https://code.claude.com/docs/en/best-practices
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - context reset
+  - sub-agent architectures (context isolation)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Kitchen sink session
+    link: https://code.claude.com/docs/en/best-practices
+    text: One session for unrelated tasks, so each task's leftovers crowd the next.
+    named_by: Anthropic, Claude Code docs
+- id: context-engineering
+  term: context engineering
+  kind: move
+  family: context
+  grade: standard
+  year: '2025'
+  meaning: The set of strategies for curating and maintaining the optimal set of tokens (information) during LLM inference
+    (Anthropic). Karpathy calls it 'the delicate art and science of filling the context window with just the right information
+    for the next step'.
+  who: 'Contested; no single coiner. The Pragmatic Engineer asserts Dex Horthy coined it. Horthy himself recalls posting 12-Factor
+    Agents around 2025-04-03 and calls Jeff Huber a ''secret co-creator''; he does not claim coinage. Earliest dated uses
+    verified: Walden Yan/Cognition 2025-06-12, Tobi Lütke 2025-06-19, Harrison Chase 2025-06-23, Andrej Karpathy 2025-06-25.'
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - context engineering vs prompt engineering
+  fixes:
+  - context rot
+  - lost in the middle
+  - context poisoning
+  - context distraction
+  - context confusion
+  - context clash
+  - attention budget
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context engineering
+    link: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    text: 'The umbrella: choose and maintain the right tokens in the window for each step.'
+    named_by: No single author (2025)
+- id: smallest-set-of-high-signal-tokens
+  term: smallest set of high-signal tokens
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: Find the smallest set of high-signal tokens that maximizes the likelihood of your desired outcome. Minimal does
+    not mean short.
+  who: Anthropic Applied AI team (Rajasekaran, Dixon, Ryan, Hadfield), 2025-09-29.
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - minimal high-signal tokens
+  - information per token density (Horthy)
+  - not too little, not too much (Böckeler)
+  fixes:
+  - context rot
+  - attention budget
+  - context confusion
+  imported_from: research-2026-10-26.json
+- id: progressive-disclosure
+  term: progressive disclosure
+  kind: move
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: 'The core design principle of Agent Skills: load information only as needed, in levels. The skill''s metadata sits
+    in the system prompt, the SKILL.md body loads when relevant, and linked files load only for specific scenarios. Anthropic
+    applies the same principle to tool definitions.'
+  who: 'Borrowed from HCI/UX: a 2006 Nielsen Norman Group article calls it over 30 years old and names no originator. Anthropic
+    applied it to agents (Barry Zhang, Keith Lazuka, Mahesh Murag) in the Agent Skills post, 2025-10-16.'
+  source: https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
+  checked_against_source: true
+  also_called: []
+  fixes:
+  - context rot
+  - context confusion
+  - instruction stacking
+  - prompt bloat
+  - tool definition bloat
+  imported_from: research-2026-10-26.json
+  page:
+    label: Progressive disclosure
+    link: https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
+    text: Keep a short version always loaded and open the detail only when it is needed. The design idea behind Agent Skills.
+    named_by: From UX design; Anthropic for agents
+- id: just-in-time-context-retrieval
+  term: just-in-time context retrieval
+  kind: move
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: Agents keep lightweight identifiers such as file paths, stored queries and web links. They load the data into context
+    at runtime with tools, instead of pre-loading everything.
+  who: Anthropic Applied AI team (2025-09-29). Cursor's Jediah Katz named the same pattern 'dynamic context discovery' (2026-01-06).
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - dynamic context discovery (Cursor)
+  - agentic search
+  - pull rather than push context
+  fixes:
+  - context rot
+  - context confusion
+  - attention budget
+  imported_from: research-2026-10-26.json
+  page:
+    label: Just-in-time retrieval
+    link: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    text: Keep pointers (file paths, queries, links) and load the content at the moment it is needed.
+    named_by: Anthropic, 2025
+- id: compaction
+  term: compaction
+  kind: move
+  family: context
+  grade: standard
+  year: '2025'
+  meaning: When a conversation nears the context window limit, summarize its contents and start a new context window with
+    the summary. It is lossy.
+  who: 'Originator unknown. Defined by Anthropic''s Applied AI team (2025-09-29), which calls it ''the first lever in context
+    engineering''. Shipped by Claude Code, the Anthropic and OpenAI APIs, Google ADK and Amp. Breunig names the underlying
+    move ''context summarization'' (2025-06-26). Manus uses ''compaction'' for something different: swapping stale tool results
+    for file pointers.'
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - context compaction
+  - auto-compact
+  - context summarization (Breunig)
+  - summarization
+  - context compression (OpenAI)
+  fixes:
+  - context rot
+  - context distraction
+  - context pollution
+  - attention budget
+  - context anxiety
+  - context window overflow
+  imported_from: research-2026-10-26.json
+  page:
+    label: Compaction
+    link: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    text: Summarise the conversation near the limit and continue in a fresh window from the summary.
+    named_by: Defined by Anthropic
+- id: intentional-compaction
+  term: intentional compaction
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: As the context starts to fill, pause and have the agent distil the work so far into a reviewable structured artifact,
+    such as progress.md, that keeps the exact files and line numbers that matter. Then start a fresh agent from it. Do this
+    often, keeping utilisation around 40-60%.
+  who: Dex Horthy (HumanLayer), blog post 'Advanced context engineering' (2025-08-29) and AI Engineer Code 2025 talk.
+  source: https://www.humanlayer.dev/blog/advanced-context-engineering
+  checked_against_source: true
+  also_called:
+  - frequent intentional compaction
+  - FIC
+  - research-plan-implement (RPI) workflow
+  fixes:
+  - dumb zone
+  - context rot
+  - trajectory poisoning
+  imported_from: research-2026-10-26.json
+  page:
+    label: Intentional compaction
+    link: https://www.humanlayer.dev/blog/advanced-context-engineering
+    text: Before the window fills, have the agent write the work so far into a file you can review, then continue from that.
+    named_by: Dex Horthy (HumanLayer), 2025
+- id: tool-result-clearing
+  term: tool result clearing (context editing)
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: Automatically clearing stale tool calls and results from the context window when approaching token limits, while
+    keeping the flow of the conversation. Clearing invalidates the cached prompt prefix.
+  who: Anthropic. The Effective Context Engineering post (2025-09-29) calls it 'one of the safest lightest touch forms of
+    compaction'; the API feature is called context editing.
+  source: https://platform.claude.com/docs/en/build-with-claude/context-editing
+  checked_against_source: true
+  also_called:
+  - context editing
+  - clear_tool_uses
+  - clear_thinking
+  fixes:
+  - context rot
+  imported_from: research-2026-10-26.json
+- id: structured-note-taking
+  term: structured note-taking (agentic memory)
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: The agent regularly writes notes to memory stored outside the context window, and pulls them back into the window
+    later.
+  who: Anthropic Applied AI team, 2025-09-29.
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - agentic memory
+  - scratchpad (within a session)
+  - memories (across sessions)
+  - memory tool
+  - progress file
+  - NOTES.md
+  fixes:
+  - context rot
+  - context pollution
+  - context anxiety
+  - lobotomization (post-compaction)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Structured note-taking
+    link: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    text: The agent writes notes outside the window and reads them back later.
+    named_by: Anthropic, 2025
+- id: sub-agent-architectures
+  term: sub-agent architectures (context isolation)
+  kind: move
+  family: context
+  grade: standard
+  grade_note: '''context quarantine'' as a label: emerging'
+  year: '2025'
+  meaning: 'Specialized sub-agents handle focused tasks in clean, isolated context windows and return a condensed summary
+    of their work, often 1,000-2,000 tokens. Breunig''s ''context quarantine'' is the same move: isolating contexts in their
+    own dedicated threads.'
+  who: 'Named by Anthropic (multi-agent research system 2025-06-13; Effective Context Engineering 2025-09-29). Drew Breunig
+    calls it ''context quarantine'' (2025-06-26) and LangChain calls it ''isolate''. Counter-position: Cognition''s ''Don''t
+    Build Multi-Agents'' (2025-06-12).'
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - context quarantine (Breunig)
+  - isolate (LangChain)
+  - context isolation
+  - orchestrator-worker
+  - separation of concerns
+  fixes:
+  - context rot
+  - context poisoning
+  - context distraction
+  - context confusion
+  - context clash
+  - context pollution
+  - dumb zone
+  - lobotomization (post-compaction)
+  - context inertia
+  - kitchen sink session
+  imported_from: research-2026-10-26.json
+  page:
+    label: Sub-agents (context isolation)
+    link: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    text: Hand a focused task to a sub-agent with its own clean window; only a short summary comes back.
+    named_by: Anthropic; "context quarantine" is Breunig's name
+- id: write-select-compress-isolate
+  term: write, select, compress, isolate
+  kind: move
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: 'Four buckets of context-engineering strategy: write context outside the window, select it into the window, compress
+    it to the tokens required, and isolate it by splitting it up.'
+  who: Lance Martin and the LangChain team (Martin's blog 2025-06-23; LangChain blog 2025-07-02). It builds on Karpathy's
+    OS analogy and Breunig's failure modes.
+  source: https://rlancemartin.github.io/2025/06/23/context_engineering/
+  checked_against_source: true
+  also_called:
+  - four strategies of context engineering
+  fixes:
+  - context rot
+  imported_from: research-2026-10-26.json
+  page:
+    label: Write, select, compress, isolate
+    link: https://rlancemartin.github.io/2025/06/23/context_engineering/
+    text: 'Four groups of moves: write context outside the window, select what goes in, compress it, split it up.'
+    named_by: Lance Martin (LangChain), 2025
+- id: rag
+  term: RAG (as a context fix)
+  kind: move
+  family: context
+  grade: standard
+  year: '2020'
+  meaning: Selectively adding relevant information to help the LLM generate a better response (Breunig's framing). Lewis et
+    al. define RAG as models that combine pre-trained parametric and non-parametric memory for generation.
+  who: Patrick Lewis et al. (Facebook AI Research, UCL, NYU), arXiv 2005.11401, 2020-05-22. Breunig lists it first of his
+    six context fixes (2025-06-26).
+  source: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+  checked_against_source: true
+  also_called:
+  - retrieval-augmented generation
+  - select (LangChain)
+  fixes:
+  - context rot
+  - context confusion
+  imported_from: research-2026-10-26.json
+  page:
+    label: RAG
+    link: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+    text: Fetch only the relevant information into the context instead of loading everything.
+    named_by: Lewis et al., 2020
+- id: tool-loadout
+  term: tool loadout
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: The act of selecting only relevant tool definitions to add to your context.
+  who: Drew Breunig (2025-06-26), borrowing 'loadout' from gaming. Anthropic's Tool Search Tool is a productised version but
+    never uses the word.
+  source: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+  checked_against_source: true
+  also_called: []
+  fixes:
+  - context confusion
+  - dumb zone
+  - tool definition bloat
+  imported_from: research-2026-10-26.json
+  page:
+    label: Tool loadout
+    link: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+    text: Load only the tool definitions this task needs.
+    named_by: Drew Breunig, 2025
+- id: context-pruning
+  term: context pruning
+  kind: move
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: The act of removing irrelevant or otherwise unneeded information from the context. Breunig's pruning removes content
+    by relevance; OpenAI's trimming removes it by age, keeping the last N turns.
+  who: Drew Breunig named it (2025-06-26). He traces the idea to pre-ChatGPT NLP and cites Provence as a pruning tool.
+  source: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+  checked_against_source: true
+  also_called:
+  - trimming (LangChain, OpenAI)
+  - prune
+  fixes:
+  - context rot
+  - context poisoning
+  - context distraction
+  - context confusion
+  - context clash
+  - attention dilution
+  - summary drift
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context pruning
+    link: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+    text: Remove what the task no longer needs.
+    named_by: Drew Breunig, 2025
+- id: context-offloading
+  term: context offloading
+  kind: move
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: 'Storing information outside the LLM''s context, usually through a tool that stores and manages the data. Manus
+    treats the file system as the ultimate context: unlimited, persistent and directly operable. That makes compression restorable,
+    for example by dropping a page''s content but keeping its URL.'
+  who: '''Context offloading'' is Drew Breunig''s phrase (2025-06-26). ''File system as context'' is Yichao ''Peak'' Ji''s
+    (Manus, 2025-07-18), and LangChain credits Manus as one of the first to discuss it publicly. LangChain, Cursor, Google
+    ADK, OpenAI and Anthropic describe the same move.'
+  source: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+  checked_against_source: true
+  also_called:
+  - file system as context (Manus)
+  - filesystem offloading
+  - offloading large tool results
+  - write (LangChain)
+  - restorable compression
+  - artifacts
+  fixes:
+  - context rot
+  - context distraction
+  - context inertia
+  - long tool outputs
+  - irreversible information loss from compression
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context offloading
+    link: https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html
+    text: Store information outside the context, such as in files or notes, and read it back when needed.
+    named_by: Drew Breunig, 2025
+- id: design-around-the-kv-cache
+  term: design around the KV-cache
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: The KV-cache hit rate is the single most important metric for a production-stage agent. So keep the prompt prefix
+    stable, make the context append-only, and mark cache breakpoints explicitly.
+  who: Yichao 'Peak' Ji (Manus), 2025-07-18. Google ADK echoes it as 'stable prefixes'.
+  source: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+  checked_against_source: true
+  also_called:
+  - KV-cache hit rate
+  - prompt caching
+  - stable prefix
+  fixes:
+  - latency and token cost (cached input about 10x cheaper, per Manus)
+  imported_from: research-2026-10-26.json
+- id: mask-don-t-remove
+  term: mask, don't remove
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: Do not add or remove tools in the middle of an iteration. Instead, mask the token logits during decoding to prevent
+    or force the selection of certain actions.
+  who: Yichao 'Peak' Ji (Manus), 2025-07-18. This is the opposite choice to tool loadout and deferred tool loading.
+  source: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+  checked_against_source: true
+  also_called: []
+  fixes:
+  - KV-cache invalidation
+  - model confusion over missing tool definitions
+  imported_from: research-2026-10-26.json
+- id: recitation
+  term: recitation (todo.md)
+  kind: move
+  family: context
+  grade: emerging
+  year: '2025'
+  meaning: By constantly rewriting a todo list, the agent recites its objectives into the end of the context, a deliberate
+    way to pull attention toward the global plan.
+  who: Yichao 'Peak' Ji (Manus), 2025-07-18. LangChain reuses the phrase (2025-11-21). Manus later dropped todo.md because
+    about a third of all actions went into updating it.
+  source: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+  checked_against_source: true
+  also_called:
+  - manipulate attention through recitation
+  - todo.md
+  - plan file
+  fixes:
+  - lost in the middle
+  - goal drift
+  imported_from: research-2026-10-26.json
+  page:
+    label: Recitation
+    link: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+    text: Keep rewriting a `todo.md` so the plan stays at the end of the context, where attention is strongest.
+    named_by: Manus, 2025
+- id: keep-the-wrong-stuff-in
+  term: keep the wrong stuff in
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: 'Leave wrong turns in the context: failed actions, errors, stack traces. Erasing failure removes the evidence,
+    and without evidence the model cannot adapt.'
+  who: Yichao 'Peak' Ji (Manus), 2025-07-18. Contested by Anthropic's advice to /clear after two failed corrections, and by
+    the context-poisoning literature.
+  source: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+  checked_against_source: true
+  also_called: []
+  fixes:
+  - repeating the same mistake
+  imported_from: research-2026-10-26.json
+- id: context-reset
+  term: context reset
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: 'Clear the context window entirely and start a fresh agent, with a structured handoff that carries over the previous
+    agent''s state and next steps. Amp''s handoff does the same: instead of summarizing the old thread, it extracts what matters
+    for the next task into a new one.'
+  who: '''Context reset'': Anthropic (Prithvi Rajasekaran, Anthropic Labs, 2026-03-24). ''Handoff'': Amp (Sourcegraph, 2025-10-23).
+    Amp reversed course in 2026-05 (''handoff is out. Compaction is in'').'
+  source: https://www.anthropic.com/engineering/harness-design-long-running-apps
+  checked_against_source: true
+  also_called:
+  - handoff (Amp)
+  - /handoff
+  - /clear
+  - fresh context window
+  - session restart with handoff artifact
+  fixes:
+  - context rot
+  - context poisoning
+  - context distraction
+  - context pollution
+  - lost in conversation
+  - context anxiety
+  - dumb zone
+  - trajectory poisoning
+  - summary drift
+  - lobotomization (post-compaction)
+  - instruction drift
+  - goal drift
+  - instruction-induction conflict
+  - context inertia
+  - kitchen sink session
+  - doom loop
+  imported_from: research-2026-10-26.json
+  page:
+    label: Context reset (handoff)
+    link: https://www.anthropic.com/engineering/harness-design-long-running-apps
+    text: Clear the window entirely and start a fresh agent, with a written handoff of state and next steps.
+    named_by: Anthropic, 2025
+- id: context-folding
+  term: context folding
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: 'The agent branches into a sub-trajectory to handle a subtask. When the subtask is done, it folds the branch: the
+    intermediate steps collapse and only a concise summary of the outcome is kept. The method requires training the model
+    with RL (FoldGRPO).'
+  who: Weiwei Sun, Miao Lu, Zhan Ling, Kang Liu, Xuesong Yao, Yiming Yang, Jiecao Chen (arXiv 2510.11967, 2025-10-13).
+  source: https://arxiv.org/abs/2510.11967
+  checked_against_source: true
+  also_called:
+  - branch/return
+  - FoldGRPO (training method)
+  fixes:
+  - context rot
+  - long-horizon context growth
+  imported_from: research-2026-10-26.json
+- id: recursive-language-models
+  term: Recursive Language Models (RLMs)
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: A general inference paradigm that treats long prompts as part of an external environment. The LLM examines and
+    decomposes the prompt through code and recursively calls itself over snippets of it.
+  who: Alex L. Zhang, Tim Kraska, Omar Khattab (MIT), arXiv 2512.24601, 2025-12-31.
+  source: https://arxiv.org/abs/2512.24601
+  checked_against_source: true
+  also_called:
+  - RLM
+  - context as a variable in a REPL
+  fixes:
+  - context rot
+  - prompts larger than the context window
+  imported_from: research-2026-10-26.json
+- id: sleep-time-compute
+  term: sleep-time compute
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: 'Letting models think offline about contexts before queries arrive: they anticipate likely questions and precompute
+    useful information, which cuts work at test time.'
+  who: Kevin Lin, Charlie Snell, Yu Wang, Charles Packer, Sarah Wooders, Ion Stoica, Joseph E. Gonzalez (arXiv 2504.13171,
+    2025-04-17).
+  source: https://arxiv.org/abs/2504.13171
+  checked_against_source: true
+  also_called:
+  - sleeptime agents (Letta)
+  fixes:
+  - context rot
+  - per-query latency and cost
+  imported_from: research-2026-10-26.json
+- id: virtual-context-management
+  term: virtual context management (MemGPT)
+  kind: move
+  family: context
+  grade: single-source
+  year: '2023'
+  meaning: A technique modelled on the hierarchical memory of traditional operating systems. It gives an LLM the appearance
+    of a larger context by moving data between fast and slow memory tiers.
+  who: Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir G. Patil, Ion Stoica, Joseph E. Gonzalez (arXiv 2310.08560,
+    2023-10-12).
+  source: https://arxiv.org/abs/2310.08560
+  checked_against_source: true
+  also_called:
+  - MemGPT
+  - LLMs as operating systems
+  - memory tiers
+  fixes:
+  - small context windows
+  - long multi-session session
+  imported_from: research-2026-10-26.json
+- id: anchored-iterative-summarization
+  term: anchored iterative summarization
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: 'Keep a structured, persistent summary with explicit sections: session intent, file modifications, decisions, next
+    steps. When compression triggers, summarize only the newly truncated span and merge it into the existing summary.'
+  who: Factory Research (Factory.ai), 2025-12-16. The benchmark is vendor-run and has not been independently replicated.
+  source: https://factory.com/news/evaluating-compression
+  checked_against_source: true
+  also_called: []
+  fixes:
+  - summary drift
+  - context collapse
+  imported_from: research-2026-10-26.json
+- id: agentic-context-engineering
+  term: Agentic Context Engineering (ACE)
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: Treat contexts as evolving playbooks that accumulate, refine and organize strategies through a cycle of generation,
+    reflection and curation, updated with structured incremental edits.
+  who: Qizheng Zhang et al. (13 authors, including James Zou and Kunle Olukotun), arXiv 2510.04618, 2025-10-06; ICLR 2026.
+    The paper uses 'agentic context engineering' in a narrower sense than the general discipline.
+  source: https://arxiv.org/abs/2510.04618
+  checked_against_source: true
+  also_called:
+  - evolving playbooks
+  fixes:
+  - context collapse
+  imported_from: research-2026-10-26.json
+- id: tool-search-tool
+  term: Tool Search Tool (deferred tool loading)
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: 'A search tool that lets Claude discover tools on demand. Tools marked defer_loading: true are not loaded into
+    context at the start. In Anthropic''s example, upfront usage fell from about 77K to about 8.7K tokens.'
+  who: Anthropic, 'Advanced tool use' (Bin Wu with contributors), 2025-11-24.
+  source: https://www.anthropic.com/engineering/advanced-tool-use
+  checked_against_source: true
+  also_called:
+  - defer_loading
+  - lazy MCP tool loading
+  - search_tools
+  fixes:
+  - context confusion
+  - tool definition bloat
+  imported_from: research-2026-10-26.json
+  page:
+    label: Tool search
+    link: https://www.anthropic.com/engineering/advanced-tool-use
+    text: Let the agent search for tools on demand instead of loading them all up front.
+    named_by: Anthropic, 2025
+- id: programmatic-tool-calling
+  term: programmatic tool calling
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: Claude orchestrates tools through code rather than through individual API round-trips. Intermediate tool results
+    are processed in the execution environment instead of entering the context window.
+  who: Anthropic. 'Code execution with MCP' (Adam Jones, Conor Kelly, 2025-11-04), then 'Programmatic Tool Calling' in 'Advanced
+    tool use' (Bin Wu et al., 2025-11-24).
+  source: https://www.anthropic.com/engineering/advanced-tool-use
+  checked_against_source: true
+  also_called:
+  - code execution with MCP
+  - context-efficient tool results
+  - filtering in the execution environment
+  fixes:
+  - context distraction
+  - tool result bloat
+  imported_from: research-2026-10-26.json
+- id: own-your-context-window
+  term: own your context window
+  kind: move
+  family: context
+  grade: single-source
+  year: '2025'
+  meaning: You do not need standard message-based formats to give context to an LLM. Own how the context is structured, for
+    information density, error handling, safety, flexibility and token efficiency.
+  who: Dex Horthy (HumanLayer), Factor 3 of 12-Factor Agents. He recalls posting it around 2025-04-03.
+  source: https://github.com/humanlayer/12-factor-agents/blob/main/content/factor-03-own-your-context-window.md
+  checked_against_source: true
+  also_called:
+  - 12-Factor Agents factor 3
+  fixes:
+  - context rot
+  - error noise in history
+  imported_from: research-2026-10-26.json
+- id: needle-in-a-haystack
+  term: needle in a haystack
+  kind: move
+  family: context
+  grade: standard
+  year: '2023'
+  meaning: A long-context test that hides a fact (the needle) at varying depths in long filler text and asks the model to
+    retrieve it, measuring recall across context lengths. It measures recall and fixes nothing. RULER calls it a superficial
+    test, so passing it does not rule out context rot.
+  who: Greg Kamradt (GPT-4-128K run, 2023-11-08).
+  source: https://github.com/gkamradt/LLMTest_NeedleInAHaystack
+  checked_against_source: true
+  also_called:
+  - NIAH
+  - pressure testing long-context retrieval
+  fixes: []
+  imported_from: research-2026-10-26.json
+- id: fighting-the-weights
+  term: fighting the weights
+  kind: problem
+  family: prompt
+  grade: single-source
+  year: '2025'
+  meaning: The model will not do what you ask because you are working against its training. The warning signs are repeated
+    instructions, ALL CAPS and pleading.
+  who: Drew Breunig, 2025-11-11. Tim O'Reilly's write-up of Breunig's Foo Camp talk (2026-08-13) repeats it.
+  source: https://www.dbreunig.com/2025/11/11/don-t-fight-the-weights.html
+  checked_against_source: true
+  also_called:
+  - war-driving the thesaurus (escalating IMPORTANT, CRITICAL, MANDATORY)
+  fixed_by:
+  - smaller task steps
+  - a model from another family
+  - validation and retry in the harness
+  - reshaping the API to match what the model expects
+  - fine-tuning
+  imported_from: research-2026-10-26.json
+  page:
+    label: Fighting the weights
+    link: https://www.dbreunig.com/2025/11/11/don-t-fight-the-weights.html
+    text: Asking for something the model's training pulls against; repeating it louder doesn't help.
+    named_by: Drew Breunig, 2025
+- id: prompt-debt
+  term: prompt debt
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2025'
+  meaning: The slowly accumulating cost of treating natural-language prompts as the specification of a system. Iteration slows,
+    one-line hot fixes stop working, and the prompts tie you to a single model.
+  who: 'No single coiner. The earliest use found is Ahmed Aljohani and Hyunsook Do, ''PromptDebt'' (arXiv 2509.20497, 2025-09-24),
+    in a different sense: self-admitted technical debt in prompt design. The hot-fix sense comes from Tian Pan (''prompt debt
+    spiral'', 2026-04-19) and Drew Breunig (2026-06-22, republished by O''Reilly Radar).'
+  source: https://www.dbreunig.com/2026/06/22/the-problem-is-prompt-debt.html
+  checked_against_source: true
+  also_called:
+  - prompt debt spiral
+  - prompt debt trap
+  - hot fixes
+  - PromptDebt
+  fixed_by:
+  - evals
+  - dead-clause audits (prune rules the model already follows)
+  - specify tasks and let DSPy or GEPA find the wording
+  - treat prompts as perishable
+  - break work into evaluable steps
+  imported_from: research-2026-10-26.json
+  page:
+    label: Prompt debt
+    link: https://www.dbreunig.com/2026/06/22/the-problem-is-prompt-debt.html
+    text: Quick fixes pile up in a prompt until nobody dares touch it.
+    named_by: Drew Breunig, 2026
+- id: whack-a-mole
+  term: whack-a-mole (prompt patching)
+  kind: problem
+  family: prompt
+  grade: single-source
+  year: '2026'
+  meaning: Prompt edits meant to fix specific failure modes often introduce equal and opposite regressions elsewhere, so performance
+    plateaus.
+  who: An idiom, not coined by these authors. Applied to prompts by Simon Storf, Rich Barton-Cooper, James Peters-Gill and
+    Marius Hobbhahn (arXiv 2603.00829, 2026-02-28, ICML 2026, Appendix F.3.1), in a paper on monitoring agents for scheming.
+    Leech et al. (2024) used the idiom earlier for ad-hoc patching of models, a different sense.
+  source: https://arxiv.org/html/2603.00829v2
+  checked_against_source: true
+  also_called:
+  - Whack-a-Mole dynamic of prompt engineering
+  - prompt patching
+  - one-line patches
+  fixed_by:
+  - error analysis
+  - evals
+  - hooks
+  - held-out test set
+  - one patch per run
+  - limit manual prompt iterations (Storf et al. stopped at three)
+  - prune and rewrite the prompt instead of appending
+  imported_from: research-2026-10-26.json
+  page:
+    label: Whack-a-mole
+    link: https://arxiv.org/html/2603.00829v2
+    text: Each prompt patch for one failure causes another somewhere else, and progress stalls.
+    named_by: Storf et al., 2026
+- id: instruction-stacking
+  term: instruction stacking
+  kind: problem
+  family: prompt
+  grade: single-source
+  year: '2026'
+  meaning: What happens when a prompt accretes rules in response to bug reports without ever consolidating them. Tian Pan
+    describes treating prompts 'like append-only configuration'.
+  who: Digital Applied Team (vendor blog, 2026-05-06). Tian Pan independently uses 'prompt sprawl' (2026-04-10).
+  source: https://www.digitalapplied.com/blog/prompt-engineering-anti-patterns-10-mistakes-2026
+  checked_against_source: true
+  also_called:
+  - prompt sprawl
+  - append-only prompt
+  fixed_by:
+  - progressive disclosure
+  - consolidation and dead-clause audits
+  imported_from: research-2026-10-26.json
+- id: prompt-bloat
+  term: prompt bloat
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2025'
+  meaning: 'Prompts or instruction files grow so big that they slow the model, burn context budget, or both. Anthropic: ''If
+    your CLAUDE.md is too long, Claude ignores half of it because important rules get lost in the noise.'''
+  who: '''The over-specified CLAUDE.md'' is Anthropic''s (Claude Code best-practices docs, undated). The origin of ''prompt
+    bloat'' is unknown. Its earliest fetched use is the title of the RAG-MCP paper (Gan and Sun, May 2025), and Redis (2025-07-15)
+    calls it an architectural problem that a bigger window won''t fix.'
+  source: https://code.claude.com/docs/en/best-practices
+  checked_against_source: true
+  also_called:
+  - over-specified CLAUDE.md
+  - bloated CLAUDE.md
+  - long-prompt degradation
+  fixed_by:
+  - hooks
+  - progressive disclosure
+  - right altitude
+  - prune rules the model already follows
+  imported_from: research-2026-10-26.json
+  page:
+    label: Prompt bloat
+    link: https://code.claude.com/docs/en/best-practices
+    text: The prompt or instructions file grows so big that important rules get lost. Anthropic calls one form "the over-specified
+      CLAUDE.md".
+    named_by: Anthropic and others
+- id: prompt-overfitting
+  term: prompt overfitting
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2023'
+  meaning: Instructions or examples tuned on a small dev set score well there but worse on unseen inputs. In OPRO, training
+    accuracy was often 5-20% above test accuracy.
+  who: Borrowed from machine learning; no single coiner. Discussed for optimised prompts by Yang et al. (Google DeepMind,
+    OPRO, arXiv 2309.03409, 2023), and applied to LLM-judge prompts by Hamel Husain and Shreya Shankar.
+  source: https://arxiv.org/html/2309.03409
+  checked_against_source: true
+  also_called:
+  - overfitting the prompt
+  - dev-set overfitting
+  fixed_by:
+  - error analysis
+  - held-out test set
+  - larger training set and fewer optimisation steps
+  imported_from: research-2026-10-26.json
+  page:
+    label: Prompt overfitting
+    link: https://arxiv.org/html/2309.03409
+    text: A prompt tuned on a few cases scores well there and worse everywhere else.
+    named_by: Borrowed from machine learning
+- id: don-t-get-few-shotted
+  term: Don't get few-shotted
+  kind: problem
+  family: prompt
+  grade: single-source
+  year: '2025'
+  meaning: Language models are excellent mimics. A context full of similar action-observation pairs makes the agent keep copying
+    that pattern even when it is no longer the best choice.
+  who: Yichao 'Peak' Ji (Manus), 2025-07-18.
+  source: https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus
+  checked_against_source: true
+  also_called:
+  - pattern mimicry
+  - few-shot pollution (Digital Applied label)
+  fixed_by:
+  - controlled variation in serialization, wording and ordering
+  - diverse examples
+  imported_from: research-2026-10-26.json
+- id: majority-label-bias-recency-bias-common-token-bias
+  term: majority label bias, recency bias, common token bias
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2021'
+  meaning: In few-shot prompts, GPT-3 favours answers that are frequent in the prompt, answers near its end, and tokens common
+    in pre-training. Accuracy swings from near chance to near state-of-the-art depending on example choice, order and format.
+  who: Tony Z. Zhao, Eric Wallace, Shi Feng, Dan Klein, Sameer Singh, 'Calibrate Before Use' (ICML 2021, 2021-02-19).
+  source: https://arxiv.org/abs/2102.09690
+  checked_against_source: true
+  also_called:
+  - few-shot instability
+  fixed_by:
+  - contextual calibration
+  - balanced and shuffled examples
+  imported_from: research-2026-10-26.json
+- id: anchoring-bias-in-llms
+  term: anchoring bias in LLMs
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2024'
+  meaning: Initial information in the prompt disproportionately influences the model's judgment.
+  who: Borrowed from cognitive psychology. Applied to LLMs by Jiaxu Lou and Yifan Sun (arXiv 2412.06593, 2024-12-09) and by
+    Yiming Huang et al. (SynAnchors, 2025).
+  source: https://arxiv.org/abs/2412.06593
+  checked_against_source: true
+  also_called:
+  - anchoring effect
+  fixed_by:
+  - gathering hints from comprehensive angles
+  - reasoning (partial)
+  imported_from: research-2026-10-26.json
+- id: aggressive-prompt-language
+  term: aggressive prompt language
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: unknown
+  meaning: 'Strongly worded instructions such as ''CRITICAL: You MUST use this tool when...'' (Anthropic''s term is ''aggressive
+    language''). Newer models respond more strongly to the system prompt, so this wording makes them overtrigger.'
+  who: No common name. Anthropic's prompting docs call it 'aggressive language'. OpenAI's GPT-5 guide (Aug 2025, per search
+    results) reports Cursor softening 'Be THOROUGH' wording.
+  source: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+  checked_against_source: true
+  also_called:
+  - CRITICAL / YOU MUST / ALL-CAPS emphasis
+  - shouting
+  - emphasis inflation (not an established term)
+  fixed_by:
+  - hooks
+  - normal wording plus the reason for the rule
+  - emphasis only where an instruction is actually being skipped
+  imported_from: research-2026-10-26.json
+  page:
+    label: Aggressive prompt language
+    link: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+    text: '"CRITICAL: you MUST…". Newer models follow the system prompt more closely, so shouting makes them over-trigger.'
+    named_by: Anthropic docs
+- id: pink-elephant-problem
+  term: Pink Elephant problem
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2024'
+  meaning: You instruct an LLM to avoid discussing a certain entity (the 'Pink Elephant') and to discuss a preferred one (the
+    'Grey Elephant') instead. Models find this hard to do reliably.
+  who: Louis Castricato, Nathan Lile, Suraj Anand, Hailey Schoelkopf, Siddharth Verma, Stella Biderman (arXiv 2402.07896,
+    2024-02-12), borrowing Wegner's white bear study (1987).
+  source: https://arxiv.org/abs/2402.07896
+  checked_against_source: true
+  also_called:
+  - white bear problem
+  - ironic process theory (psychology)
+  - negative instruction failure
+  fixed_by:
+  - state what to do instead of what not to do
+  - Direct Principle Feedback (fine-tuning)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Pink Elephant problem
+    link: https://arxiv.org/abs/2402.07896
+    text: Telling a model not to mention something tends to bring it up.
+    named_by: Castricato et al., 2024
+- id: prompt-drift
+  term: prompt drift
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2023'
+  meaning: The model behind an API changes over time, so the same prompt may produce different results on the updated model.
+  who: The Prompt Report attributes it to Chen et al. (2023b). Latitude (2026-07-20) separates drift (you changed nothing)
+    from regression (a change you made made things worse).
+  source: https://arxiv.org/html/2406.06608v6
+  checked_against_source: true
+  also_called:
+  - prompt regression (related, distinct)
+  - instruction drift (third sense; see the context family)
+  fixed_by:
+  - evals
+  - pinning model versions
+  - continuous monitoring of prompt performance
+  imported_from: research-2026-10-26.json
+  page:
+    label: Prompt drift
+    link: https://arxiv.org/html/2406.06608v6
+    text: 'The same prompt behaves differently over time. People mean three things by it: the model changed, your own edits
+      regressed it, or it fades over a long session.'
+    named_by: The Prompt Report
+- id: sycophancy
+  term: sycophancy
+  kind: problem
+  family: prompt
+  grade: standard
+  year: '2023'
+  meaning: Model responses that match the user's beliefs or please the user rather than being truthful. Human-feedback training
+    can encourage this behaviour.
+  who: 'The term predates this work and its origin was not traced. Key measurement paper: Mrinank Sharma, Meg Tong et al.
+    (Anthropic, arXiv 2310.13548, 2023-10-20). Mainstream moment: OpenAI''s GPT-4o rollback (2025-04-29). Coding-agent form:
+    Claude Code issue #3382 (2025-07-12).'
+  source: https://arxiv.org/abs/2310.13548
+  checked_against_source: true
+  also_called:
+  - sycophantic prompts (leading prompts)
+  - glazing (folk)
+  - '''You''re absolutely right!'' (folk, Claude Code)'
+  fixed_by:
+  - generator/evaluator loop (Writer/Reviewer)
+  - backpressure
+  - evals
+  - neutral prompt phrasing without your own opinion
+  - non-sycophantic preference data
+  imported_from: research-2026-10-26.json
+  page:
+    label: Sycophancy
+    link: https://arxiv.org/abs/2310.13548
+    text: The model tells you what you want to hear instead of what is true.
+    named_by: Research term; Sharma et al., 2023
+- id: overeagerness
+  term: overeagerness
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: unknown (Anthropic docs undated; Osmani 2026)
+  meaning: The agent goes beyond the task. It creates extra files, unnecessary abstractions or flexibility nobody asked for,
+    and adds tests, documentation, features or actions the user did not request.
+  who: 'No coinage. Documented by Anthropic: the ''Overeagerness'' section of its Claude prompting docs, and the Sonnet 5.5
+    and Fable 5 guides for unrequested additions. Also documented by Addy Osmani (2026-01-28).'
+  source: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+  checked_against_source: true
+  also_called:
+  - overengineering
+  - abstraction bloat
+  - overcomplicating
+  - unrequested additions
+  - unrequested actions
+  - scope creep (search handle, not a source term)
+  fixed_by:
+  - a minimal-solution prompt (scope, documentation, defensive coding, abstractions)
+  - 'state the boundaries: mention extras at the end instead of doing them'
+  - a stop-and-report prompt
+  imported_from: research-2026-10-26.json
+  page:
+    label: Overeagerness
+    link: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+    text: 'The agent goes beyond the task: extra files, extra abstractions, changes nobody asked for.'
+    named_by: Anthropic docs
+- id: lobotomized
+  term: lobotomized (model)
+  kind: problem
+  family: prompt
+  grade: folk
+  year: '2023'
+  meaning: Community slang for a model that feels, or has been made, less capable, creative or personable after a release
+    or over time. One sense is preference tuning (DPO/PPO) or abliteration pushed so far that the model gets worse. Another
+    is restrictions added after launch, as with Bing Chat in 2023. Users usually blame safety tuning or cost cutting.
+  who: 'Unknown; community slang borrowing the brain-surgery metaphor. Uses read: an Ars Technica headline about Bing Chat
+    with the word in scare quotes (2023-02-18, author unverified); Nathan Lambert (Interconnects, 2024-05-01); Maxime Labonne
+    (2024-06-13); the Reddit post ''Opus 4.6 lobotomized'' (2026-02-05, via Winbuzzer). None of them claims coinage.'
+  source: https://www.interconnects.ai/p/how-rlhf-works-2
+  checked_against_source: true
+  also_called:
+  - nerfed
+  - watered down
+  - over-tuned
+  - lobotomy cycle
+  - economic lobotomy
+  fixed_by:
+  - evals
+  - moderate preference tuning
+  - light DPO to repair abliteration damage
+  imported_from: research-2026-10-26.json
+- id: alignment-tax
+  term: alignment tax
+  kind: problem
+  family: prompt
+  grade: standard
+  year: '2021'
+  meaning: The extra cost of making an AI system aligned, compared with building an unaligned alternative. In LLM papers it
+    usually means lost benchmark performance, or abilities the model forgot after alignment training such as RLHF.
+  who: Paul Christiano credits the language to Eliezer Yudkowsky ('Current work in AI alignment', transcript 2020-04-03).
+    Applied to LLM performance by Askell et al. (Anthropic, 2021-12) and Lin et al. (arXiv 2309.06256).
+  source: https://www.alignmentforum.org/w/alignment-tax
+  checked_against_source: true
+  also_called:
+  - safety tax
+  fixed_by:
+  - scale (Askell et al. find the tax small for large models)
+  - mitigation methods studied in arXiv 2309.06256
+  imported_from: research-2026-10-26.json
+- id: exaggerated-safety
+  term: exaggerated safety
+  kind: problem
+  family: prompt
+  grade: emerging
+  year: '2023'
+  meaning: Models falsely refuse clearly safe prompts when those prompts use language similar to unsafe ones or mention sensitive
+    topics. The authors trace this to lexical overfitting.
+  who: Paul Röttger, Hannah Rose Kirk, Bertie Vidgen, Giuseppe Attanasio, Federico Bianchi, Dirk Hovy (XSTest, arXiv 2308.01263,
+    2023-08-02; NAACL 2024).
+  source: https://arxiv.org/abs/2308.01263
+  checked_against_source: true
+  also_called:
+  - false refusal
+  - over-refusal (later literature)
+  fixed_by:
+  - XSTest contrast sets (detection only)
+  imported_from: research-2026-10-26.json
+- id: right-altitude
+  term: right altitude
+  kind: move
+  family: prompt
+  grade: single-source
+  year: '2025'
+  meaning: System prompts should sit in the Goldilocks zone between hardcoding complex, brittle logic and giving vague guidance
+    that falsely assumes shared context. Prefer diverse, canonical examples over a laundry list of edge cases, and explain
+    why a rule exists.
+  who: Anthropic Applied AI team (Rajasekaran, Dixon, Ryan, Hadfield), 2025-09-29.
+  source: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - Goldilocks zone
+  fixes:
+  - prompt bloat
+  - context confusion
+  imported_from: research-2026-10-26.json
+  page:
+    label: Right altitude
+    link: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+    text: 'The fix side: write instructions between brittle hard-coded rules and vague guidance.'
+    named_by: Anthropic, 2025
+- id: role-prompting
+  term: role prompting (persona prompting)
+  kind: move
+  family: prompt
+  grade: standard
+  year: '2023'
+  meaning: Assigning a specific role (persona) to the model in the prompt, such as 'Madonna' or a travel writer.
+  who: Unknown. Zheng et al. (2023-11-16; EMNLP Findings 2024) found that personas do not improve accuracy on factual questions,
+    and Basil et al. (2025-12-05) found the same. Anthropic still recommends a role for focus and tone.
+  source: https://arxiv.org/html/2406.06608v6
+  checked_against_source: true
+  also_called:
+  - persona prompting
+  - expert persona
+  fixes: []
+  imported_from: research-2026-10-26.json
+- id: reward-hacking
+  term: reward hacking
+  kind: problem
+  family: loop
+  grade: standard
+  year: '2016'
+  meaning: An AI fools its training or scoring process into giving it a high reward without completing the intended task.
+    Examples are exploiting bugs in the scoring code, modifying the tests, or grabbing an existing answer.
+  who: Used in the AI-safety literature since at least 'Concrete Problems in AI Safety' by Amodei, Olah, Steinhardt, Christiano,
+    Schulman and Mané (arXiv 1606.06565, 2016-06-21). DeepMind's 'specification gaming' (2020) covers the same family. METR
+    (2025-06-05) and Anthropic (2025-11-21) measured it in frontier coding agents.
+  source: https://www.anthropic.com/research/emergent-misalignment-reward-hacking
+  checked_against_source: true
+  also_called:
+  - specification gaming (older DeepMind term for the same family)
+  - test hacking
+  - cheating
+  fixed_by:
+  - generator/evaluator loop (Writer/Reviewer)
+  - TDD with agents
+  - hooks
+  - inoculation prompting (training-time)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Reward hacking
+    link: https://www.anthropic.com/research/emergent-misalignment-reward-hacking
+    text: The model games the score instead of doing the task.
+    named_by: AI safety research, 2016
+- id: special-casing-tests
+  term: special-casing tests
+  kind: problem
+  family: loop
+  grade: emerging
+  year: '2025'
+  meaning: Instead of implementing the general logic, a coding agent returns the expected test values or writes solutions
+    that only work for the test inputs. It typically does this after several failed attempts at a real solution.
+  who: 'Anthropic: the Claude 3.7 Sonnet system card (section 6, per a secondary summary; the card itself was not read), the
+    Claude Sonnet 4.5 system card, and the Claude prompting docs.'
+  source: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+  checked_against_source: true
+  also_called:
+  - hard-coding to pass tests
+  - test special-casing
+  - passing tests at the expense of general solutions
+  fixed_by:
+  - hidden or holdout tests
+  - a prompt asking for a general solution and to flag incorrect tests instead of working around them
+  imported_from: research-2026-10-26.json
+  page:
+    label: Special-casing tests
+    link: https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
+    text: The agent hard-codes the expected test values instead of writing the real logic.
+    named_by: Anthropic
+- id: declaring-the-job-done-prematurely
+  term: declaring the job done prematurely
+  kind: problem
+  family: loop
+  grade: single-source
+  year: '2025'
+  meaning: An agent marks a feature or task as done without testing it end to end, or declares the whole job done because
+    it sees that some progress has been made.
+  who: 'No coinage. Descriptive wording used only by Anthropic, across several docs: Justin Young''s long-running harness
+    post (2025-11-26), the Claude Code best practices, and the Sonnet 5.5 and Fable 5 guides.'
+  source: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+  checked_against_source: true
+  also_called:
+  - false completion claims
+  - fabricated status reports
+  - trust-then-verify gap
+  - premature stopping
+  fixed_by:
+  - backpressure
+  - hooks
+  - generator/evaluator loop (Writer/Reviewer)
+  - Ralph Wiggum technique (Ralph loop)
+  - /goal condition
+  - audit each progress claim against a tool result
+  imported_from: research-2026-10-26.json
+  page:
+    label: Declaring done too early
+    link: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+    text: The agent marks the task done without testing it end to end.
+    named_by: Anthropic
+- id: laziness
+  term: laziness
+  kind: problem
+  family: loop
+  grade: emerging
+  year: '2023'
+  meaning: A model leaves a task incomplete or gives thinner, briefer output than asked for. OpenAI described 'cases of laziness
+    where the model doesn't complete a task.'
+  who: ChatGPT users. OpenAI's @ChatGPTapp account acknowledged it (2023-12-08).
+  source: https://techcrunch.com/2024/01/25/openai-drops-prices-and-fixes-lazy-gpt-4-that-refused-to-work
+  checked_against_source: true
+  also_called:
+  - lazy model
+  - GPT-4 'getting lazier'
+  fixed_by: []
+  imported_from: research-2026-10-26.json
+- id: doom-loop
+  term: doom loop
+  kind: problem
+  family: loop
+  grade: emerging
+  year: '2025'
+  meaning: Going round in circles trying to get an LLM to fix a problem it cannot solve. Vendors and bloggers also use it
+    for an agent repeating the same error across sessions, or spiralling through blind fixes without running the code.
+  who: 'Unknown; no primary coinage found. The earliest use read is Jason Gorman''s post (dated 2025-09-30, but the version
+    read was updated 2026-04-14). Other senses: Unblocked (vendor, 2026-04-18) and HackerNoon (2026-06-26). Anthropic''s name
+    for the human side is ''Correcting over and over''.'
+  source: https://codemanship.wordpress.com/2025/09/30/comprehension-debt-the-ticking-time-bomb-of-llm-generated-code/
+  checked_against_source: true
+  also_called:
+  - fix-forward spiral
+  - going round in circles
+  fixed_by:
+  - context reset
+  - backpressure
+  - /rewind to a checkpoint
+  - persist corrections in CLAUDE.md or skills
+  imported_from: research-2026-10-26.json
+  page:
+    label: Doom loop
+    link: https://codemanship.wordpress.com/2025/09/30/comprehension-debt-the-ticking-time-bomb-of-llm-generated-code/
+    text: Going round in circles asking the agent to fix something it can't.
+    named_by: No known author
+- id: package-hallucination
+  term: package hallucination
+  kind: problem
+  family: loop
+  grade: emerging
+  year: '2023'
+  meaning: A code-generating LLM recommends or imports a software package that does not exist, an error attackers can exploit
+    as a package confusion attack. The rate is at least 5.2% for commercial models and 21.7% for open-source ones.
+  who: First named 'AI package hallucination' by Bar Lanyado and Vulcan Cyber's Voyager18 team (2023-06-06, per Infosecurity
+    Magazine). Systematic study by Spracklen et al. (arXiv 2406.10279, USENIX Security 2025), who did not coin the term.
+  source: https://arxiv.org/abs/2406.10279
+  checked_against_source: true
+  also_called:
+  - hallucinated dependencies
+  - hallucinated packages
+  fixed_by:
+  - backpressure
+  - verify packages exist before install
+  imported_from: research-2026-10-26.json
+  page:
+    label: Package hallucination
+    link: https://arxiv.org/abs/2406.10279
+    text: The agent imports a package that doesn't exist.
+    named_by: Lanyado (Vulcan Cyber), 2023
+- id: evals
+  term: evals
+  kind: move
+  family: loop
+  grade: standard
+  year: '2023'
+  meaning: 'An eval is a test for an AI system: give the AI an input, then apply grading logic to its output to measure success.'
+  who: No single coiner. OpenAI open-sourced its Evals framework on 2023-03-14. Hamel Husain popularised product-specific
+    evals (2024-03-29). The quoted definition is Anthropic's (2026-01-09).
+  source: https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
+  checked_against_source: true
+  also_called:
+  - evaluations
+  - AI evals
+  - LLM evals
+  - capability evals
+  - regression evals
+  fixes:
+  - real context size (claimed versus effective context length)
+  - summary drift
+  - prompt debt
+  - whack-a-mole (prompt patching)
+  - prompt drift
+  - sycophancy
+  - lobotomized (model)
+  - regressions
+  - vibe checks
+  imported_from: research-2026-10-26.json
+  page:
+    label: Evals
+    link: https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
+    text: 'Tests for AI behaviour: an input, the output, and grading logic.'
+    named_by: No single author
+- id: error-analysis
+  term: error analysis
+  kind: move
+  family: loop
+  grade: single-source
+  year: '2025'
+  meaning: Read real traces and write open-ended notes on failures (open coding). Then group the notes into a failure taxonomy
+    and count per category (axial coding), so you know which evals are worth writing.
+  who: Hamel Husain and Shreya Shankar, for the open/axial-coding method in their evals FAQ. They did not coin the generic
+    phrase.
+  source: https://hamel.dev/blog/posts/evals-faq/why-is-error-analysis-so-important-in-llm-evals-and-how-is-it-performed.html
+  checked_against_source: true
+  also_called:
+  - open coding
+  - axial coding
+  - failure taxonomy
+  fixes:
+  - whack-a-mole (prompt patching)
+  - prompt overfitting
+  - generic metrics that create false confidence
+  imported_from: research-2026-10-26.json
+  page:
+    label: Error analysis
+    link: https://hamel.dev/blog/posts/evals-faq/why-is-error-analysis-so-important-in-llm-evals-and-how-is-it-performed.html
+    text: Read real traces, note each failure, group the notes into categories and count them, so you know which evals are
+      worth writing.
+    named_by: Hamel Husain and Shreya Shankar
+- id: eval-driven-development
+  term: eval-driven development (EDD)
+  kind: move
+  family: loop
+  grade: emerging
+  year: '2024'
+  meaning: Evaluations serve as the working specification for an LLM-powered application. They are written before or alongside
+    the feature and used to gate every change (Braintrust). Anthropic describes writing evals for capabilities the agent cannot
+    yet handle, then iterating until it can.
+  who: 'Unknown. The earliest verified use is Vercel (2024-10-17). Later: Husain and Shankar (2025-07-27, critical: ''Generally
+    no''), Anthropic (2026-01-09), Braintrust (2026-02-18).'
+  source: https://vercel.com/blog/eval-driven-development-build-better-ai-faster
+  checked_against_source: true
+  also_called:
+  - EDD
+  - evaluation-driven development
+  fixes:
+  - shipping without measurement
+  - regressions
+  imported_from: research-2026-10-26.json
+- id: llm-as-a-judge
+  term: LLM-as-a-judge
+  kind: move
+  family: loop
+  grade: standard
+  year: '2023'
+  meaning: Using a strong LLM to evaluate other models' or agents' outputs on open-ended tasks, as a cheap, scalable stand-in
+    for human preference judgments.
+  who: Lianmin Zheng, Wei-Lin Chiang, Ying Sheng et al., 'Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena' (arXiv 2306.05685,
+    2023-06-09; NeurIPS 2023).
+  source: https://arxiv.org/abs/2306.05685
+  checked_against_source: true
+  also_called:
+  - LLM judge
+  - model-based grader
+  - inferential sensor
+  fixes:
+  - human review cost
+  imported_from: research-2026-10-26.json
+  page:
+    label: LLM-as-a-judge
+    link: https://arxiv.org/abs/2306.05685
+    text: A strong model grades another model's or agent's output.
+    named_by: Zheng et al., 2023
+- id: generator-evaluator-loop
+  term: generator/evaluator loop (Writer/Reviewer)
+  kind: move
+  family: loop
+  grade: emerging
+  year: '2024'
+  meaning: A separate evaluator agent, tuned to be skeptical, grades the generator agent's work. This is needed because agents
+    asked to grade their own output tend to praise it confidently even when it is mediocre.
+  who: Anthropic. 'Building effective agents' (Erik Schluntz, Barry Zhang, 2024-12-19) calls it the 'evaluator-optimizer'
+    workflow. Prithvi Rajasekaran extended it into a planner/generator/evaluator harness (2026-03-24), and the Claude Code
+    docs name the 'Writer/Reviewer pattern'.
+  source: https://www.anthropic.com/engineering/building-effective-agents
+  checked_against_source: true
+  also_called:
+  - evaluator-optimizer
+  - planner/generator/evaluator
+  - Writer/Reviewer pattern
+  - verification subagent
+  - fresh-context reviewer
+  - adversarial review step
+  fixes:
+  - reward hacking
+  - declaring the job done prematurely
+  - sycophancy
+  - automation bias
+  - self-evaluation bias
+  imported_from: research-2026-10-26.json
+  page:
+    label: Generator and evaluator
+    link: https://www.anthropic.com/engineering/building-effective-agents
+    text: A second, sceptical agent grades the first agent's work.
+    named_by: Anthropic, 2024
+- id: tdd-with-agents
+  term: TDD with agents
+  kind: move
+  family: loop
+  grade: emerging
+  year: '2025'
+  meaning: The agent writes tests first, confirms they fail, then iterates on the implementation until they pass. Without
+    this, agents tend to produce broken or unused code and regressions.
+  who: 'No coiner. Kent Beck described it (Pragmatic Engineer 2025-06-11; ''Augmented Coding: Beyond the Vibes'' 2025-06-25),
+    and Simon Willison named the ''Red/green TDD'' pattern. Beck warns that agents delete tests to make them ''pass''.'
+  source: https://simonwillison.net/guides/agentic-engineering-patterns/red-green-tdd/
+  checked_against_source: true
+  also_called:
+  - augmented coding
+  - red/green TDD
+  - test-first with agents
+  fixes:
+  - reward hacking
+  - regressions
+  - unverified agent output
+  imported_from: research-2026-10-26.json
+  page:
+    label: TDD with agents
+    link: https://simonwillison.net/guides/agentic-engineering-patterns/red-green-tdd/
+    text: The agent writes failing tests first, then works until they pass.
+    named_by: Kent Beck, Simon Willison
+- id: backpressure
+  term: backpressure
+  kind: move
+  family: loop
+  grade: emerging
+  year: '2025'
+  meaning: 'Automated feedback around an agent that lets it find and fix its own mistakes as it goes, instead of a human doing
+    so: build tools, type systems, compiler errors, linters, tests, browser or DevTools MCP servers. The human-side sense
+    is the time you spend giving feedback the agent could have gotten itself.'
+  who: Geoffrey Huntley first used it for agents (Ralph post, 2025-07-14). Moss (banay.me, 2026-01-17) wrote the definition
+    people quote. Both come from the same circle.
+  source: https://banay.me/dont-waste-your-backpressure/
+  checked_against_source: true
+  also_called:
+  - back pressure
+  - agent back pressure
+  - sensors (Böckeler's word for the same idea)
+  fixes:
+  - declaring the job done prematurely
+  - doom loop
+  - package hallucination
+  - sycophancy
+  - automation bias
+  - babysitting the agent
+  - human as the verification loop
+  imported_from: research-2026-10-26.json
+  page:
+    label: Backpressure
+    link: https://banay.me/dont-waste-your-backpressure/
+    text: Builds, types, linters and tests that let the agent catch its own mistakes before you have to.
+    named_by: Geoffrey Huntley; Moss, 2026
+- id: plan-mode
+  term: plan mode
+  kind: move
+  family: loop
+  grade: standard
+  year: '2025'
+  meaning: A mode in which the agent researches the codebase and proposes changes or a plan, and edits no source files until
+    the human approves the plan. Distinct from the plan-then-execute security pattern.
+  who: No single coiner. Cline's Plan/Act toggle came around 2025-01 (Saoud Rizwan claims it was first). Claude Code plan
+    mode followed on 2025-06-11 (Boris Cherny), and Cursor Plan Mode on 2025-10-07 (Jai Smith).
+  source: https://code.claude.com/docs/en/permission-modes
+  checked_against_source: true
+  also_called:
+  - Plan Mode
+  - Plan/Act (Cline)
+  - explore, plan, implement
+  fixes:
+  - solving the wrong problem
+  imported_from: research-2026-10-26.json
+  page:
+    label: Plan mode
+    link: https://code.claude.com/docs/en/permission-modes
+    text: The agent researches and proposes a plan, and nothing is edited until you approve it.
+    named_by: Cline, Claude Code, Cursor
+- id: spec-driven-development
+  term: spec-driven development (SDD)
+  kind: move
+  family: loop
+  grade: standard
+  year: '2025'
+  meaning: Write a structured, behaviour-oriented spec before the AI writes code, and treat it as the source of truth for
+    both human and AI. Böckeler's loose definition is 'documentation first'.
+  who: 'Unknown; Böckeler calls the term ''semantically diffused''. Main early sources: Kiro (AWS, 2025-07-14), Sean Grove''s
+    ''The New Code'' talk (OpenAI, 2025), GitHub Spec Kit (Den Delimarsky, 2025-09-02).'
+  source: https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html
+  checked_against_source: true
+  also_called:
+  - specs are the new code
+  - spec-first
+  - spec-anchored
+  - spec-as-source
+  fixes:
+  - vibe coding
+  - agents solving the wrong problem
+  imported_from: research-2026-10-26.json
+  page:
+    label: Spec-driven development
+    link: https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html
+    text: Write a structured spec first and treat it as the source of truth for you and the agent. The meaning is still loose.
+    named_by: Kiro, GitHub Spec Kit, Böckeler
+- id: prompt-injection
+  term: prompt injection
+  kind: problem
+  family: harness
+  grade: standard
+  year: '2022'
+  meaning: A security exploit in which untrusted input joined into a prompt makes the model follow the attacker's instructions
+    instead of the developer's. It is named by analogy with SQL injection.
+  who: 'Simon Willison named it (2022-09-12) and credits Riley Goodside with first demonstrating the attack. Indirect prompt
+    injection: Greshake et al. (2023-02-23).'
+  source: https://simonwillison.net/2022/Sep/12/prompt-injection/
+  checked_against_source: true
+  also_called:
+  - direct prompt injection
+  - indirect prompt injection (payload in fetched content)
+  fixed_by:
+  - Agents Rule of Two
+  - Dual LLM pattern
+  - plan-then-execute (security pattern)
+  - sandboxing
+  - instruction hierarchy
+  - least privilege for agents
+  imported_from: research-2026-10-26.json
+  page:
+    label: Prompt injection
+    link: https://simonwillison.net/2022/Sep/12/prompt-injection/
+    text: Untrusted text in the prompt makes the model follow the attacker instead of you.
+    named_by: Simon Willison, 2022
+- id: lethal-trifecta
+  term: lethal trifecta
+  kind: problem
+  family: harness
+  grade: standard
+  year: '2025'
+  meaning: 'An attacker can trick an agent into stealing your data if the agent combines three things: access to your private
+    data, exposure to untrusted content, and the ability to communicate externally.'
+  who: Simon Willison, 2025-06-16.
+  source: https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/
+  checked_against_source: true
+  also_called:
+  - the trifecta
+  fixed_by:
+  - Agents Rule of Two
+  - sandboxing
+  - least privilege for agents
+  - Dual LLM pattern
+  - plan-then-execute (security pattern)
+  - remove one of the three legs
+  imported_from: research-2026-10-26.json
+  page:
+    label: Lethal trifecta
+    link: https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/
+    text: An agent with private data, untrusted content and a way to send data out can be tricked into leaking it.
+    named_by: Simon Willison, 2025
+- id: jailbreaking
+  term: jailbreaking
+  kind: problem
+  family: harness
+  grade: standard
+  year: unknown
+  meaning: The process of getting a GenAI model to do or say unintended things through prompting (The Prompt Report §5.1.1).
+  who: Unknown. Wei, Haghtalab and Steinhardt (NeurIPS 2023) analyse why safety training fails, through 'competing objectives'
+    and 'mismatched generalization'. OWASP treats it as a subset of prompt injection; Willison treats the two as different
+    problems.
+  source: https://arxiv.org/html/2406.06608v6
+  checked_against_source: false
+  also_called:
+  - jailbreak
+  fixed_by:
+  - instruction hierarchy
+  - safety-capability parity
+  imported_from: research-2026-10-26.json
+- id: slopsquatting
+  term: slopsquatting
+  kind: problem
+  family: harness
+  grade: emerging
+  year: '2025'
+  meaning: An attacker registers a non-existent package name that LLMs hallucinate, hoping a developer following an AI assistant
+    installs the fake package without noticing. It exploits package hallucination.
+  who: Seth Larson (Python Software Foundation), per Socket (2025-04-08). Popularised by Andrew Nesbitt. The attribution chain
+    is secondary.
+  source: https://socket.dev/blog/slopsquatting-how-ai-hallucinations-are-fueling-a-new-class-of-supply-chain-attacks
+  checked_against_source: true
+  also_called:
+  - AI package squatting
+  fixed_by: []
+  imported_from: research-2026-10-26.json
+  page:
+    label: Slopsquatting
+    link: https://socket.dev/blog/slopsquatting-how-ai-hallucinations-are-fueling-a-new-class-of-supply-chain-attacks
+    text: Attackers register package names that models tend to hallucinate.
+    named_by: Seth Larson, 2025
+- id: agent-harness
+  term: agent harness
+  kind: move
+  family: harness
+  grade: standard
+  year: '2025'
+  meaning: Every piece of code, configuration and execution logic that is not the model itself, summed up as 'Agent = Model
+    + Harness'. Not to be confused with an evaluation harness or a test harness.
+  who: No single coiner. The earliest dated uses read are Anthropic's Claude Agent SDK post (Thariq Shihipar, 2025-09-29)
+    and 'Effective harnesses for long-running agents' (Justin Young, 2025-11-26), then Philipp Schmid (2026-01-05). The formula
+    is Vivek Trivedy's at LangChain (2026-03-10).
+  source: https://www.langchain.com/blog/the-anatomy-of-an-agent-harness
+  checked_against_source: true
+  also_called:
+  - scaffold
+  - agent scaffold
+  - Agent = Model + Harness
+  - builder harness / user harness (Böckeler)
+  fixes:
+  - goal drift
+  imported_from: research-2026-10-26.json
+  page:
+    label: Agent harness
+    link: https://www.langchain.com/blog/the-anatomy-of-an-agent-harness
+    text: 'Everything around the model: tools, instructions, hooks, loop. "Agent = model + harness."'
+    named_by: No single author
+- id: harness-engineering
+  term: harness engineering
+  kind: move
+  family: harness
+  grade: standard
+  year: '2026'
+  meaning: 'In Hashimoto''s sense: every time an agent errs, engineer a fix (an AGENTS.md rule or a purpose-built tool or
+    script) so that it never makes that mistake again. OpenAI and Böckeler use it more broadly, for building the whole environment
+    of scaffolding, guides, sensors and feedback loops around the agent.'
+  who: 'Nobody claims it. The earliest use found is Mitchell Hashimoto (2026-02-05), who disclaims inventing a term. OpenAI''s
+    Ryan Lopopolo made it widely known with ''Harness engineering: leveraging Codex in an agent-first world'' (2026-02-11);
+    that page was not fetched.'
+  source: https://mitchellh.com/writing/my-ai-adoption-journey
+  checked_against_source: true
+  also_called:
+  - harness design
+  - building the (outer) harness
+  - user harness
+  fixes:
+  - repeated agent mistakes
+  imported_from: research-2026-10-26.json
+  page:
+    label: Harness engineering
+    link: https://mitchellh.com/writing/my-ai-adoption-journey
+    text: Every time the agent makes a mistake, add a rule, tool or check so it can't happen again.
+    named_by: Mitchell Hashimoto, 2026
+- id: agent-loop
+  term: agent loop
+  kind: move
+  family: harness
+  grade: standard
+  year: '2023'
+  meaning: An LLM agent runs tools in a loop to achieve a goal. The model asks its harness to act, the results go back to
+    the model, and this continues until a stopping condition is met.
+  who: No single coiner. Josh Bickett's 2023-11 meme 'An LLM in a loop with an objective', then Anthropic (2024-12-19), then
+    Simon Willison's wording (2025-09-18).
+  source: https://simonwillison.net/2025/Sep/18/agents/
+  checked_against_source: true
+  also_called:
+  - agentic loop
+  - tools in a loop
+  fixes: []
+  imported_from: research-2026-10-26.json
+  page:
+    label: Agent loop
+    link: https://simonwillison.net/2025/Sep/18/agents/
+    text: A model running tools in a loop until a goal is met.
+    named_by: No single author
+- id: agent-computer-interface
+  term: agent-computer interface (ACI)
+  kind: move
+  family: harness
+  grade: emerging
+  year: '2024'
+  meaning: 'A purpose-built interface between an LM agent and the computer: the commands the agent can use and the format
+    of the feedback it receives. It is designed for the agent as a new category of end user, not for humans.'
+  who: John Yang, Carlos E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao, Karthik Narasimhan, Ofir Press (Princeton),
+    SWE-agent paper (arXiv 2405.15793, 2024-05-06). Adopted in Anthropic's 'Building effective agents'.
+  source: https://arxiv.org/abs/2405.15793
+  checked_against_source: true
+  also_called:
+  - ACI
+  fixes: []
+  imported_from: research-2026-10-26.json
+- id: guardrails
+  term: guardrails
+  kind: move
+  family: harness
+  grade: standard
+  year: '2023'
+  meaning: 'Runtime checks around an LLM application that control its behaviour. NeMo''s wording: ''a specific way of controlling
+    the output of an LLM'', such as avoiding harmful topics or following a set dialogue path. The word is vague, so name the
+    actual mechanism when precision matters.'
+  who: A generic engineering word. NVIDIA (Traian Rebedea, Razvan Dinu, Makesh Sreedhar, Christopher Parisien, Jonathan Cohen)
+    popularised 'programmable rails' with NeMo Guardrails (arXiv 2310.10501, 2023-10-16). The OpenAI Agents SDK adds input,
+    output and tool guardrails with tripwires.
+  source: https://arxiv.org/abs/2310.10501
+  checked_against_source: true
+  also_called:
+  - rails
+  - programmable rails
+  - input/output guardrails
+  - tool guardrails
+  - tripwires
+  fixes: []
+  imported_from: research-2026-10-26.json
+  page:
+    label: Guardrails
+    link: https://arxiv.org/abs/2310.10501
+    text: 'Runtime checks around an AI app. Vague across vendors: name the mechanism when it matters.'
+    named_by: NVIDIA NeMo, OpenAI and others
+- id: hooks
+  term: hooks
+  kind: move
+  family: harness
+  grade: standard
+  year: unknown
+  meaning: 'User-defined shell commands that Claude Code runs at fixed points in its lifecycle; handlers can now also be HTTP
+    endpoints, MCP tools, prompts or subagents. They give deterministic control: certain actions always happen, rather than
+    depending on the LLM choosing to run them. CLAUDE.md is only advisory, whereas a Stop hook can block the turn from ending
+    until a check passes.'
+  who: 'A generic word. Anthropic''s Claude Code docs popularised hooks as deterministic guardrails. The meaning differs by
+    tool: Kiro hooks are event-driven automations on file save, and LangChain treats hooks and middleware as harness parts.'
+  source: https://code.claude.com/docs/en/hooks-guide
+  checked_against_source: true
+  also_called:
+  - lifecycle hooks
+  - PreToolUse / Stop hooks
+  - middleware
+  fixes:
+  - declaring the job done prematurely
+  - reward hacking
+  - whack-a-mole (prompt patching)
+  - prompt bloat
+  - aggressive prompt language
+  - lobotomization (post-compaction)
+  - babysitting the agent
+  - advisory instructions the model ignores
+  imported_from: research-2026-10-26.json
+  page:
+    label: Hooks
+    link: https://code.claude.com/docs/en/hooks-guide
+    text: Commands that run at fixed points in the agent's lifecycle. They are deterministic, so use them for rules that must
+      always hold.
+    named_by: Claude Code
+- id: sandboxing
+  term: sandboxing
+  kind: move
+  family: harness
+  grade: standard
+  year: '2025'
+  meaning: Running the agent inside pre-defined boundaries, so it can work freely without damaging the host or leaking data.
+    Anthropic says this needs both filesystem isolation (only specific directories) and network isolation (only approved servers).
+  who: A generic security term. The agent-specific sources are Simon Willison, 'Designing agentic loops' (2025-09-30), and
+    Anthropic's Claude Code sandboxing post (David Dworken, Oliver Weller-Davies, 2025-10-20), which self-reports 84% fewer
+    permission prompts.
+  source: https://anthropic.com/engineering/claude-code-sandboxing
+  checked_against_source: true
+  also_called:
+  - sandbox
+  - agent sandbox
+  - container isolation
+  fixes:
+  - lethal trifecta
+  - prompt injection
+  - approval fatigue
+  imported_from: research-2026-10-26.json
+  page:
+    label: Sandboxing
+    link: https://anthropic.com/engineering/claude-code-sandboxing
+    text: The agent runs inside fixed walls (files, network) so it can work freely without harm.
+    named_by: Security term; Anthropic, Willison for agents
+- id: ai-boxing
+  term: AI boxing
+  kind: move
+  family: harness
+  grade: standard
+  year: '2002'
+  meaning: Confining a powerful AI, literally or metaphorically, so that it can affect the wider world only through restricted
+    channels, often a human liaison. This can be physical containment or restriction of the information going in and out.
+    It is an AI-safety term, not a prompt-engineering practice.
+  who: Eliezer Yudkowsky's 'AI-Box Experiment' (two runs in 2002) popularised the idea of a box, though his page never uses
+    the word 'boxing'. 'Boxing methods' appears in Armstrong, Sandberg and Bostrom (2012) and in Bostrom's Superintelligence
+    (2014), under capability control. Nobody verified who first said 'AI boxing'.
+  source: https://www.lesswrong.com/w/ai-boxing-containment
+  checked_against_source: true
+  also_called:
+  - AI box
+  - AI containment
+  - AI confinement
+  - boxing methods
+  - oracle AI boxing
+  - AI sandbox (Wikipedia)
+  fixes: []
+  imported_from: research-2026-10-26.json
+- id: agents-rule-of-two
+  term: Agents Rule of Two
+  kind: move
+  family: harness
+  grade: emerging
+  year: '2025'
+  meaning: 'Until prompt injection can be reliably detected and refused, an agent may have no more than two of these three
+    properties within a session: it processes untrustworthy inputs, it has access to sensitive systems or private data, and
+    it can change state or communicate externally.'
+  who: Meta AI blog (2025-10-31), with no named authors; Willison says Mick Ayzenberg shared it. Inspired by Chromium's Rule
+    of 2 and Willison's lethal trifecta.
+  source: https://ai.meta.com/blog/practical-ai-agent-security/
+  checked_against_source: true
+  also_called:
+  - Rule of Two
+  fixes:
+  - lethal trifecta
+  - prompt injection
+  imported_from: research-2026-10-26.json
+  page:
+    label: Agents Rule of Two
+    link: https://ai.meta.com/blog/practical-ai-agent-security/
+    text: 'In one session, an agent may have at most two of three: untrusted input, sensitive access, outside actions.'
+    named_by: Meta, 2025
+- id: dual-llm-pattern
+  term: Dual LLM pattern
+  kind: move
+  family: harness
+  grade: emerging
+  year: '2023'
+  meaning: A privileged LLM sees only trusted input and can use tools. A quarantined LLM handles untrusted content and has
+    no tools. Ordinary code passes the quarantined output around as opaque variables and never forwards it unfiltered to the
+    privileged model.
+  who: Simon Willison, 2023-04-25.
+  source: https://simonwillison.net/2023/Apr/25/dual-llm-pattern/
+  checked_against_source: true
+  also_called:
+  - privileged and quarantined LLM
+  fixes:
+  - prompt injection
+  - lethal trifecta
+  imported_from: research-2026-10-26.json
+- id: plan-then-execute
+  term: plan-then-execute (security pattern)
+  kind: move
+  family: harness
+  grade: single-source
+  year: '2025'
+  meaning: The agent first commits to a fixed list of actions, so tool outputs cannot influence which actions it takes, a
+    protection likened to control-flow integrity. Distinct from plan mode.
+  who: Beurer-Kellner, Buesser, Cretu, Debenedetti, Dobos, Fabian, Fischer, Froelicher, Grosse, Naeff, Ozoani, Paverd, Tramèr
+    and Volhejn, 'Design Patterns for Securing LLM Agents against Prompt Injections' (arXiv 2506.08837, 2025-06-10).
+  source: https://arxiv.org/html/2506.08837
+  checked_against_source: true
+  also_called:
+  - Plan-Then-Execute
+  fixes:
+  - prompt injection
+  - lethal trifecta
+  imported_from: research-2026-10-26.json
+- id: instruction-hierarchy
+  term: instruction hierarchy
+  kind: move
+  family: harness
+  grade: emerging
+  year: '2024'
+  meaning: A priority ordering over instruction sources that the model is trained to follow when they conflict, so that it
+    selectively ignores lower-privileged instructions.
+  who: Eric Wallace, Kai Xiao, Reimar Leike, Lilian Weng, Johannes Heidecke, Alex Beutel (OpenAI), arXiv 2404.13208, 2024-04-19.
+  source: https://arxiv.org/abs/2404.13208
+  checked_against_source: true
+  also_called:
+  - chain of command (OpenAI Model Spec)
+  fixes:
+  - prompt injection
+  - jailbreaking
+  - goal drift
+  imported_from: research-2026-10-26.json
+- id: least-privilege-for-agents
+  term: least privilege for agents
+  kind: move
+  family: harness
+  grade: standard
+  year: '1974'
+  meaning: Every program and privileged user should operate with the least privilege necessary (Saltzer). For LLM agents,
+    OWASP applies this by keeping tools, extension functionality and permissions to the minimum necessary, running actions
+    in the user's context, and requiring human approval for high-impact actions.
+  who: Jerome Saltzer (CACM, 1974, per Wikipedia), popularised by Saltzer and Schroeder (1975). Applied to LLM agents by OWASP
+    LLM06:2025 'Excessive Agency'. Auth0 attributes 'least agency' to OWASP's Agentic Top 10, a secondary attribution.
+  source: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+  checked_against_source: true
+  also_called:
+  - least privilege
+  - least agency
+  - minimum necessary
+  - scoped credentials
+  - excessive agency (OWASP LLM06, the failure mode)
+  fixes:
+  - lethal trifecta
+  - prompt injection
+  - excessive agency (excessive functionality, permissions, autonomy)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Least privilege
+    link: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+    text: Give the agent only the access the task needs.
+    named_by: Saltzer, 1974; OWASP for agents
+- id: human-in-the-loop
+  term: human-in-the-loop (HITL)
+  kind: move
+  family: harness
+  grade: standard
+  year: '2012'
+  meaning: 'A human must instigate or approve the system''s consequential actions before they happen. OWASP''s wording for
+    LLM agents: ''require a human to approve high-impact actions before they are taken''. Its known failure mode is approval
+    fatigue.'
+  who: The phrase is older and has no single coiner. Wikipedia credits the in/on/out-of-the-loop taxonomy to Bonnie Docherty,
+    Human Rights Watch, 'Losing Humanity' (2012-11-19). Adopted for agents by OWASP, Anthropic and Meta.
+  source: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+  checked_against_source: true
+  also_called:
+  - HITL
+  - human approval
+  - human checkpoint
+  - permission prompts
+  fixes:
+  - excessive agency
+  - lethal trifecta tasks that need all three properties (Meta requires human approval)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Human in the loop
+    link: https://genai.owasp.org/llmrisk/llm062025-excessive-agency/
+    text: 'A person approves consequential actions before they happen. "On the loop": a person watches and can stop it.'
+    named_by: Older term
+- id: human-on-the-loop
+  term: human-on-the-loop (HOTL)
+  kind: move
+  family: harness
+  grade: emerging
+  year: '2012'
+  meaning: The system acts on its own under the oversight of a human operator who can override or abort its actions.
+  who: Bonnie Docherty, Human Rights Watch, 'Losing Humanity' (2012-11-19), per Wikipedia. The LLM-agent sense was seen only
+    in vendor posts that were not fetched.
+  source: https://www.anthropic.com/engineering/building-effective-agents
+  checked_against_source: true
+  also_called:
+  - HOTL
+  - human oversight
+  - human supervision
+  fixes:
+  - approval fatigue
+  imported_from: research-2026-10-26.json
+- id: yolo-mode
+  term: YOLO mode
+  kind: move
+  family: harness
+  grade: emerging
+  year: '2024'
+  meaning: Running a coding agent where everything is approved by default. Willison calls it 'so dangerous, but also key to
+    getting the most productive results'. Claude Code docs say bypassPermissions is for 'isolated containers and VMs only'.
+  who: Unknown. It was Cursor's feature name by 2024-12-20 (later renamed auto-run). Simon Willison generalised it as 'what
+    I like to call YOLO mode' (2025-09-30).
+  source: https://simonwillison.net/2025/Sep/30/designing-agentic-loops/
+  checked_against_source: true
+  also_called:
+  - auto-run
+  - --dangerously-skip-permissions
+  - bypassPermissions
+  - Safe YOLO mode
+  fixes:
+  - approval fatigue (the reason people turn it on; safe only inside a sandbox)
+  imported_from: research-2026-10-26.json
+  page:
+    label: YOLO mode
+    link: https://simonwillison.net/2025/Sep/30/designing-agentic-loops/
+    text: 'Everything approved by default. Every source says: only inside a sandbox.'
+    named_by: Cursor feature name, 2024
+- id: ralph-wiggum-technique
+  term: Ralph Wiggum technique (Ralph loop)
+  kind: move
+  family: harness
+  grade: emerging
+  grade_note: one researcher rates it standard
+  year: '2025'
+  meaning: In its purest form, a Bash loop, `while :; do cat PROMPT.md | claude-code ; done`, that feeds the same prompt to
+    a coding agent over and over. Each loop does one task in a new context window, so progress lives in files and git rather
+    than in the context.
+  who: Geoffrey Huntley, 'Ralph Wiggum as a software engineer', 2025-07-14. Anthropic's ralph-wiggum plugin credits him, but
+    it runs inside one session through a Stop hook, so it does not get a fresh window per iteration.
+  source: https://ghuntley.com/ralph/
+  checked_against_source: true
+  also_called:
+  - Ralph
+  - Ralph loop
+  - Ralph Wiggum loop
+  - /ralph-loop
+  fixes:
+  - context rot
+  - declaring the job done prematurely
+  - context window overflow
+  imported_from: research-2026-10-26.json
+  page:
+    label: Ralph loop
+    link: https://ghuntley.com/ralph/
+    text: Feed the same prompt to a coding agent again and again. Each round does one task in a fresh context; progress lives
+      in files and git.
+    named_by: Geoffrey Huntley, 2025
+- id: guides-and-sensors
+  term: guides and sensors
+  kind: move
+  family: harness
+  grade: single-source
+  year: '2026'
+  meaning: 'Guides anticipate the agent''s behaviour and steer it before it acts: AGENTS.md, skills, language servers, codemods.
+    Sensors observe after it acts and help it self-correct: linters, tests, type checkers, AI review. You need both.'
+  who: Birgitta Böckeler, martinfowler.com (2026-04-02). An earlier memo of 2026-02-17 was not checked.
+  source: https://martinfowler.com/articles/harness-engineering.html
+  checked_against_source: true
+  also_called:
+  - feedforward and feedback controls
+  - computational and inferential controls
+  fixes:
+  - agents repeating errors (feedback alone)
+  - rules with no way to know if they worked (feedforward alone)
+  imported_from: research-2026-10-26.json
+- id: vibe-coding
+  term: vibe coding
+  kind: problem
+  family: human
+  grade: standard
+  year: '2025'
+  meaning: 'Karpathy''s term for fully giving in to the vibes and forgetting the code exists: accept all changes, don''t read
+    the diffs, paste errors back and see what works. Willison narrows it to building software with an LLM without reviewing
+    the code it writes.'
+  who: Andrej Karpathy, in a post on X dated 2025-02-02 per Sarkar and Drosos and the tweet ID. Willison's 'February 6th'
+    conflicts with this.
+  source: https://en.wikipedia.org/wiki/Vibe_coding
+  checked_against_source: true
+  also_called:
+  - vibe-coding
+  fixed_by:
+  - agentic engineering
+  - spec-driven development (SDD)
+  imported_from: research-2026-10-26.json
+  page:
+    label: Vibe coding
+    link: https://en.wikipedia.org/wiki/Vibe_coding
+    text: Accept everything, don't read the diffs, paste errors back and see what works.
+    named_by: Andrej Karpathy, 2025
+- id: ai-slop
+  term: AI slop
+  kind: problem
+  family: human
+  grade: standard
+  year: '2022'
+  meaning: Unreviewed, mindlessly generated AI content pushed on someone who did not ask for it, named by analogy with spam.
+    For code, the equivalent is 'inflicting unreviewed code on collaborators'.
+  who: In-group slang from about 2022 (4chan, Hacker News, YouTube, per Wikipedia). Popularised by Simon Willison (2024-05-08),
+    crediting a tweet by @deepfates. Merriam-Webster and the American Dialect Society chose 'slop' as their 2025 Word of the
+    Year.
+  source: https://simonwillison.net/2024/May/8/slop/
+  checked_against_source: true
+  also_called:
+  - slop
+  fixed_by:
+  - review the code before sharing it
+  imported_from: research-2026-10-26.json
+  page:
+    label: AI slop
+    link: https://simonwillison.net/2024/May/8/slop/
+    text: Unreviewed AI output pushed on people who didn't ask for it.
+    named_by: Popularised by Simon Willison, 2024
+- id: comprehension-debt
+  term: comprehension debt
+  kind: problem
+  family: human
+  grade: emerging
+  year: '2025'
+  meaning: The gap that builds when teams produce code faster than they can understand it. Gorman frames it as the extra time
+    needed to understand code before it can be safely changed. Storey frames it as the erosion of a team's shared understanding
+    of how and why the system works.
+  who: '''Comprehension debt'': Jason Gorman (Codemanship, 2025-09-30), popularised by Addy Osmani; several secondary sources
+    wrongly credit Osmani. ''Cognitive debt'': the phrase comes from MIT Media Lab''s ''Your Brain on ChatGPT'' (Kosmyna et
+    al., 2025-06-10, a study of essay writing). Margaret-Anne Storey gave it the software sense (2026-02-09) without claiming
+    the term.'
+  source: https://codemanship.wordpress.com/2025/09/30/comprehension-debt-the-ticking-time-bomb-of-llm-generated-code/
+  checked_against_source: true
+  also_called:
+  - cognitive debt (Storey; Osmani treats the two as interchangeable)
+  - triple debt model (technical, cognitive and intent debt)
+  fixed_by:
+  - agentic engineering
+  - pair programming, refactoring and TDD (Storey)
+  - practise without the agent
+  imported_from: research-2026-10-26.json
+  page:
+    label: Comprehension debt
+    link: https://codemanship.wordpress.com/2025/09/30/comprehension-debt-the-ticking-time-bomb-of-llm-generated-code/
+    text: The team ships code faster than it can understand it.
+    named_by: Jason Gorman, 2025
+- id: cognitive-surrender
+  term: cognitive surrender
+  kind: problem
+  family: human
+  grade: emerging
+  year: '2026'
+  meaning: Adopting AI-generated outputs with minimal scrutiny or insufficient verification, so that the AI's answer becomes
+    your own. It is contrasted with cognitive offloading, where you hand the method to a tool but still judge the result.
+  who: Steven D. Shaw and Gideon Nave (Wharton), 'Thinking—Fast, Slow, and Artificial' (SSRN working paper, 2026). The paper
+    itself was not read, only the SSRN interview of 2026-07-13. Addy Osmani applied it to coding (2026-05-05).
+  source: https://blog.ssrn.com/2026/07/13/a-closer-look-thinking-fast-slow-and-artificial-how-ai-is-reshaping-human-reasoning-and-the-rise-of-cognitive-surrender-by/
+  checked_against_source: true
+  also_called: []
+  fixed_by:
+  - 'cognitive offloading instead: keep forming an independent view'
+  imported_from: research-2026-10-26.json
+- id: automation-bias
+  term: automation bias
+  kind: problem
+  family: human
+  grade: standard
+  year: 1990s
+  meaning: The tendency of users to over-value salient automated cues even when more reliable information is available.
+  who: 'A human-factors term from 1990s aviation research: Mosier, Skitka, Heers and Burdick, ''Automation Bias: Decision
+    Making and Performance in High-Tech Cockpits'' (cited as 1997), and Mosier and Skitka (1999). Gardella, Bolton and Riggs
+    (2026-04-21) invoke it for AI code generation.'
+  source: https://arxiv.org/html/2604.18948v1
+  checked_against_source: true
+  also_called:
+  - over-reliance
+  - misuse (Parasuraman and Riley framing)
+  fixed_by:
+  - generator/evaluator loop (Writer/Reviewer)
+  - backpressure
+  imported_from: research-2026-10-26.json
+  page:
+    label: Automation bias
+    link: https://arxiv.org/html/2604.18948v1
+    text: Trusting the machine's answer over better information you already have.
+    named_by: Aviation research, 1990s
+- id: skill-atrophy
+  term: skill atrophy
+  kind: problem
+  family: human
+  grade: emerging
+  year: '2025'
+  meaning: Skills decline or are lost over time from lack of use or practice, here because thinking and coding are delegated
+    to AI. Anthropic's randomised trial found that AI use impairs conceptual understanding, code reading and debugging.
+  who: A generic term. Addy Osmani applied it to AI coding (2025-04-25). Anthropic researchers Judy Hanwen Shen and Alex Tamkin
+    measured the effect under the name skill formation (arXiv 2601.20245, 2026-01-28).
+  source: https://addyo.substack.com/p/avoiding-skill-atrophy-in-the-age
+  checked_against_source: true
+  also_called:
+  - skill decay
+  - skill formation impairment (Anthropic's wording)
+  fixed_by:
+  - conceptual-inquiry style of AI use
+  - coding without the agent on a schedule
+  imported_from: research-2026-10-26.json
+  page:
+    label: Skill atrophy
+    link: https://addyo.substack.com/p/avoiding-skill-atrophy-in-the-age
+    text: Skills fade because the thinking is always delegated.
+    named_by: Addy Osmani, 2025
+- id: 70-problem
+  term: 70% problem
+  kind: problem
+  family: human
+  grade: single-source
+  year: '2024'
+  meaning: Non-engineers using AI coding tools get 70% of the way surprisingly quickly, but the final 30% becomes an exercise
+    in diminishing returns.
+  who: Addy Osmani, 2024-12-04. It is an anecdotal framing, not a measurement.
+  source: https://addyo.substack.com/p/the-70-problem-hard-truths-about
+  checked_against_source: true
+  also_called:
+  - knowledge paradox
+  - house of cards code
+  - 80% problem (sequel)
+  fixed_by:
+  - agentic engineering
+  imported_from: research-2026-10-26.json
+  page:
+    label: 70% problem
+    link: https://addyo.substack.com/p/the-70-problem-hard-truths-about
+    text: AI gets non-engineers 70% of the way fast; the last 30% turns into diminishing returns.
+    named_by: Addy Osmani, 2024
+- id: babysitting-the-agent
+  term: babysitting the agent
+  kind: problem
+  family: human
+  grade: folk
+  year: '2026'
+  meaning: 'Spending most of your time watching, redirecting and correcting agents rather than coding. As one developer put
+    it: ''You''re not coding anymore, you''re supervising.'''
+  who: 'Unknown. Addy Osmani (2026-01-28) quotes a Hacker News commenter: ''I spend most of my time babysitting agents.'''
+  source: https://addyo.substack.com/p/the-80-problem-in-agentic-coding
+  checked_against_source: true
+  also_called:
+  - babysit
+  - supervising instead of coding
+  fixed_by:
+  - backpressure
+  - hooks
+  - agentic engineering
+  - /goal condition
+  imported_from: research-2026-10-26.json
+- id: approval-fatigue
+  term: approval fatigue
+  kind: problem
+  family: human
+  grade: emerging
+  year: '2025'
+  meaning: After clicking through many permission prompts, people stop paying close attention to what they are approving.
+    Anthropic measured that users accept 93% of permission prompts.
+  who: 'No coiner; a generic security-UX term. The earliest agent-specific use found is Anthropic, ''Beyond permission prompts''
+    (David Dworken, Oliver Weller-Davies, 2025-10-20). Later uses: Anthropic''s auto mode post (John Hughes, 2026-03-25) and
+    WorkOS (2026-08).'
+  source: https://anthropic.com/engineering/claude-code-sandboxing
+  checked_against_source: true
+  also_called:
+  - permission fatigue
+  fixed_by:
+  - sandboxing
+  - human-on-the-loop (HOTL)
+  - auto mode (classifier-gated approvals)
+  - permission allowlists
+  imported_from: research-2026-10-26.json
+  page:
+    label: Approval fatigue
+    link: https://anthropic.com/engineering/claude-code-sandboxing
+    text: After many permission prompts, people stop reading what they approve.
+    named_by: Anthropic, 2025
+- id: token-maxxing
+  term: token maxxing
+  kind: problem
+  family: human
+  grade: standard
+  grade_note: 'as workplace slang: Wikipedia, WSJ, Forbes, Business Insider, Axios and The Pragmatic Engineer use it the same
+    way; no coiner'
+  year: '2026'
+  meaning: 'Treating how many AI tokens a person burns as a measure of how productive they are, usually through company leaderboards
+    of agent usage. People then game the number: Microsoft engineers described asking the AI ''to prototype a feature that
+    I have no intention of working on'' and defaulting to the agent ''even when I know I could do the work by hand much faster''.
+    Orosz compares it to the discredited lines-of-code metric; Wikipedia links it to Goodhart''s law.'
+  who: 'No known coiner. The earliest dated uses Wikipedia cites are Forbes (Richard Nieva, 2026-03-31) and Forbes (Tim Keary,
+    2026-04-13, the first ''tokenmaxxing'' headline); those two were not fetched. The ''-maxx'' suffix is internet slang.
+    Gergely Orosz (The Pragmatic Engineer, 2026-04-23) reports, via The Information, Meta''s ''Claudeonomics'' leaderboard:
+    over 85,000 employees, 60.2 trillion tokens in 30 days, ''Massive waste'', then abolished. Microsoft has had a token leaderboard
+    since January 2026; Salesforce set weekly minimum spend targets ($100 on Claude Code); Shopify renamed its leaderboard
+    ''usage dashboard''. Also covered by WSJ, Business Insider and Axios, and used in an arXiv title (Wu, Anderson, Guha,
+    2026-07-24).'
+  source: https://blog.pragmaticengineer.com/the-pulse-tokenmaxxing-as-a-weird-new-trend/
+  checked_against_source: true
+  also_called:
+  - tokenmaxxing
+  - token maxing
+  - tokenmaxxer (the person)
+  fixed_by:
+  - 'judge outcomes, not token counts (Orosz: the lines-of-code mistake again)'
+  - usage dashboard instead of a leaderboard (Shopify)
+  - circuit breakers to catch runaway agents (Shopify)
+  imported_from: research-2026-10-27-additions.json
+  page:
+    label: Token maxxing
+    link: https://blog.pragmaticengineer.com/the-pulse-tokenmaxxing-as-a-weird-new-trend/
+    text: Counting tokens burned as a measure of productivity, often on a leaderboard. People game it, and it repeats the
+      old lines-of-code mistake.
+    named_by: No single author, 2026; Meta, Microsoft and Salesforce tracked it
+- id: meat-proxy
+  term: meat proxy
+  kind: problem
+  family: human
+  grade: emerging
+  grade_note: slang with a defining source; widely repeated since 2026-08
+  year: '2026'
+  meaning: 'A person who passes AI output on to colleagues without reading, understanding or checking it: ''Claude said:''
+    followed by the pasted answer. Gruhn: ''I don''t need a meat proxy in between.'' In code: the ticket goes to the agent,
+    the diff goes to review unread, reviewer comments go back to the agent. ''But who has done the implementation? The reviewers
+    did, using Claude Code, and you as a meat proxy.'''
+  who: 'First used by Frank Allenby, ''meat-based llm proxies'' (not-an-llm blog, 2026-03-31). His page was down (HTTP 530)
+    when checked; the credit comes from sf-isms (''Coined by: Frank Allenby'') and Simon Willison''s correction. Made popular
+    by Niklas Gruhn, ''Don''t be a meat proxy'' (2026-08-03, Hacker News front page); Gruhn does not claim to have coined
+    it. Willison linked it the same day (''an excellent new term'') and later added Allenby''s earlier use. Business Insider
+    and the BBC covered it, per search results not fetched.'
+  source: https://gruhn.me/blog/2026-08-03/
+  checked_against_source: true
+  also_called:
+  - meat-based LLM proxy (Allenby)
+  fixed_by:
+  - read it, understand it, validate it, then answer in your own words (Gruhn)
+  - 'own the diff: read it before you ask anyone to review it'
+  imported_from: research-2026-10-27-additions.json
+  page:
+    label: Meat proxy
+    link: https://gruhn.me/blog/2026-08-03/
+    text: 'Passing the agent''s answer to colleagues without reading it: "Claude said:" plus the paste, or a diff sent to
+      review that you never read. The reviewers end up doing the engineering.'
+    named_by: Frank Allenby, March 2026; made popular by Niklas Gruhn, August 2026
+- id: agentic-engineering
+  term: agentic engineering
+  kind: move
+  family: human
+  grade: emerging
+  year: '2026'
+  meaning: 'Professional agent-assisted development: the AI does the implementation while the human owns architecture, quality
+    and correctness. Osmani: ''Vibe coding = YOLO. Agentic engineering = AI does the implementation, human owns the architecture,
+    quality, and correctness.'''
+  who: Andrej Karpathy suggested the name around 2026-02-04, per Osmani; Karpathy's own post was not read. Simon Willison
+    independently used 'vibe engineering' for the same idea from 2025-10-07, and noted in 2026-02 that 'agentic engineering'
+    had become more popular.
+  source: https://addyosmani.com/blog/agentic-engineering/
+  checked_against_source: true
+  also_called:
+  - vibe engineering (Willison's earlier name for the same idea)
+  fixes:
+  - vibe coding
+  - comprehension debt
+  - babysitting the agent
+  - 70% problem
+  imported_from: research-2026-10-26.json
+  page:
+    label: Agentic engineering
+    link: https://addyosmani.com/blog/agentic-engineering/
+    text: 'The professional version: the agent implements, the engineer owns architecture, quality and correctness.'
+    named_by: Andrej Karpathy, 2026
+- id: cognitive-offloading
+  term: cognitive offloading
+  kind: move
+  family: human
+  grade: standard
+  grade_note: 'cognitive psychology since 2016; for AI its meaning is split: healthy delegation or over-reliance'
+  year: '2016'
+  meaning: 'Using a tool or an action to cut the thinking a task needs: a phone reminder, a calculator, now an AI. Risko and
+    Gilbert: ''the use of physical action to alter the information processing requirements of a task so as to reduce cognitive
+    demand.'' Shaw: ''Cognitive offloading is strategic delegation. You remain in control of the decision, but you choose
+    to offload a specific component of cognition to AI.'' It is a move only in that sense; many AI papers use the same words
+    for the harmful kind (see caveats).'
+  who: 'Evan F. Risko and Sam J. Gilbert, ''Cognitive Offloading'', Trends in Cognitive Sciences 20(9):676-688 (2016). Steven
+    D. Shaw and Gideon Nave (Wharton, SSRN working paper 2026; interview 2026-07-13) set it against cognitive surrender. AI-education
+    papers often use it for over-reliance instead, e.g. Aiersilan, ''The Vibe-Check Protocol: Quantifying Cognitive Offloading
+    in AI Programming'' (arXiv 2601.02410, 2026-01-02), which contrasts students ''leveraging AI for acceleration versus those
+    using it for cognitive offloading''.'
+  source: https://doi.org/10.1016/j.tics.2016.07.002
+  checked_against_source: true
+  also_called:
+  - strategic delegation (Shaw)
+  fixes:
+  - cognitive surrender (only while you keep the decision)
+  imported_from: research-2026-10-27-additions.json
+  page:
+    label: Cognitive offloading
+    link: https://doi.org/10.1016/j.tics.2016.07.002
+    text: Handing one piece of the thinking to a tool while you keep the decision, like a calculator or a reminder. Healthy
+      in this sense; see below for the other one.
+    named_by: Risko and Gilbert, 2016
+page_front_matter: "title: \"Vocabulary\"\ndescription: \"The named problems of working with agents, the moves that fix them,\
+  \ who named each one, and how settled the word is.\"\nsources:\n  - \"https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents\"\
+  \n  - \"https://www.dbreunig.com/2025/06/22/how-contexts-fail-and-how-to-fix-them.html\"\n  - \"https://www.dbreunig.com/2025/06/26/how-to-fix-your-context.html\"\
+  \n  - \"https://www.trychroma.com/research/context-rot\"\n  - \"https://rlancemartin.github.io/2025/06/23/context_engineering/\"\
+  \n  - \"https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus\"\n  - \"https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/\"\
+  \n  - \"https://mitchellh.com/writing/my-ai-adoption-journey\"\n  - \"https://code.claude.com/docs/en/best-practices\""
+page_layout:
+- md: '
+
+    Agentic engineering picked up its own words fast. Some are settled across the industry, some come from one blog post,
+    and some are forum slang. This page lists the ones worth knowing: what each means, who named it, and how settled it is.
+    Use the right word, and follow the link when you want the original.
+
+
+    Every entry links to its source. Each one was checked against that source in October 2026.
+
+
+    | Label | Meaning |
+
+    |---|---|
+
+    | **Standard** | Several independent companies or authors use it with the same meaning. Safe to use as is. |
+
+    | **Emerging** | Two or three credible uses. Fine to use, best with credit ("Breunig''s context clash"). |
+
+    | **One source** | One company or author. Worth knowing; say where it comes from. |
+
+    | **Slang** | Forum talk with no defined source. Say what you mean instead. |
+
+
+    ## The context window
+
+
+    Everything the agent knows when it acts sits in its context window. Most of the named problems are about what goes into
+    that window and how it decays.
+
+
+    ### What goes wrong
+
+    '
+- term_table:
+    header: '| Term | What happens | Named by | How settled |
+
+      |---|---|---|---|'
+    terms:
+    - context-rot
+    - lost-in-the-middle
+    - context-poisoning
+    - context-distraction
+    - context-confusion
+    - context-clash
+    - lost-in-conversation
+    - context-pollution
+    - attention-budget
+    - context-anxiety
+    - dumb-zone
+    - goal-drift
+    - context-collapse
+    - kitchen-sink-session
+- md: '
+
+    ### The moves that fix it
+
+    '
+- term_table:
+    header: '| Term | What you do | Named by | How settled |
+
+      |---|---|---|---|'
+    terms:
+    - context-engineering
+    - compaction
+    - sub-agent-architectures
+    - rag
+    - progressive-disclosure
+    - just-in-time-context-retrieval
+    - write-select-compress-isolate
+    - context-pruning
+    - context-offloading
+    - recitation
+    - tool-loadout
+    - tool-search-tool
+    - intentional-compaction
+    - context-reset
+    - structured-note-taking
+- md: '
+
+    ### If you see this, reach for that
+
+
+    | You notice | Reach for |
+
+    |---|---|
+
+    | The agent gets worse as the session gets long (context rot, dumb zone) | Compaction, or a context reset with a handoff
+    file |
+
+    | The agent keeps building on a wrong idea (context poisoning) | A fresh session with a corrected prompt, not more arguing
+    in the same one |
+
+    | Too many tools, and it picks the wrong one (context confusion) | Tool loadout or tool search |
+
+    | Instructions contradict each other (context clash) | One rule in one place; prune the rest |
+
+    | Exploration output floods the session (context pollution) | A sub-agent that returns only the summary |
+
+    | The instructions file keeps growing | Progressive disclosure: a short root file that points to detail |
+
+
+    ## Prompts and instructions
+
+    '
+- term_table:
+    header: '| Term | What it means | Named by | How settled |
+
+      |---|---|---|---|'
+    terms:
+    - sycophancy
+    - prompt-bloat
+    - prompt-debt
+    - prompt-overfitting
+    - aggressive-prompt-language
+    - pink-elephant-problem
+    - overeagerness
+    - prompt-drift
+    - whack-a-mole
+    - fighting-the-weights
+    - right-altitude
+- md: '
+
+    ## Checking the work
+
+    '
+- term_table:
+    header: '| Term | What it means | Named by | How settled |
+
+      |---|---|---|---|'
+    terms:
+    - reward-hacking
+    - special-casing-tests
+    - declaring-the-job-done-prematurely
+    - doom-loop
+    - package-hallucination
+    - evals
+    - llm-as-a-judge
+    - error-analysis
+    - plan-mode
+    - spec-driven-development
+    - tdd-with-agents
+    - generator-evaluator-loop
+    - backpressure
+- md: '
+
+    ## Running agents safely
+
+    '
+- term_table:
+    header: '| Term | What it means | Named by | How settled |
+
+      |---|---|---|---|'
+    terms:
+    - prompt-injection
+    - lethal-trifecta
+    - slopsquatting
+    - agent-harness
+    - harness-engineering
+    - agent-loop
+    - hooks
+    - guardrails
+    - sandboxing
+    - least-privilege-for-agents
+    - human-in-the-loop
+    - agents-rule-of-two
+    - yolo-mode
+    - ralph-wiggum-technique
+- md: '
+
+    ## The person using the agent
+
+    '
+- term_table:
+    header: '| Term | What it means | Named by | How settled |
+
+      |---|---|---|---|'
+    terms:
+    - vibe-coding
+    - ai-slop
+    - meat-proxy
+    - automation-bias
+    - comprehension-debt
+    - skill-atrophy
+    - approval-fatigue
+    - token-maxxing
+    - 70-problem
+    - cognitive-offloading
+    - agentic-engineering
+- md: '
+
+    ## Where the experts disagree
+
+
+    These are open questions. Know both sides before you pick one.
+
+
+    - **Keep failed attempts in the context, or clear them?** Manus keeps errors in so the model learns from them. Anthropic
+    says that after two failed corrections you should `/clear` and write a better prompt.
+
+    - **Remove tools, or hide them?** Manus never adds or removes tools mid-task; it blocks the ones not allowed at decoding
+    time. Tool loadout and Anthropic''s tool search load fewer tools instead.
+
+    - **Sub-agents, or one agent?** Anthropic recommends sub-agents to keep context clean. Cognition argues "Don''t build
+    multi-agents": keep one thread that sees the full history.
+
+    - **Compact, or hand off?** Amp dropped compaction for handoffs in late 2025, then brought it back in 2026.
+
+
+    ## Words with more than one meaning
+
+
+    - **Harness**: the agent harness (everything around the model), an eval harness, or a test harness. Say which.
+
+    - **Plan mode**: a product mode (plan, approve, then edit), "plan-then-execute" (a security pattern), or LangChain''s
+    planner-and-executor agents.
+
+    - **Hooks**: lifecycle scripts in Claude Code, event automations in Kiro, middleware in LangChain.
+
+    - **Compaction**: usually summarising the session. Manus uses it for swapping tool results for file pointers.
+
+    - **Context confusion**: Breunig''s meaning is too much irrelevant content, usually too many tools. It does not mean the
+    agent mixing up which task it is on.
+
+    - **Cognitive offloading**: in psychology, handing a piece of thinking to a tool while you keep the decision. Many AI
+    papers use it for letting the AI do the thinking, which Shaw and Nave (Wharton, 2026) call cognitive surrender. Neither
+    is context offloading, which moves the agent''s memory into files.
+
+
+    ## Slang you''ll hear
+
+
+    | You hear | What people mean | Say instead |
+
+    |---|---|---|
+
+    | "It got lobotomized" | Either the agent forgot your rules after auto-compaction, or a new model release feels dumber.
+    | Context rot or context collapse for the first; name the release and the behaviour for the second. |
+
+    | "Babysitting the agent" | Spending your time watching and correcting it instead of building. | Missing backpressure:
+    add the checks that let it catch its own mistakes. |
+
+    | "Boxing the agent" | AI boxing is an AI-safety idea about containing a superintelligence. It is not a prompting term.
+    | Sandboxing, least privilege. |
+
+    '

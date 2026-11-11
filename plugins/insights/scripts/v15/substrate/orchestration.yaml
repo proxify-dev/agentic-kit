@@ -1,0 +1,791 @@
+# Substrate v15 · discipline: Orchestration. Drafted and checked 2026-11-02 (workflow wf_346397c1-980: opus draft, sonnet check). Model + rules: ../README.md
+discipline:
+  id: orchestration
+  name: Orchestration
+  question: 'How many agents do you run at once, how do their runs start, and how do you keep watch without sitting on them?'
+  scope_note: 'In: work spread over more than one agent (parallel sessions, one job split across agents), agents that run without the person (on a schedule, on an event, looping over a list), how the person
+    keeps an eye on them, what they pass on to others, and what the runs cost. Out: sending exploration to a sub-agent to keep one session clean (context: sub-agent architectures), checks the agent can''t
+    talk its way past (verification: backpressure), permission prompts, sandboxing and approving each step (harness: approval fatigue, human-in-the-loop), and agreeing the plan before the work (prompt).
+    Three challenges from the vocabulary''s ''human'' family live here (babysitting the agent, meat proxy, token maxxing) because their fixes are about where the person''s attention goes.'
+challenges:
+- id: babysitting
+  name: You watch the agent work instead of working
+  term: babysitting the agent
+  grade: folk
+  source: https://addyo.substack.com/p/the-80-problem-in-agentic-coding
+  vocab:
+  - babysitting-the-agent
+  what_goes_wrong: 'You sit with the agent while it runs: approving each step, typing ''continue'', correcting it as it goes. It can only move as fast as your attention, and you get nothing else done meanwhile.'
+  handled_by:
+  - step-in-on-signals
+  also_handled_in: []
+  ask: 'Tell me about the last long task you gave an agent: what were you doing while it worked, and what made you go back to it?'
+  call_signs:
+  - Says they sit and watch the agent work, or can't leave it alone
+  - Approves each step, or keeps typing 'continue' to move it on
+  - Describes most of their day as supervising and correcting agents rather than building
+  laptop_signs:
+  - 'Minutes the agents sat waiting for them per agent hour: questions, plan approvals, turns that ended on a question (about 3 on one laptop)'
+  - 'Long runs they stayed to watch: replied within a minute with nothing typed in any other session (16 of 507 long runs on one laptop)'
+  - Esc interrupts, rejected tool calls and messages typed while the agent was still busy
+  - Short go-ahead replies ('yes', 'continue') that keep a run moving
+  detector: babysitting.py
+  seen_in: 'Calls: ''I sit and watch it'', ''continue'' to keep it moving; one laptop: about 3 minutes of agent waiting per agent hour, 16 of 507 long runs watched.'
+- id: unwatched-run-goes-wrong
+  name: A run left alone goes wrong and nobody notices
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: You stop watching and the run loops, stalls, runs for hours or wanders off the task. You find out when you come back, after the time and money are spent, so you stop trusting runs enough
+    to leave them.
+  handled_by:
+  - step-in-on-signals
+  also_handled_in: []
+  ask: 'Tell me about the last long task you gave an agent: what did you tell it done meant, what were you doing while it worked, and what brought you back to it?'
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'v13 call: ''20 agents working at the same time'' followed by ''I cannot just let them go''.'
+- id: one-at-a-time
+  name: 'Your attention sets the pace: one agent at a time, and you wait'
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: Only one thing runs with the agent, and you wait for each answer before starting the next. Your own reading of what comes back is what limits how much gets done, and the work is not sized
+    to it.
+  handled_by:
+  - parallel-work-kept-apart
+  also_handled_in: []
+  ask: What were your agents doing during your last meeting?
+  call_signs:
+  - One session at a time, waiting for each answer before starting the next thing
+  - 'Nothing else runs while the agent works: they read along, wait, or switch to email'
+  - Says parallel work feels unsafe because sessions step on each other's files
+  - Names their own reading of the agent's output as what limits how much gets done
+  laptop_signs:
+  - Share of the agents' busy time with only one agent working (23% with sub-agents counted, on one laptop)
+  - Stretches where they waited on a single agent and came straight back to that session (65 stretches, about 5 hours in 28 days, on one laptop)
+  - Runs that went on while they were away, and whether they ended in kept work
+  detector: one_at_a_time.py
+  seen_in: '16 of 92 v13 calls name their own review as the bottleneck; one laptop: 65 stretches (about 5 hours in 28 days) waiting on a single agent.'
+- id: agents-share-a-checkout
+  name: Agents running at once undo each other's changes
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: Several agents work at the same time in one copy of the code. One overwrites or reverts another's changes, a test run picks up another agent's half-finished work, and nobody can tell
+    which agent broke what.
+  handled_by:
+  - parallel-work-kept-apart
+  also_handled_in: []
+  ask: When you last had two agents working at once, where did each one's changes live, and did one ever undo the other's?
+  call_signs:
+  - Runs several agents at once in the same folder
+  - Says one agent overwrote or reverted another's changes
+  - Opens each task in its own worktree and knows which session holds which
+  laptop_signs:
+  - Stretches with two or more agents editing at once in the same working directory, compared with ones in separate worktrees
+  detector: null
+  pitfall:
+    title: I run several agents in the same checkout and they step on each other
+    fix: Give each parallel agent its own working copy (a git worktree per ticket), and run no more at once than you can read back. A worktree separates files, not databases or ports, so plan for those
+      too.
+    order: 11
+    why: Several agents work at the same time in one copy of the code. One overwrites or reverts another's changes, a test run picks up another agent's half-finished work, and nobody can tell which agent
+      broke what.
+  seen_in: 'Common pitfall 11: ''I run several agents in the same checkout and they step on each other''.'
+- id: meat-proxy
+  name: More comes back than you can read, so it goes on unread
+  term: meat proxy
+  grade: emerging (slang with a defining source; widely repeated since 2026-08)
+  source: https://gruhn.me/blog/2026-08-03/
+  vocab:
+  - meat-proxy
+  what_goes_wrong: With several agents running, their output piles up faster than you can read it. Pull requests go to review unread, reviewers' comments go straight back to the agent, and colleagues end
+    up doing the engineering.
+  handled_by:
+  - parallel-work-kept-apart
+  - lead-a-team-of-agents
+  also_handled_in: []
+  ask: 'Tell me about the last change an agent wrote that went to a colleague for review: what had you read before you sent it, and how did you answer their comments?'
+  call_signs:
+  - Sent a pull request for review that they hadn't read, or can't explain a change they shipped
+  - Pastes reviewers' comments to the agent and forwards its reply
+  - Answers colleagues with what the agent said, in the agent's words
+  laptop_signs:
+  - Pull requests opened in the same session soon after the agent's last edit, with no look at the diff and no check run in between (diff looks and checks after the last edit are read; pull request records
+    are in the logs but not read yet)
+  - Reviewer comments pasted into the session word for word, then the agent's fix pushed with nothing read in between (not read today)
+  - Commits with no check after the last edit (comprehension_debt.py, the verification side of the same moment)
+  detector: null
+  seen_in: 'Calls: pull requests sent for review the person can''t explain, reviewer comments pasted to the agent and its reply forwarded; no laptop check yet.'
+- id: parts-dont-fit
+  name: One job split across agents comes back in pieces that don't fit
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: Several agents take parts of the same job with nobody saying who owns which part or what each must hand back. Two do the same work, one changes what another relies on, and the time saved
+    goes into stitching the results together.
+  handled_by:
+  - lead-a-team-of-agents
+  also_handled_in: []
+  ask: 'Tell me about one job you split across several agents: who did which part, what did each hand back, and how did you put it together and check it?'
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: v13 harness-5 fired on 64 call quotes of multi-agent work; the 10-07 ruling sets the bar at 'who does what and how'.
+- id: work-stops-when-you-stop
+  name: Agent work happens only while you are typing
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: Every run starts because you typed it. Routine jobs (triage a new ticket, check the nightly build, answer a failing pipeline) wait until you are at the keyboard, so nothing moves while
+    you are in a meeting, asleep or on other work.
+  handled_by:
+  - fresh-run-per-task
+  - runs-start-without-you
+  also_handled_in: []
+  ask: 'Tell me about the last time an agent went through a long list of items: where was it kept what was done, and what happened when a run failed or stopped halfway?'
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'v13: 7 members with runs started by a ticket, webhook or schedule against most calls where every run is typed; one laptop: no OS job starts an agent.'
+- id: long-job-loses-its-place
+  name: A long job in one session loses its place
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: A long list of work (every file, every ticket, a backlog) runs in one session. It gets worse as the session fills, and when it crashes or you stop it the progress is gone and you restart
+    it by hand.
+  handled_by:
+  - fresh-run-per-task
+  also_handled_in: []
+  ask: 'Tell me about the last time an agent went through a long list of items: where was it kept what was done, and what happened when a run failed or stopped halfway?'
+  call_signs: []
+  laptop_signs: []
+  detector: null
+  seen_in: 'v13: 4 members had a system walk a whole set on its own, 2 had runs carry on past a failure; resuming was never asked, so it read 0.'
+- id: token-maxxing
+  name: Agent runs cost more than what they leave
+  term: token maxxing
+  grade: 'standard (as workplace slang: Wikipedia, WSJ, Forbes, Business Insider, Axios and The Pragmatic Engineer use it the same way; no coiner)'
+  source: https://blog.pragmaticengineer.com/the-pulse-tokenmaxxing-as-a-weird-new-trend/
+  vocab:
+  - token-maxxing
+  what_goes_wrong: 'Agent use becomes the goal: many agents and long runs, little of it kept, often because usage is watched or ranked. The strongest model does routine work, nothing caps a run nobody watches,
+    and nobody checks what landed.'
+  handled_by:
+  - model-and-budget-per-step
+  also_handled_in: []
+  ask: 'Think of the last day you ran a lot of agent work: how much of what it produced did you keep, and how did you know it was worth what it cost?'
+  call_signs:
+  - Counts agents or tokens as the achievement ('I had 20 agents running') without saying what landed
+  - Starts agents on work they don't mean to keep, or because usage is being watched
+  - Can't say what a heavy day of agent work left behind
+  laptop_signs:
+  - 'Agent hours set against kept work: runs left alone that ended in a commit (29% on one laptop) and short runs that did (10%) (one_at_a_time.py)'
+  - 'Many agents at once on days with little kept work: agents at once read beside commits per hour of their attention (one_at_a_time.py)'
+  - Cost per session (read and summed into one number only; nothing compares it with what was kept)
+  - 'Why they ran it (a leaderboard, a target) is never on the laptop: ask on the call'
+  detector: null
+  pitfall:
+    title: I burn tokens without checking what they bought
+    fix: Look at what consumes tokens (ask a second session to read a run and report waste). Plan with a strong model and run mechanical work on a cheaper one. Give each agent one job and a small context,
+      point it at files rather than letting it explore, tell it to write a script for bulk data instead of reading it. Load only the tools a task needs. Judge a day by what landed, not by tokens burned.
+      Prove the basic loop on one small task before an expensive process.
+    order: 7
+  seen_in: 'Common pitfall 7: ''I burn tokens without checking what they bought''; one laptop: 29% of runs left alone ended in a commit.'
+- id: results-stuck-in-one-session
+  name: What one session found stays stuck there, and you carry it to the next by hand
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  what_goes_wrong: 'Several sessions work on related parts of the same effort at once, but none of them knows what the others found or
+    changed. You copy findings, file names and decisions from one session into another, notice too late that two of them collided, and become
+    the message bus between your own agents.'
+  handled_by:
+  - coordinate-live-agents
+  also_handled_in: []
+  ask: 'When you have several sessions going on related work, how does one learn what another found or changed? Walk me through the last time.'
+  call_signs:
+  - Pastes what one session found into another, or keeps a scratch note to relay between them
+  - Two sessions changed the same thing without knowing about each other
+  - Says the agents can message each other, or that one session hands work to another and gets it back
+  laptop_signs:
+  - Messages sent between live sessions, and agent teams with teammates and tasks (Claude Code's records; what they say is never read)
+  - Sessions forked or branched from another to carry its context into a new one
+  detector: null
+  seen_in: 'One laptop: 977 messages to other sessions and 268 teammates in 57 agent teams over 30 days; calls: rarely asked'
+practices:
+- id: step-in-on-signals
+  name: Let the agent run, and step in at set points or when it signals
+  term: human-on-the-loop (HOTL)
+  grade: emerging
+  source: ''
+  vocab:
+  - human-on-the-loop
+  audience: uses-agents
+  what_you_do: Starts a run with what done looks like, then does other work instead of watching. Goes back at moments they chose or when the run signals it is finished, stuck or asking, and stops it when
+    it drifts. Approving every step is the opposite of this.
+  handles:
+  - babysitting
+  - unwatched-run-goes-wrong
+  also_handles: []
+  ladder:
+    L1: They sit and watch each run, approving steps and typing 'continue', or they leave it and find out late that it went wrong.
+    L2: By hand, they start each run with a finish line, turn to other work, go back when it finishes or asks, and stop it themselves when it drifts.
+    L3: 'Their setup tells them when to look: runs work toward a stated end, routine steps go through without asking, and a notice arrives when a run finishes, gets stuck or asks, for every run and for
+      a teammate on the same setup.'
+    L4: They built their own watcher that stops or flags a run that loops, runs too long or goes over a limit, without them watching, keep tuning its limits as their work changes, and a test that replays
+      such a run shows it still catches it.
+  techniques:
+  - tool: Claude Code
+    how: /goal sets an end condition the session works toward and reports against, so they look when it says met or blocked.
+    laptop_signal: /goal and its goal status in the session logs (scan-coverage table 2, solid)
+  - tool: Claude Code
+    how: Send a session to the background (/bg) or start sub-agents in the background, and come back on the finish notice.
+    laptop_signal: 'background sessions (sessionKind: bg) and sub-agents started with run_in_background'
+  - tool: Claude Code
+    how: Let the agent watch a long process itself (Monitor, a timed wake-up) instead of the person checking on it.
+    laptop_signal: Monitor and ScheduleWakeup calls (92 on one laptop, one_at_a_time.py)
+  - tool: Claude Code
+    how: A Notification or Stop hook that pings them (desktop, phone, chat) when a run ends or asks; remote control to steer from another device.
+    laptop_signal: null
+  - tool: any
+    how: A watcher script that reads run logs and kills or flags a run past a turn, time or cost limit, with a replayed looping run as its test (L4).
+    laptop_signal: null
+  call_evidence: 'Tell me about the last long task you gave an agent: what did you tell it done meant, what were you doing while it worked, and what brought you back to it?'
+  laptop_evidence: 'Reads end conditions (/goal), background sessions, Monitor and wake-up calls, and from babysitting.py how long agents wait on the person per agent hour and the long runs they stayed
+    to watch (replied within a minute, typed nowhere else). On one laptop: about 3 minutes of waiting per agent hour, half of it plan approvals; 16 of 507 long runs watched. Can''t see notifications or
+    check-ins from another device (remote session records are in the logs but not read).'
+  learn:
+  - kind: playbook
+    ref: /patterns/agentic-engineering
+    title: Agentic Engineering
+  - kind: playbook
+    ref: /patterns/autonomous-tasks
+    title: Autonomous Task Patterns
+  - kind: playbook
+    ref: /patterns/permission-modes
+    title: Permission Modes
+  rulings:
+  - '10-27: L2 is ''scaling with discipline'': several tasks run in parallel, kept on track while they run, results owned (''L2 … they scale by parallelizing tasks'').'
+  - Level guide L2 line 'Steers it while it works, and stops it when it drifts' had no signal in v13; this practice is where it is now measured.
+  ladder_short:
+    L2: Starts runs with a finish line, works elsewhere, and checks back
+    L3: Gets notified when a run finishes, stalls or asks for input
+    L4: Builds, tunes and tests a watcher that stops looping or runaway runs
+  short_name: Step in when runs signal
+  entry_rules: Counts on a real run with its finish line and what brought them back; 'I let it run' alone is could-be; watching or approving every step is L1.
+- id: parallel-work-kept-apart
+  name: Run several tasks at once, each in its own worktree, no more than you can review
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: Runs two or more pieces of work at the same time, each in its own session and its own copy of the code (or on files no other one touches), and knows which holds what. Sizes how many run at
+    once to how much they can read back, because their reading, not the agent, is the limit.
+  handles:
+  - one-at-a-time
+  - agents-share-a-checkout
+  - meat-proxy
+  also_handles: []
+  ladder:
+    L1: One agent at a time while they wait on it, or several in one copy of the code undoing each other's work.
+    L2: By hand, they open two or more sessions on separate tasks, each in its own copy or on separate files, know which holds what, and stop adding sessions when they can't keep up reading the results.
+    L3: Their setup starts every task in its own copy and branch, and the repo says which agent owns which folder, so the next session or a teammate starts apart without being told.
+    L4: They built their own program that runs agents in separate copies, merges back in order and runs the checks before anything lands, so collisions are caught without them, keep tuning it as their work
+      changes, and a test with two agents changing the same file shows the conflict is still caught.
+  techniques:
+  - tool: Claude Code
+    how: Start each task in its own worktree (claude --worktree, or git worktree add), one named session per task.
+    laptop_signal: 'worktree entries (worktree-state records: 103 in 68 sessions on one laptop)'
+  - tool: Claude Code
+    how: 'Built-in fan-out: /batch or a dynamic workflow splits a change across agents in worktrees (L2 by ruling 11).'
+    laptop_signal: null
+  - tool: Claude Code
+    how: 'Their own agent definitions set to isolation: worktree, so separation happens by default (L3).'
+    laptop_signal: 'own agent files, credited by git (scan: what they built)'
+  - tool: Claude Code
+    how: /fork or /branch to try a second approach without disturbing the first session.
+    laptop_signal: forks and branches (forkedFrom, copied parent records)
+  - tool: any
+    how: A note in the repo saying which folder each agent owns and which shared files need coordination; separate ports and databases per copy.
+    laptop_signal: null
+  call_evidence: When you last had two agents working at once, where did each one's changes live, and how many do you run before you can't keep up reading what they hand back?
+  laptop_evidence: 'Reads agents at once, worktree entries, forks, workflow runs and one-agent stretches (one_at_a_time.py). On one laptop: two or more agents at once 77% of busy time, 103 worktree entries,
+    116 workflow calls. Can''t tell a fork of the same session from two unrelated tasks, nor whether parallel sessions touched the same files.'
+  learn:
+  - kind: playbook
+    ref: /patterns/parallel-execution
+    title: Parallel Execution
+  - kind: playbook
+    ref: /patterns/session-management
+    title: Session Management
+  - kind: playbook
+    ref: /patterns/robots-first
+    title: Robots-First Engineering
+  rulings:
+  - '10-20 (parallel sessions and side work in sub-agents): ''That''s L2 thing that carries over in L3''.'
+  - 'Ruling 11: dynamic workflows / ultracode ''it''s an L2 thing''.'
+  - '10-27: ''L2 … they scale by parallelizing tasks''.'
+  authors_note: 'No vocabulary term: the field names this only through its tools (worktrees, parallel sessions). Sending exploration to a sub-agent is the context discipline''s sub-agent practice.'
+  ladder_short:
+    L2: Runs separate sessions by hand, no more than they can read
+    L3: Sets up each task to start in its own worktree and branch
+    L4: Builds, tunes and tests tooling that merges parallel work and catches conflicts
+  short_name: Run parallel sessions in worktrees
+  entry_rules: Two pieces of work in their own sessions is L2 and carries into L3 (10-20); naming review as the bottleneck counts only when they size the parallel work to it.
+- id: lead-a-team-of-agents
+  name: 'Split one job across agents: who does what, and how it comes back'
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: 'Acts as team lead for one job: splits it across two or more agents, says who does which part and what each must hand back, then reads and merges what comes back before going on. Switching
+    between unrelated sessions is parallel work, not this; one agent running a long command is not this either.'
+  handles:
+  - parts-dont-fit
+  - meat-proxy
+  also_handles: []
+  ladder:
+    L1: Agents on one job, or helpers the agent starts on its own, work with no split they designed, and the pieces come back overlapping or not fitting.
+    L2: For one job, they split the work by hand across agents, give each a part and say what to hand back, then read and merge the results; running a dynamic workflow that spreads one job over many agents, then reading it back and rerunning it, counts here (ruling 11).
+    L3: 'The split lives in their setup: role definitions, a command of theirs (for example plan, build, review) or a saved workflow script runs the same team the same way on the next job or for a teammate.'
+    L4: They built their own coordinator that starts the agents, passes work and results between them and decides what comes next without them stitching the pieces, keep tuning it as their jobs change,
+      and evals on past jobs show its output still holds.
+  techniques:
+  - tool: Claude Code
+    how: Sub-agents each given one part of the job with a brief that says what to hand back.
+    laptop_signal: sub-agents started, their type, model and what each was sent to do; who split the work, the agent or the person (v_who_split_the_work)
+  - tool: Claude Code
+    how: 'Agent teams: a lead creates tasks, teammates take parts and message each other.'
+    laptop_signal: teams, task tools and messages between sessions (counted; what they say is never read)
+  - tool: Claude Code
+    how: 'Dynamic workflows (ultracode): the tool writes the orchestration script; they scope it, read it back and rerun it (L2 by ruling 11).'
+    laptop_signal: Workflow tool calls (runs only; the agents and phases inside a run are not read)
+  - tool: Claude Code
+    how: Their own agent files and a command or skill that runs plan, build and review the same way each time (L3).
+    laptop_signal: own agents, commands and skills, credited by git
+  - tool: any
+    how: Their own coordinator on an agent SDK or headless runs that starts agents and routes results, with evals on past jobs (L4); installing a ready-made orchestration framework alone is L1.
+    laptop_signal: null
+  call_evidence: 'Tell me about one job you split across several agents: who did which part, what did each hand back, and how did you put it together and check it?'
+  laptop_evidence: 'Reads sub-agents (type, model, task), teams, messages between sessions, workflow runs, own agents and commands credited by git, and sub-agents the agent chose against those the person
+    asked for (on one laptop over 90 days: 2,020 chosen by the agent, 78 asked for by command). Can''t read inside a workflow run, sub-agents started by sub-agents, or what sessions say to each other, so
+    it can''t yet tell one job split from many unrelated sub-agents.'
+  learn:
+  - kind: playbook
+    ref: /patterns/orchestration-patterns
+    title: Orchestration Patterns
+  - kind: playbook
+    ref: /patterns/orchestration-patterns/supervisor
+    title: Supervisor / Team Lead
+  - kind: playbook
+    ref: /patterns/agent-teams
+    title: Agent Teams
+  - kind: playbook
+    ref: /patterns/orchestration-patterns/contract-chains
+    title: Contract Chains / Wave Execution
+  - kind: playbook
+    ref: /patterns/invocation-quality
+    title: Invocation Quality
+  rulings:
+  - '10-07: ''Imagine you''re a team lead and you orchestrate your team for an effort, who does what and how? It at least implies that the person has multiple agents being coordinated effectively.'' Several
+    unrelated sessions switched between = not it; one agent running a multi-step command = not it.'
+  - 'Ruling 11: dynamic workflows / ultracode ''it''s an L2 thing''; ''Building your own orchestration program that starts agents is still Level 4.'''
+  - '10-09: ''There''s also a lot of other features that indicate multi-agent orchestration: branching, use of /subtask (subagents) and /goal… Claude is evolving, maybe our substrate should as well.'''
+  authors_note: 'No vocabulary term: the field names the shape ''orchestrator-worker'' inside sub-agent architectures (a context move), but has no entry for the person''s practice of leading the split.'
+  ladder_short:
+    L2: Splits one job across agents, or runs a dynamic workflow
+    L3: Saves roles, a command or a workflow script that reruns the team
+    L4: Builds, tunes and tests a coordinator that runs the agents without them
+  keywords:
+  - 'dynamic workflows'
+  - 'workflow'
+  - 'ultracode'
+  - 'Workflow tool'
+  - 'agent teams'
+  - 'sub-agents'
+  - 'subagents'
+  - '/subtask'
+  - 'orchestration'
+  short_name: Lead a team of agents
+  entry_rules: One job, two or more agents, their design of who does what and how it comes back (10-07); helpers the agent started on its own get no credit; built-in workflows are L2, their own program
+    L4 (ruling 11).
+- id: fresh-run-per-task
+  name: Work through a long list with a fresh run per item, keeping progress in files
+  term: Ralph Wiggum technique (Ralph loop)
+  grade: emerging (one researcher rates it standard)
+  source: https://ghuntley.com/ralph/
+  vocab:
+  - ralph-wiggum-technique
+  audience: uses-agents
+  what_you_do: Gives each item of a long list (every ticket, every file, a backlog) its own fresh agent run with the same instructions, and keeps progress in a file and in version history instead of in
+    the session. No session fills up and degrades, and a crash or a stop costs one item, not the whole job.
+  handles:
+  - long-job-loses-its-place
+  - work-stops-when-you-stop
+  also_handles: []
+  ladder:
+    L1: A long list runs in one session that gets worse as it fills, and a crash or a stop loses the progress.
+    L2: By hand, they start a fresh session per item from a progress file updated after each one, or run the tool's built-in loop or workflow over the list.
+    L3: 'The loop lives in their repo: saved instructions, a progress file and a command of theirs that picks the next unfinished item, so any run or a teammate carries on where the last one stopped.'
+    L4: They built their own runner that starts fresh runs through the list until the checks pass, resumes from the progress file after a crash and stops at a limit, all without them, keep tuning it as
+      their lists change, and a test that kills a run midway shows it picks up where it stopped.
+  techniques:
+  - tool: any
+    how: A shell loop that feeds the same prompt file to a fresh headless run until the list is done (known as the Ralph loop); their own script, so L4 once it has a resume test.
+    laptop_signal: 'headless runs by who started them, and batches of headless runs in one project (scan: headless_by_starter, headless_batches)'
+  - tool: any
+    how: A progress file in the repo that each run reads first and updates last.
+    laptop_signal: new sessions that open by reading a file an earlier session wrote (starts_from_zero.py)
+  - tool: Claude Code
+    how: Headless runs (claude -p) with --max-turns and --max-budget-usd so one stuck item can't eat the night.
+    laptop_signal: 'bounded headless calls (scan: headless_bounded_calls)'
+  - tool: Claude Code
+    how: A dynamic workflow with one agent per item (L2 by ruling 11); /loop or the ralph-wiggum plugin repeat inside one window, so they do not give a fresh start per item.
+    laptop_signal: null
+  call_evidence: 'Tell me about the last time an agent went through a long list of items: where was it kept what was done, and what happened when a run failed or stopped halfway?'
+  laptop_evidence: Reads headless runs by who started them, batches of runs in one project, runs with limits set, /loop timers, and new sessions that open on a file an earlier session wrote. Can't yet tell
+    one fresh run per list item from unrelated runs, or whether a run resumed after a crash (today only 'automated runs edited tooling' is read).
+  learn:
+  - kind: playbook
+    ref: /patterns/autonomous-tasks
+    title: Autonomous Task Patterns
+  rulings:
+  - 'Ruling 11: dynamic workflows / ultracode ''it''s an L2 thing''; recorded meaning: ''Building your own orchestration program that starts agents is still Level 4.'' A built-in loop is L2; their own loop
+    script is L4.'
+  - 'L4 needs evals, period: whether the agent can edit them is not part of the bar (11-02, replaces the 10-09/10-13 ''evals the agent can''t edit'').'
+  authors_note: 'Merges: the Ralph loop, walking a whole set on its own, and a run that picks up after a crash from the progress file.'
+  ladder_short:
+    L2: Starts a fresh session per item by hand, from a progress file
+    L3: Keeps the loop in the repo, so anyone resumes where it stopped
+    L4: Builds, tunes and tests a runner that resumes from the progress file
+  short_name: Run each list item fresh
+  entry_rules: Needs a list the system holds and progress kept outside the session; 'twenty agents at once' is parallel work, not this (v13 loop-21 wording watch).
+- id: runs-start-without-you
+  name: Have agent runs start from a schedule or an event, not from your typing
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: Lets a schedule or an event (a new ticket, a pull request, a failing build) start the agent with saved instructions, and the result waits as a draft for a person to decide on. Automates only
+    what already works by hand on a few real tasks, with each correction moved into the saved instructions first.
+  handles:
+  - work-stops-when-you-stop
+  also_handles: []
+  ladder:
+    L1: Every run starts because they typed it, so routine jobs wait for them.
+    L2: By hand, they leave one long task running in the background or on a timer, walk away, and review what it left when they come back.
+    L3: 'Set up once, it runs again and again: a schedule, a build step or a ticket label starts the agent with saved instructions and limits, nobody types, and they or a teammate read the result later.'
+    L4: They built their own program that listens for events and starts runs limited in what each may do and spend, acts on what comes back with nobody starting them, keep tuning it as their routine jobs
+      change, and known cases rerun after each change show the results still hold.
+  techniques:
+  - tool: Claude Code
+    how: /schedule or a desktop scheduled task runs a saved prompt on a cadence.
+    laptop_signal: scheduled task fires in the logs (scheduled_task_fire; fired in 10 sessions on one laptop)
+  - tool: any
+    how: A cron, launchd or systemd timer that starts a headless agent run with a fixed prompt, tool list and turn cap.
+    laptop_signal: null
+  - tool: any
+    how: An agent step in the build pipeline that runs on pull requests or issues (for example the Claude Code GitHub action).
+    laptop_signal: 'CI agent in the repo''s workflow files (scan: has_ci_agent)'
+  - tool: any
+    how: Their own listener (webhook, ticket board) on an agent SDK that starts runs with their own tools and permission rules (L4).
+    laptop_signal: null
+  call_evidence: 'Which agent runs start without you typing anything: what starts them, what instructions do they get, where does the result land, and who built it?'
+  laptop_evidence: 'Reads scheduled task fires, OS jobs that start an agent, a CI agent in the repo, scripts that start agents (credited by git) and runs left alone that ended in kept work. On one laptop:
+    scheduled tasks fired in 10 sessions, no OS job starts an agent, 28 runs left alone of which 29% ended in a commit. Runs on other machines or in a client''s pipeline are out of sight.'
+  learn:
+  - kind: playbook
+    ref: /patterns/autonomous-tasks
+    title: Autonomous Task Patterns
+  - kind: playbook
+    ref: /patterns/permission-modes
+    title: Permission Modes
+  rulings:
+  - '10-12 (a team cron job he can explain): ''The fact that "we have" as a team and he''s aware of it, already should activate the atom''; the build leg (L4) still needs that they built it.'
+  - 'Ruling 2: ''Setting up claude''s behavior via hooks tooling or anything else, is mostly L4''.'
+  - 'L4 needs evals, period: whether the agent can edit them is not part of the bar (11-02, replaces the 10-09/10-13 ''evals the agent can''t edit'').'
+  practice_card:
+    title: Make it work by hand on a few real tickets before automating
+    text: Sit with the agent through a handful of real tickets, note each correction and move it into the instructions, keep a few evals with known outputs, and only when results are reliably acceptable
+      put it in CI, a scheduled job or a bot. Keep a human gate on merge. Start automation with preparation tasks that produce a draft (triage, checklists, branch setup).
+    order: 8
+  authors_note: 'Merges: scheduled agents, triggered agents, agents in the build pipeline, and something they built that acts on its own when it sees a condition. No vocabulary term: the field''s list has
+    no entry for agents that start themselves.'
+  ladder_short:
+    L2: Starts a long task, walks away, and reviews it later
+    L3: Sets a schedule or event to start runs from saved instructions
+    L4: Builds, tunes and tests a program that starts limited runs on events
+  short_name: Let events start agent runs
+  trusted_checks:
+  - 'write-a-program-that-runs-the-agent L3 #1'
+  - 'write-a-program-that-runs-the-agent L4 #0'
+  entry_rules: A team job they can explain what and how counts at L3 (10-12); L4 needs they built it, and the L4 laptop check proves the build only, the known-case rerun is asked on the call.
+- id: model-and-budget-per-step
+  name: Match the model and the spend to each step, and judge runs by what they leave
+  term: none
+  grade: unnamed
+  source: ''
+  vocab: []
+  audience: uses-agents
+  what_you_do: 'Chooses which model does which step for a reason: a strong one to plan or review, a cheaper or faster one to search or make routine edits. Puts a turn or cost limit on runs nobody watches,
+    and judges a run by what it left, not by how much it used.'
+  handles:
+  - token-maxxing
+  also_handles: []
+  ladder:
+    L1: One model for everything, no limit on unwatched runs, and no idea what a run cost or left behind.
+    L2: By hand, they switch model when the kind of step changes and can say why, look at what runs cost and did, and stop a run that burns money for little.
+    L3: 'Their setup chooses: their own agent roles name the model for each, a default pairs a planning model with a building one, and unattended runs carry a turn or cost limit, so every run and teammate
+      gets it without choosing.'
+    L4: They built their own program that picks the model per step, stops any run over its limit and records cost against what each run left, without them watching, keep tuning the choices as their work
+      changes, and a test with an over-limit run shows it still gets stopped.
+  techniques:
+  - tool: Claude Code
+    how: /model or effort level changed mid-session when the step changes; opusplan to plan on one model and build on another.
+    laptop_signal: null
+  - tool: Claude Code
+    how: A model named in their own agent definitions or on each sub-agent call (cheap to search, strong to review); L3 when it is in their own definitions.
+    laptop_signal: 'sub-agent calls with a model set, and sub-agents by model (scan: subagent_calls_with_model)'
+  - tool: Claude Code
+    how: --max-turns and --max-budget-usd on headless runs; /cost, /usage or /stats to see what a session spent.
+    laptop_signal: null
+  - tool: any
+    how: A usage export or telemetry that sets cost per run against what the run kept (a usage view, not a leaderboard).
+    laptop_signal: cost per session (read and summed for one number only; no check uses it)
+  call_evidence: Which model does which kind of step in your work, and why? Tell me about a run you stopped or changed because of what it cost.
+  laptop_evidence: Reads models per session, model switches, sub-agent calls with a model set, runs with turn or spend limits, and summed cost. Effort level, thinking budget and per-run budget records are
+    in the logs but not read, and no check yet compares cost with kept work.
+  learn:
+  - kind: playbook
+    ref: /patterns/cost-and-model-routing
+    title: Cost & Model Routing
+  rulings:
+  - 'No ruling on its level: the level guide lists model routing as pending (''its level was never ruled'').'
+  authors_note: 'Merges model routing, circuit breakers on runaway runs, and ''judge outcomes, not token counts'' (the vocabulary''s fixes for token maxxing). No vocabulary term: ''model routing'' is a
+    playbook word, not in the field''s list.'
+  ladder_short:
+    L2: Switches model by hand when the step changes and checks cost
+    L3: Sets the model per agent role and limits on unattended runs
+    L4: Builds, tunes and tests tooling that picks models and enforces limits
+  short_name: Set model and budget per step
+  trusted_checks:
+  - 'watch-what-runs-did-and-cost L2 #0'
+  - 'watch-what-runs-did-and-cost L2 #2'
+  entry_rules: A model tied to a kind of step, with a reason; switching vendor for price or 'the bigger one is better' is not this; its level was never ruled, so this ladder needs his yes.
+- id: coordinate-live-agents
+  name: Let agents that run at the same time talk to each other and hand work back
+  term: none
+  grade: unnamed
+  source: https://www.anthropic.com/engineering/multi-agent-research-system
+  vocab: []
+  audience: uses-agents
+  what_you_do: 'When several agents work on related parts of one effort at the same time, they don''t work blind to each other: one can tell
+    another what it found, ask it for something, or hand a piece of work back, and the person reads where things stand instead of relaying
+    every finding between sessions themselves. This is about agents already running in parallel exchanging work while they run; splitting one
+    job into roles up front is "lead a team of agents", and unrelated sessions side by side are parallel work.'
+  handles:
+  - results-stuck-in-one-session
+  also_handles:
+  - orchestration:parts-dont-fit
+  ladder:
+    L1: Several sessions run on related work, but none knows what the others found; the person copies results between them, or two collide.
+    L2: They relay between sessions by hand on purpose, telling one session what another found, or forking a session to carry its context, and
+      check on each before they cross.
+    L3: Their setup lets live agents message each other and hand work back (named sessions or an agent team with a lead), so findings and
+      requests travel between agents and the person reads one status, not every session.
+    L4: They built their own coordination layer (a registry of live sessions, routing of messages and handoffs) that runs without them, keep
+      tuning it as their work changes, and a test shows a message and a handed-back piece of work arrive where they should.
+  techniques:
+  - tool: Claude Code
+    how: 'Agent teams: a lead and teammates that take tasks and message each other.'
+    laptop_signal: teams, teammates, task tools and messages between sessions (counted; contents never read)
+  - tool: Claude Code
+    how: Sending a message from one live session to another, and forking a session to carry its context into a new one.
+    laptop_signal: messages to other sessions (counted), forked sessions
+  - tool: any
+    how: Their own session registry and message routing, with a test that a handoff arrives (L4).
+    laptop_signal: null
+  call_evidence: 'When you have several sessions going on related work, how does one learn what another found? Walk me through the last time
+    two agents passed work between them.'
+  laptop_evidence: 'Claude Code records messages sent between sessions, teams, teammates and tasks: counted, never read. Not yet a trusted
+    check, so it can''t set a level; it''s shown and asked on the call.'
+  learn:
+  - kind: playbook
+    ref: /patterns/agent-teams
+    title: Agent Teams
+  - kind: playbook
+    ref: /patterns/orchestration-patterns
+    title: Orchestration Patterns
+  rulings:
+  - '11-06: his call: "sessions that talk to each other should be a multi-agent orchestration practice". 10-09: "a lot of other features indicate
+    multi-agent orchestration: branching, use of /subtask (subagents)".'
+  ladder_short:
+    L2: Relays findings between sessions by hand, on purpose
+    L3: Lets live agents message each other and hand work back
+    L4: Builds, tunes and tests a layer that routes work between agents
+  keywords:
+  - 'SendMessage'
+  - 'send message'
+  - 'messages between sessions'
+  - 'agent teams'
+  - 'TeamCreate'
+  - 'teammates'
+  - 'split'
+  - 'fork session'
+  - 'multi-agent'
+  short_name: Coordinate agents that talk
+crosswalk:
+- v13: harness-5
+  to: lead-a-team-of-agents
+  why: Multi-agent orchestration, read with the 10-07 test (one job, two or more agents, their design of who does what and how it comes back). v13 counted it toward L4 and never placed it; here directing
+    it by hand or with built-in tools is L2 (ruling 11), saved roles L3, their own coordinator L4.
+- v13: h5-parallel
+  to: parallel-work-kept-apart
+  why: Several sessions on separate tasks is real, but it is parallel work, not orchestration (demoted to supporting 10-09). It is its own practice now.
+- v13: h5-delegate
+  to: lead-a-team-of-agents
+  why: Handing parts of one job to sub-agents is the L2 level. Handing exploration to a sub-agent to keep the session clean goes to context:sub-agent architectures (L2, carried into L3).
+- v13: h5-team
+  to: lead-a-team-of-agents
+  why: A lead with roles and agents messaging each other is a technique of this practice (agent teams); the setup tool reads teams and messages between sessions.
+- v13: h5-pipeline
+  to: lead-a-team-of-agents
+  why: 'Plan agreed first, then agents work in stages: one shape of the split; L3 when the stages are saved as their own command or roles.'
+- v13: h5-watcher
+  to: step-in-on-signals
+  why: A watcher agent alongside the work is one way to be told when to look; L4 when they built it.
+- v13: h5-workflow
+  to: lead-a-team-of-agents
+  why: 'Directing a scripted multi-agent run: L2 when the tool writes the script (dynamic workflows, ruling 11); L4 only when the program that starts the agents is theirs.'
+- v13: hn-agent-team
+  to: parallel-work-kept-apart
+  why: '''Runs several agents at the same time'' is call evidence for parallel work (L2, carried into L3), not for leading a team.'
+- v13: hn-subagent
+  to: lead-a-team-of-agents
+  why: Counts here only when the sub-agents take parts of one job; exploration maps to context:sub-agent architectures (context isolation).
+- v13: hn-workflow-run
+  to: lead-a-team-of-agents
+  why: 'Same as h5-workflow: directing a scripted orchestration they scope, read and rerun. Built-in = L2, own program = L4.'
+- v13: wf-company-practice
+  to: dropped
+  why: 'A team or company pipeline they describe but don''t direct is not evidence for their level (levels.md). Kept as an evidence rule, not a cue. Conflicts with the 10-12 ''we have a cron job'' ruling:
+    see open questions.'
+- v13: harness-6
+  to: model-and-budget-per-step
+  why: Model routing, widened to spend limits and judging runs by what they left, so token maxxing has a practice that handles it. The 11-02 problems draft dropped it; SCOPE keeps it. Its level was never
+    ruled.
+- v13: h6-per-step
+  to: model-and-budget-per-step
+  why: 'Different models for different roles in one job, with a reason: L2 by hand, L3 when set in their own sub-agent definitions.'
+- v13: h6-switch
+  to: model-and-budget-per-step
+  why: Switching model or tool counts only when tied to the kind of step; switching vendor for price is not routing.
+- v13: hn-model-switch
+  to: model-and-budget-per-step
+  why: Becomes the technique 'switch model mid-session'. On its own it showed no link to the survey score (0.007), so it can't establish the practice.
+- v13: hn-model-per-step
+  to: model-and-budget-per-step
+  why: 'Plan on one model, build on another: L2 evidence by hand; L3 when their setup pairs them.'
+- v13: loop-18
+  to: one-at-a-time
+  why: '''Bottleneck awareness'' is an observation, not an action (inb-013). It becomes a call sign of the attention-bottleneck challenge.'
+- v13: lp-review-bottleneck
+  to: parallel-work-kept-apart
+  why: Naming their own review as the bottleneck counts as evidence only when they size how much runs at once to what they can read back.
+- v13: loop-19
+  to: runs-start-without-you
+  why: '''Built the runner'' is a tool, not a move: it is the L4 level of runs that start without them and of the fresh-run loop.'
+- v13: lp-own-rig
+  to: runs-start-without-you
+  why: 'Their own program that starts the agent: L4 evidence here and on fresh-run-per-task (ruling 11: own orchestration program = L4).'
+- v13: loop-20
+  to: runs-start-without-you
+  why: 'Runs without being asked: the same practice, now laddered (background run L2, configured trigger L3, own listener L4).'
+- v13: lp-event-fired
+  to: runs-start-without-you
+  why: 'A run starts from a ticket, webhook or schedule: L3 when configured from ready-made parts, L4 when the listener is theirs.'
+- v13: lp-acts-unattended
+  to: runs-start-without-you
+  why: 'Something they built takes an action on a condition with nobody asking: the L4 level.'
+- v13: loop-21
+  to: fresh-run-per-task
+  why: 'Walking a whole set on its own is the list half of the Ralph loop. Wording watch kept: many agents at once is parallel work, not walking a set.'
+- v13: lp-walks-a-set
+  to: fresh-run-per-task
+  why: 'The system works through every item itself: evidence for the loop, L3 or L4 depending on whether it is their saved command or their own runner.'
+- v13: loop-22
+  to: fresh-run-per-task
+  why: 'Recovering and resuming are what the fresh-run loop is for: state lives in files, a restart picks up.'
+- v13: l22-self-heal
+  to: fresh-run-per-task
+  why: 'A system they built carried on past a problem with nobody stepping in: L4 level.'
+- v13: lp-self-heal
+  to: fresh-run-per-task
+  why: Same as l22-self-heal. The agent retrying its own failing step inside a watched session stays excluded (that is verification's doom loop).
+- v13: l22-resumes
+  to: fresh-run-per-task
+  why: 'State outside the session that a restart picks up from is the core of the loop: L3 with a progress file, L4 with a runner.'
+- v13: lp-loop-resumes
+  to: fresh-run-per-task
+  why: Same as l22-resumes; never asked in v13, now asked through the one-at-a-time challenge.
+- v13: l22-learns
+  to: fresh-run-per-task
+  why: Only the part where the loop's progress file records failures the next run reads. Corrections that stick in general belong to the context discipline (open question).
+- v13: lp-loop-learns
+  to: fresh-run-per-task
+  why: 'Same as l22-learns: kept as L4 detail of the loop; the general ''learns from a failure'' sense needs a home in context.'
+open_questions:
+- 'Model routing''s level was never ruled (the level guide lists harness-6 as pending). Proposed: by hand L2, set in their own sub-agent definitions L3, built into a runner with spend limits L4. Should
+  it stay a practice at all? The 11-02 problems draft dropped it as having no named problem; here it hangs on token maxxing, which the vocabulary fixes with ''judge outcomes'' and ''circuit breakers'',
+  not with model routing as such.'
+- '''We'' setups: the 10-12 ruling (a team cron job he can explain counts) contradicts levels.md (''we'' setups are not evidence, citing 10-09). This decides credit on runs-start-without-you and lead-a-team-of-agents
+  for team pipelines (the old wf-company-practice cue). Needs one rule.'
+- 'Where ''built'' starts for L4: is a one-line shell loop or a cron line that starts the agent ''their own orchestration program'' (ruling 11, L4) or setup (L3)? Same question for a CI agent taken from
+  a template, and for directing a ready-made orchestration framework (proposed L2 like built-in workflows, installing it L1).'
+- Leading a team of agents (v13 harness-5) moves from 'counts toward L4' to a ladder that starts at L2 (directing it by hand or with built-in teams and workflows, per ruling 11). That lowers some v13 credits;
+  it needs his yes.
+- The only source for human-on-the-loop is a 2012 human-rights report; the coding-agent sense was seen only in vendor posts that were not fetched. It needs a fetched, agent-specific source before it anchors
+  anything.
+- Meat proxy is assigned here, but its named fixes ('read it, understand it, validate it, then answer in your own words'; 'own the diff') are reading-and-checking moves of the verification discipline. Here
+  it is handled by capping parallel work to what you can read back and by the lead reading what comes back. Confirm it stays here.
+- '''Agentic engineering'' (the vocabulary''s human-family move, a sourced fix for babysitting the agent) is assigned to no discipline in SCOPE.'
+- 'lp-loop-learns / l22-learns (''the loop changed its own later behaviour from a recorded failure''): only the progress-file part fits here. The general sense (a correction that sticks) needs a home in
+  the context discipline; coordinate with that draft.'
+- 'Content gaps: no playbook page teaches keeping watch from outside (end conditions, being pinged, when to look); agents started by a schedule or an event get one tip in Autonomous Task Patterns; nothing
+  teaches the moves against meat proxy or token maxxing; no hands-on station exists for any orchestration practice.'
+- 'Laptop gaps: meat proxy and token maxxing have no check. In the logs but not read: pull request records, check-ins from another device, effort and budget settings, an @-mentioned sub-agent and the ultracode
+  keyword. The last two decide whether the person or the agent split the work, which is what L2 credit on leading a team needs. Also unread: what happens inside a workflow run, sub-agents started by sub-agents,
+  and what sessions say to each other.'
+- 'babysitting.py carries the term ''approval fatigue'' (a harness challenge) and reads both sides. Split it: permission waits go to harness, watching and nudging stay here. one_at_a_time.py gives one level
+  for what are now five practices; it needs one level per practice.'
+checker_changes:
+- 'Six practices, as SCOPE lists them, with one boundary moved: walking a batch moved from ''work that runs without you'' into the fresh-run loop (both are a list worked through without the person). ''Runs
+  start without you'' is now only about what starts a run.'
+- Model routing widened to the model AND the spend per step, plus judging a run by what it left, so token maxxing has a practice that handles it.
+- 'Meat proxy is handled here by two moves the orchestrator owns: running no more at once than they can read back, and the lead reading what comes back before it goes on. The reading itself (cognitive offloading)
+  stays in verification.'
+- 'Leading a team of agents (v13 harness-5, counted toward L4 and never placed) gets a full ladder: by hand or with built-in teams and workflows L2 (ruling 11), saved roles and commands L3, their own coordinator
+  L4.'
+- The 11-02 problems draft put 'sub-agents and workflows started in one line' at L3 of one-at-a-time. Ruling 11 makes dynamic workflows L2, so L3 here is only what their own setup does by default.
+- 'v13 loop-19 ''Built the runner'' is no longer a practice: a runner is the L4 level of runs that start without the person and of the fresh-run loop.'
+- 'v13 loop-18 ''Bottleneck awareness'' is no longer a practice: naming review as the bottleneck becomes a call sign of one-at-a-time, and evidence on parallel-work-kept-apart when they act on it.'
+- 'CHECK (no edits made): all 4 challenge and 2 vocabulary-termed practice term/grade/source values match list.md exactly (babysitting the agent, meat proxy, token maxxing, human-on-the-loop, Ralph Wiggum
+  technique); the four ''none'' entries are unnamed with the reason stated. handled_by/handles are two-way consistent and every linked id exists in this draft. No tool name or virtue in any practice name.
+  Crosswalk covers all 32 ids (harness-5/6, loop-18..22, their surfaces and cues in practices.yaml). All 16 learn refs exist in materials-index.md or are the vocabulary source URL. Quoted rulings match
+  level-guide.yaml (carries over in L3, L2 thing, own orchestration program = L4) and rulings.md/levels.md (10-07, 10-09, 10-12, 10-27). All SCOPE orchestration terms are present, none missing. No member
+  names. Spot-checked laptop numbers against the babysitting and one-at-a-time results (3.1 min per agent hour, 16 of 507, 23% / 77%, 65 stretches and 5.0 hours, 103 worktree entries in 68 sessions, 116
+  workflow calls, 92 monitors and wake-ups, 28.6% and 9.9%): all match. Not re-checked: the scheduled-task-fired-in-10-chats and 2,020/78 sub-agent figures, which are not in the cached JSONs.'

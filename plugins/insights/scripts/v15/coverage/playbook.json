@@ -1,0 +1,3883 @@
+[
+ {
+  "discipline": "context",
+  "practices": [
+   {
+    "id": "write-down-what-it-cannot-know",
+    "note": "L3 is well covered for the basic move (a line in a file every session loads). Not taught anywhere: the test for what earns a line, fixing the misleading code instead of writing a rule (only named as hands-on track challenge 7), and the tight rules that must govern an agent-written file. Worse, self-improving-loop and prompting-craft say only 'tell Claude to update CLAUDE.md', with no limit on what goes in, which is the unsupervised version the L3 text rules out. Nothing at all teaches L4.",
+    "L2": [
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Fighting the agent",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Context (and the 'core tension' tip: fill the gaps with context)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/setup/claude-md",
+      "section": "What Goes In (and What Doesn't)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "Example",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "Trace, Patch, Never Repeat",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "The Discipline",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "CLAUDE.md as a Living Document",
+      "status": "teaches"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Every new client > Set up your workspace so you can orient (turn what you learn into rules as you go; shared vs personal)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "The Routing Decision",
+      "status": "teaches"
+     },
+     {
+      "page": "hands-on station 1.1-first-claude-md",
+      "section": "2. Write the lever / 3. Prove it",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "CLAUDE.md as a Self-Updating Artifact",
+      "status": "mentions"
+     },
+     {
+      "page": "hands-on track index",
+      "section": "What you'll work through (challenge 7: The same correction, third time)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "No CLAUDE.md at all",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "Periodic CLAUDE.md Review (review-claudemd skill finds missing rules from recent chats)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "Conversation History Mining",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "What to Patch Where (promote a violated rule to a hook)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "put-rules-where-they-apply",
+    "note": "Skills and pointers are taught well (skills-stack, claude-md, distribution, hands-on station 1.2). The scoping half is thin: nested CLAUDE.md per folder, path-scoped .claude/rules/ and what loads when appear only as a table row or one table cell; the hands-on track's index promises station 'Where a rule lives' but only stations 1.1 and 1.2 exist. Tool loadout and tool search are only vocabulary rows, with no how-to. L4 (a hook or plugin that brings a rule in by situation) is not taught anywhere.",
+    "L2": [
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Overloading CLAUDE.md (one file for everything; use the pointer pattern)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Large Codebases (point Claude to specific files)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/onboarding",
+      "section": "Every new client > Give the client a home folder",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "The Pointer Pattern",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "Example (Reference Documents with 'Read when:')",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "@imports in CLAUDE.md",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "What Belongs Where / The Routing Decision",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/skills-stack",
+      "section": "Writing Effective Descriptions",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/skills-stack",
+      "section": "When to Create Your Own",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/make-it-yours",
+      "section": "Set It Up / What Belongs Here",
+      "status": "teaches"
+     },
+     {
+      "page": "hands-on station 1.2-fetch-jobs-skill",
+      "section": "2. Package the skill",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "Scoping Strategy (which connections are project vs user vs local)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "What CLAUDE.md Does (the location and scope table: subdirectories, parent directories, local)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "What to Patch Where (.claude/rules/ scoped to a path)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "The moves that fix it (Progressive disclosure, Tool loadout, Tool search)",
+      "status": "mentions"
+     },
+     {
+      "page": "hands-on track index",
+      "section": "What you'll work through (challenges 1, 3, 4)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Context Preservation (hooks that save and reload context)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/make-it-yours",
+      "section": "What Belongs Here > Meta-skills (a context auditor) and Hooks",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "What Belongs Where > Hooks tab",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "keep-always-loaded-small",
+    "note": "L2 (cut when it bites, stay under about 200 lines) is taught. L3 is not: nothing shows how to trim, merge overlapping rules, settle contradictions, reword a 'don't' into what to do, retire a rule once its cause is fixed, or diagnose an ignored rule (too long, ambiguous, contradicted, misleading code). The compounding table in system-evolution only ever adds rules (week 1: 3 rules, week 2: 2 more, and so on), which teaches instruction stacking. self-improving-loop also says 'Instructions that get violated repeatedly need hooks, not CLAUDE.md entries', which is the opposite of the level-guide ruling that an ignored rule is a context problem. No page teaches L4 (a size/duplicate/contradiction check the agent can't skip).",
+    "L2": [
+     {
+      "page": "/setup/claude-md",
+      "section": "The 200-Line Budget",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "What Goes In (and What Doesn't)",
+      "status": "teaches"
+     },
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Overloading CLAUDE.md",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "The Instruction Hierarchy / Why Skills Exist (explains why 500 lines means nothing is followed reliably)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "Verifying Your Context (/context)",
+      "status": "teaches"
+     },
+     {
+      "page": "hands-on track index",
+      "section": "What you'll work through (challenge 2: What earns a slot)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/distribution",
+      "section": "The Duplication Trap (one rule in one layer, pointers not copies)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "Periodic CLAUDE.md Review (find ignored rules, missing rules, stale entries weekly)",
+      "status": "teaches"
+     },
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Fighting the agent (provide missing context, not louder wording)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Prompts and instructions (Prompt debt, Aggressive prompt language, Pink Elephant, Whack-a-mole, Right altitude)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Be Specific, Not Emphatic",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/make-it-yours",
+      "section": "What Belongs Here > Meta-skills (a context auditor that shows which skills consume the most tokens)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "let-the-agent-fetch",
+    "note": "L2 is taught in pieces (name the file, paste the real error). The L3 move (tell the agent once where knowledge lives and let it search there unprompted) appears only as the point-don't-paste pattern and a three-line MCP+CLAUDE.md example; nothing shows setting up a docs folder, decision records or a notes vault and the line that sends the agent there. The hands-on track's index promises 'Tell it when to look' but the station is not built. Using a connection someone else built is covered (mcp-wiring, onboarding) but that is the L1 basic. Nothing teaches L4 (building the retrieval).",
+    "L2": [
+     {
+      "page": "/patterns/context-management",
+      "section": "Large Codebases (Point Claude to specific files)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Bug Fix Cycle (paste the real error) / General Tips (share error output)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Be Specific, Not Emphatic (error messages and file paths beat adjectives)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "The Token Budget Mental Model (pasting large files is the expensive option)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/setup/claude-md",
+      "section": "The Pointer Pattern",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "@imports in CLAUDE.md",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "Composition Patterns > MCP + CLAUDE.md (Directing Reach)",
+      "status": "teaches"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Every new client > Explore the stack / Start a memory folder",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/robots-first",
+      "section": "Specs as Lookup Tables > The alias pattern (make a doc findable by whatever words the agent searches with)",
+      "status": "teaches"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "The moves that fix it (Just-in-time retrieval, RAG)",
+      "status": "mentions"
+     },
+     {
+      "page": "hands-on track index",
+      "section": "What you'll work through (challenge 4: Tell it when to look)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/explore/tools",
+      "section": "Tools & Harnesses table (claude-context code-search MCP)",
+      "status": "mentions"
+     },
+     {
+      "page": "/explore/memory",
+      "section": "Memory & Context table",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "notes-the-next-chat-reads",
+    "note": "L2 (tell the new session to open the notes) is well taught by the handoff pattern. For L3 only one step in onboarding shows a memory folder (an index plus a few files and one example line), and it never says the setup must make the next session read the index on its own: that is hands-on track challenges 5 and 6, which are not built. Nothing teaches updating notes in small edits instead of rewriting (context collapse), a plan file the agent rewrites (recitation is only a vocabulary row), or the difference between built-in auto memory and a structure you designed (one tip). L4 has a hooks table with no script and no check.",
+    "L2": [
+     {
+      "page": "/patterns/session-management",
+      "section": "The Handoff Pattern",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "Plan Mode Handoff",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (progress files)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/onboarding",
+      "section": "Every new client > Set up your workspace so you can orient (Start a memory folder)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "The Token Budget Mental Model (tip on the three memory layers)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "The moves that fix it (Context offloading, Structured note-taking, Recitation)",
+      "status": "mentions"
+     },
+     {
+      "page": "hands-on track index",
+      "section": "What you'll work through (challenges 5 and 6: structure it fills, injected next session)",
+      "status": "mentions"
+     },
+     {
+      "page": "/explore/memory",
+      "section": "Memory & Context table (community plugins)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Composition Patterns > Context Preservation (PreCompact, Stop, SessionStart)",
+      "status": "teaches"
+     },
+     {
+      "page": "/explore/memory",
+      "section": "Memory & Context table (Continuous-Claude: hooks, ledgers, handoffs)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (progress files let fresh agents resume)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "reset-with-a-handoff",
+    "note": "L2 is the best-covered level in the discipline. Gaps inside it: /rewind to before a wrong turn is nowhere in the playbook, /clear appears only in a vocabulary disagreement bullet, resuming a still-good session is only the --fork-session flag, and gathering scattered requirements into one fresh ask is not taught. L3 (a handoff command or skill the person wrote, picked up automatically) is not taught: the handoff skill mentioned is one to install, and no page shows writing one. L4 appears only as orchestration pages that say 'context reset between stages'.",
+    "L2": [
+     {
+      "page": "/patterns/session-management",
+      "section": "Fresh Context Is Your Best Context",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "The Handoff Pattern",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "Plan Mode Handoff",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "Forking",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "When to Compact vs. When to Start Fresh",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Signs You're Running Low",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "Scoping Parallel Work (rule 1: forks answer questions)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Challenge Claude ('knowing everything you know now, scrap this and implement the elegant solution')",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "The context window > If you see this, reach for that",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Where the experts disagree (clear after two failed corrections)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/session-management",
+      "section": "The Handoff Pattern (tip: install the handoff skill)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "The Skill Creation Threshold",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "How it works (each handoff resets context)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/fan-out-fan-in",
+      "section": "Context budget tip (subagents write to disk, return a short confirmation)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (progress files, escape hatches)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Running agents safely (Ralph loop)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Context Preservation",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "compact-on-purpose",
+    "note": "The pages say 'run /compact between tasks' but never show the move the L2 level names: compacting with instructions about what must survive ('keep the file list and open decisions'), then checking what survived. Watching how full the session is appears only as a /statusline comfort and a /context tip. Turning off auto-compaction, compaction instructions in CLAUDE.md, and the compact-or-fresh choice are missing or thin. The advice is inconsistent: context-management and common-pitfalls say compact between tasks; session-management says a new task gets a new session. L3 and L4 exist only as the hooks table.",
+    "L2": [
+     {
+      "page": "/patterns/context-management",
+      "section": "/compact",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Signs You're Running Low",
+      "status": "teaches"
+     },
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Not using /compact",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "When to Compact vs. When to Start Fresh",
+      "status": "teaches"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Once, on your machine > Small comforts (/statusline shows how full the context is)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "The moves that fix it (Compaction, Intentional compaction)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Composition Patterns > Context Preservation (PreCompact saves state, SessionStart reloads it)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Context as Infrastructure (front-load what survives compaction; CLAUDE.md is re-injected)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Composition Patterns > Context Preservation / Choosing the Right Event (PreCompact)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Context as Infrastructure (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE named, pointed to official docs)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "isolate-side-work",
+    "note": "L2 is covered by subagent-patterns (context hygiene), invocation-quality (the brief) and the fork guidance. Missing: filtering long tool output with a script (only 'keep tool output concise'), dynamic workflows that spread reading over many sub-agents (not in the playbook at all), and the difference between a sub-agent (starts blank, needs a brief) and a fork/branch (already knows the session). L3 (agent definitions the main agent hands digging to by default, or a standing rule in the always-loaded file) is not taught: the only agent definition shown is the read-only validator, and subagent-patterns admits auto-routing to custom agents is unreliable without saying what to do. L4 is orchestration pages that show the pattern, not how to build a routing program or its test.",
+    "L2": [
+     {
+      "page": "/patterns/subagent-patterns",
+      "section": "Context Hygiene",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/subagent-patterns",
+      "section": "When Subagents Help / When They Don't",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/invocation-quality",
+      "section": "Anatomy of a Good Invocation / The Invocation Checklist",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "Scoping Parallel Work (forks for research)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Large Codebases (use agents for exploration) / Context as Infrastructure",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Practical Tips > Minimize context pollution",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Agent definition for a validator (frontmatter with model and tools)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/subagent-patterns",
+      "section": "Permission Routing (note on auto-routing and agent descriptions)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "What Belongs Where > Agents tab / Why Agents Exist",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "The opusplan Pattern (model: haiku in agent frontmatter)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/orchestration-patterns/fan-out-fan-in",
+      "section": "How it works / Context budget tip",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "How it works",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/supervisor",
+      "section": "Supervisor / Team Lead",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "share-the-setup-with-the-team",
+    "note": "Only fragments. No page on the whole move: committed instruction files, committed shared settings, personal files kept apart, a teammate's fresh clone giving a productive first session, and teammates editing the files. The hooks-playbook governance table and mcp-wiring scoping table are the closest; neither is about context. L2 (sharing tips by hand) has no page, and there is nothing for L4 (a team plugin with a check that a fresh clone loads it).",
+    "L2": [],
+    "L3": [
+     {
+      "page": "/onboarding",
+      "section": "Every new client > Set up your workspace so you can orient (shared vs personal instructions inside each repo)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "Scoping Strategy (commit .mcp.json for the team)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Team Hook Governance (what to commit vs keep personal)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "What CLAUDE.md Does (CLAUDE.local.md is personal and gitignored)",
+      "status": "mentions"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Every new client > Get the skills this stack needs (tip: /team-onboarding)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/supply-chain",
+      "section": "Maintain an approved list in your project's CLAUDE.md",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/make-it-yours",
+      "section": "Load It (Sharing with your team row) and Growing It (extract a shared plugin)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "design-the-context-you-send",
+    "note": "L4 only. The playbook has no page for people who build agents; the only trace is the Manus 'remove or hide tools' bullet in the vocabulary's disagreements section.",
+    "L2": [],
+    "L3": [],
+    "L4": [
+     {
+      "page": "/reference/vocabulary",
+      "section": "Where the experts disagree (Remove tools, or hide them? Manus masks tools)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "agent-managed-memory",
+    "note": "L4 only. No page teaches building a memory system. Only a list of community plugins.",
+    "L2": [],
+    "L3": [],
+    "L4": [
+     {
+      "page": "/explore/memory",
+      "section": "Memory & Context table (claude-mem, memU, Continuous-Claude, arscontexta)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "long-input-in-pieces",
+    "note": "L4 only. Nothing in the playbook, not even a vocabulary row for Recursive Language Models or context folding.",
+    "L2": [],
+    "L3": [],
+    "L4": []
+   }
+  ],
+  "challenges": [
+   {
+    "id": "context-rot",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/context-management",
+     "/patterns/session-management"
+    ],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/patterns/context-management",
+     "/reference/common-pitfalls",
+     "/patterns/subagent-patterns"
+    ]
+   },
+   {
+    "id": "lost-in-the-middle",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "context-poisoning",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/reference/vocabulary",
+     "/reference/common-pitfalls"
+    ]
+   },
+   {
+    "id": "context-distraction",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/patterns/subagent-patterns"
+    ]
+   },
+   {
+    "id": "context-confusion",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/distribution"
+    ],
+    "how_to_in": [
+     "/setup/mcp-wiring",
+     "/patterns/distribution",
+     "/setup/skills-stack"
+    ]
+   },
+   {
+    "id": "context-clash",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/distribution"
+    ],
+    "how_to_in": [
+     "/patterns/distribution"
+    ]
+   },
+   {
+    "id": "lost-in-conversation",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/patterns/prompting-craft",
+     "/patterns/session-management"
+    ]
+   },
+   {
+    "id": "context-pollution",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/subagent-patterns"
+    ],
+    "how_to_in": [
+     "/patterns/subagent-patterns",
+     "/patterns/session-management",
+     "/patterns/context-management"
+    ]
+   },
+   {
+    "id": "attention-budget",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/distribution",
+     "/patterns/context-management"
+    ],
+    "how_to_in": [
+     "/setup/claude-md",
+     "/patterns/distribution",
+     "/reference/common-pitfalls"
+    ]
+   },
+   {
+    "id": "attention-dilution",
+    "explained_in": [
+     "/patterns/distribution"
+    ],
+    "how_to_in": [
+     "/setup/claude-md",
+     "/reference/common-pitfalls"
+    ]
+   },
+   {
+    "id": "real-context-size",
+    "explained_in": [],
+    "how_to_in": [
+     "/patterns/context-management"
+    ]
+   },
+   {
+    "id": "context-anxiety",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/setup/hooks-playbook"
+    ]
+   },
+   {
+    "id": "dumb-zone",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/patterns/context-management"
+    ]
+   },
+   {
+    "id": "trajectory-poisoning",
+    "explained_in": [],
+    "how_to_in": [
+     "/reference/common-pitfalls",
+     "/patterns/workflow-patterns",
+     "/patterns/agentic-engineering"
+    ]
+   },
+   {
+    "id": "summary-drift",
+    "explained_in": [
+     "/patterns/robots-first",
+     "/patterns/context-management"
+    ],
+    "how_to_in": [
+     "/setup/hooks-playbook",
+     "/patterns/session-management"
+    ]
+   },
+   {
+    "id": "context-collapse",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "lobotomization",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/setup/hooks-playbook",
+     "/patterns/context-management"
+    ]
+   },
+   {
+    "id": "instruction-drift",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/patterns/distribution"
+    ]
+   },
+   {
+    "id": "agent-drift",
+    "explained_in": [],
+    "how_to_in": [
+     "/patterns/orchestration-patterns/pipeline-chains",
+     "/patterns/autonomous-tasks"
+    ]
+   },
+   {
+    "id": "instruction-induction-conflict",
+    "explained_in": [],
+    "how_to_in": [
+     "/reference/common-pitfalls",
+     "/reference/vocabulary"
+    ]
+   },
+   {
+    "id": "context-inertia",
+    "explained_in": [],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/patterns/agentic-engineering"
+    ]
+   },
+   {
+    "id": "kitchen-sink-session",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/session-management"
+    ],
+    "how_to_in": [
+     "/patterns/session-management",
+     "/patterns/parallel-execution"
+    ]
+   },
+   {
+    "id": "prompt-bloat",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/distribution",
+     "/reference/common-pitfalls"
+    ],
+    "how_to_in": [
+     "/setup/claude-md",
+     "/patterns/distribution",
+     "/reference/common-pitfalls",
+     "/setup/skills-stack"
+    ]
+   },
+   {
+    "id": "instruction-stacking",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/distribution"
+    ],
+    "how_to_in": [
+     "/patterns/distribution",
+     "/patterns/self-improving-loop"
+    ]
+   },
+   {
+    "id": "starts-from-zero",
+    "explained_in": [
+     "/patterns/distribution",
+     "hands-on station 1.1-first-claude-md"
+    ],
+    "how_to_in": [
+     "/setup/claude-md",
+     "/patterns/system-evolution",
+     "/patterns/self-improving-loop",
+     "/onboarding",
+     "/patterns/session-management",
+     "hands-on station 1.1-first-claude-md"
+    ]
+   }
+  ],
+  "missing_pages": [
+   {
+    "title": "When a session goes wrong: rewind, restart, resume (new section in Session Management)",
+    "what_it_teaches": "The moves for a session that has gone bad, each with when to use it: rewind to before the wrong turn (/rewind), clear and restart with the corrected fact written first instead of correcting in place, the two-failed-corrections rule, gather requirements that arrived bit by bit into one complete ask in a fresh session, fork a side idea, resume a session that is still good, one task per session (and /rename), and what to carry over (goal, done, what worked, what failed). Include the signs: it repeats itself, says 'you're right' and does it wrong again, defends its first theory of a bug, ignores an instruction you gave twice. Worked example with a real wrong-turn transcript and the fresh-chat first message.",
+    "practices": [
+     "reset-with-a-handoff",
+     "isolate-side-work"
+    ],
+    "rungs": [
+     "reset-with-a-handoff L2"
+    ],
+    "challenges": [
+     "context-poisoning",
+     "trajectory-poisoning",
+     "lost-in-conversation",
+     "instruction-induction-conflict",
+     "context-inertia",
+     "instruction-drift",
+     "kitchen-sink-session",
+     "dumb-zone"
+    ],
+    "why_it_matters": "This is the level most L1 and L2 members need first, and it is where the playbook is thinnest relative to how often it happens: /rewind and /clear are absent, six challenges have only a one-line vocabulary entry or nothing, and the pages that exist only say 'start a new session'.",
+    "closest_existing": "/patterns/session-management (add a section; the Forking and When to Compact vs. Start Fresh sections are the natural home)"
+   },
+   {
+    "title": "Know how full the session is, and where you act (new section in Context Management)",
+    "what_it_teaches": "How to read the meter (/context, the status line), the difference between the advertised window and the part that works well, a personal act-at point and how to choose it (the 40% line is a feel, not a constant), what auto-compaction does at the edge and why to act before it, how step-ins and quality change as sessions fill, and the cost of long sessions. Resolve the page's own contradiction: compact between tasks versus a new session per task.",
+    "practices": [
+     "compact-on-purpose",
+     "reset-with-a-handoff"
+    ],
+    "rungs": [
+     "compact-on-purpose L2",
+     "reset-with-a-handoff L2"
+    ],
+    "challenges": [
+     "real-context-size",
+     "dumb-zone",
+     "context-rot",
+     "attention-budget",
+     "context-anxiety"
+    ],
+    "why_it_matters": "L2 on both practices starts with noticing fullness. Today the only meter advice is one /statusline line in onboarding and a /context tip about CLAUDE.md. real-context-size has no explanation anywhere in the playbook.",
+    "closest_existing": "/patterns/context-management (extend 'Signs You're Running Low' and 'Context as Infrastructure')"
+   },
+   {
+    "title": "Compact with instructions, and check what survived (section in Context Management)",
+    "what_it_teaches": "/compact with focus text ('keep the file list, the decisions, the open question'), reading the summary for dropped or changed facts, why repeated compaction drifts, what to put in files instead, compaction instructions in the always-loaded file, and when to turn auto-compaction off and compact by hand. Show a before/after of a summary that lost a decision, and what reloads from files afterwards.",
+    "practices": [
+     "compact-on-purpose"
+    ],
+    "rungs": [
+     "compact-on-purpose L2",
+     "compact-on-purpose L3"
+    ],
+    "challenges": [
+     "summary-drift",
+     "lobotomization",
+     "context-collapse",
+     "context-anxiety",
+     "context-poisoning"
+    ],
+    "why_it_matters": "The page says to run /compact but never shows what must survive, which is the whole L2 move and the L3 setup. Summary drift, lobotomization and context collapse have no how-to anywhere.",
+    "closest_existing": "/patterns/context-management (the `/compact` section)"
+   },
+   {
+    "title": "Memory the next session reads on its own",
+    "what_it_teaches": "How to design notes so a fresh session knows yesterday before you type: an index file plus a few files (decisions, dead ends, progress, plan), the one line in the always-loaded file or import that makes the next session read the index, who writes what, updating in small edits instead of rewriting (context collapse), a plan file the agent rewrites during long work, keeping notes short enough that they do not become bloat, why built-in auto memory alone is not the same as a structure you chose, and the fresh-chat test to prove it works. Step-by-step with an example folder.",
+    "practices": [
+     "notes-the-next-chat-reads",
+     "write-down-what-it-cannot-know"
+    ],
+    "rungs": [
+     "notes-the-next-chat-reads L2",
+     "notes-the-next-chat-reads L3"
+    ],
+    "challenges": [
+     "starts-from-zero",
+     "context-collapse",
+     "context-pollution",
+     "context-anxiety",
+     "lobotomization",
+     "context-inertia",
+     "lost-in-the-middle"
+    ],
+    "why_it_matters": "Most members have some notes that they point at by hand (L2). The L3 step, notes read on their own because the setup says so, has one paragraph in the onboarding page and an unbuilt hands-on station. It is the Level 2 to Level 3 border in this discipline.",
+    "closest_existing": "/onboarding ('Start a memory folder' step) and /patterns/session-management; a new page under /patterns is better because both existing homes are about something else"
+   },
+   {
+    "title": "A rule that earns its line (extend Writing CLAUDE.md and System Evolution)",
+    "what_it_teaches": "The test for what goes in the file (the agent could not work it out, or you said it twice), one line plus the reason, fixing the code or names that keep misleading the agent instead of writing a rule against it, rewording 'don't' into what to do, and the written limits to give an agent that writes its own rules (one line, the reason, no README text, ask first). Show good and bad lines from real corrections, and the agent-writes-the-line prompt with its limits.",
+    "practices": [
+     "write-down-what-it-cannot-know",
+     "keep-always-loaded-small"
+    ],
+    "rungs": [
+     "write-down-what-it-cannot-know L3",
+     "keep-always-loaded-small L3"
+    ],
+    "challenges": [
+     "instruction-stacking",
+     "prompt-bloat",
+     "instruction-drift",
+     "starts-from-zero"
+    ],
+    "why_it_matters": "The playbook currently teaches 'tell Claude to update CLAUDE.md' with no limit, which produces the unsupervised bloat that the L3 text rules out. It also teaches adding rules weekly and never removing them.",
+    "closest_existing": "/setup/claude-md (add 'What earns a line'); correct /patterns/self-improving-loop and /patterns/prompting-craft where they give the update-CLAUDE.md prompt without limits"
+   },
+   {
+    "title": "Trim, merge, retire: keeping your instructions small over time",
+    "what_it_teaches": "An audit of a real file in five passes: delete what the agent already does, merge overlapping rules, settle two rules that disagree, retire rules whose cause is fixed, move detail behind a reference. A diagnosis flow for a rule that is still ignored (file too long, rule ambiguous, contradicted, or the code leads the other way) that ends in a fix to the cause, not louder wording or a hook. Review rhythm and how to see whether trims grow back. Before/after file.",
+    "practices": [
+     "keep-always-loaded-small"
+    ],
+    "rungs": [
+     "keep-always-loaded-small L3"
+    ],
+    "challenges": [
+     "instruction-stacking",
+     "prompt-bloat",
+     "context-clash",
+     "attention-dilution",
+     "summary-drift"
+    ],
+    "why_it_matters": "The L3 level of this practice has no page. Everything written is about writing the file and nothing about maintaining it. The system-evolution compounding table and the self-improving-loop advice ('violated rules need hooks') push members the other way.",
+    "closest_existing": "/setup/claude-md (a long section would do; make it a page only if it exceeds a screen or two)"
+   },
+   {
+    "title": "Sub-agents by default: define an agent, set a standing rule, filter long tool output (extend Subagent Patterns)",
+    "what_it_teaches": "How to write a custom agent definition (description, tools, model) for digging, a standing line in CLAUDE.md that sends searches to it, sub-agent versus fork (blank versus knows the session), the brief the sub-agent needs (link to invocation-quality), having the agent write a grep/jq script that prints only what matters instead of reading a log or test run in the session, and the built-in dynamic workflows that spread reading across many sub-agents. Warn that sub-agents the agent starts on its own are not your setup.",
+    "practices": [
+     "isolate-side-work"
+    ],
+    "rungs": [
+     "isolate-side-work L2",
+     "isolate-side-work L3"
+    ],
+    "challenges": [
+     "context-pollution",
+     "kitchen-sink-session",
+     "context-distraction",
+     "context-confusion",
+     "context-rot"
+    ],
+    "why_it_matters": "L2 needs the script-filter and workflow moves, which no page shows, and L3 needs an agent they defined. The only agent definition in the playbook is a read-only validator, and subagent-patterns says auto-routing to custom agents is unreliable without saying what to do.",
+    "closest_existing": "/patterns/subagent-patterns (add sections 'Define your own sub-agent' and 'Keep long tool output out of the session')"
+   },
+   {
+    "title": "Where a rule lives: split by client, repo, folder and path (extend Writing CLAUDE.md)",
+    "what_it_teaches": "What loads when: parent folders, the repo file, a nested file that loads only when the agent works in that folder, path-scoped rule files, the personal file. A worked split of one oversized file into folder-scoped files plus pointers that name the situation ('before changing how data is stored, read docs/decisions/'), and per-project tool connections with tool search so definitions are not loaded everywhere. End with the check: show where a module's rule lives and how the agent knows to read it only there.",
+    "practices": [
+     "put-rules-where-they-apply"
+    ],
+    "rungs": [
+     "put-rules-where-they-apply L3"
+    ],
+    "challenges": [
+     "prompt-bloat",
+     "context-confusion",
+     "dumb-zone",
+     "instruction-stacking",
+     "context-rot"
+    ],
+    "why_it_matters": "The scoping half of L3 is one table in the CLAUDE.md page and a single cell about .claude/rules. The hands-on track's index promises this station ('Where a rule lives') but it is not built.",
+    "closest_existing": "/setup/claude-md (extend 'What CLAUDE.md Does'), with the tool loadout part in /setup/mcp-wiring"
+   },
+   {
+    "title": "Check your setup in a fresh session",
+    "what_it_teaches": "The one test every level shares: open a session that never saw the conversation and ask it the fact, the rule, the next step, or the doc location, then read what reached it (/context, a one-shot claude -p run). What counts as passing, how to read a failure (not loaded, loaded but ignored, loaded but contradicted), and where to take the L4 version (a scripted check the agent cannot edit).",
+    "practices": [
+     "write-down-what-it-cannot-know",
+     "put-rules-where-they-apply",
+     "notes-the-next-chat-reads",
+     "let-the-agent-fetch",
+     "keep-always-loaded-small",
+     "compact-on-purpose"
+    ],
+    "rungs": [
+     "write-down-what-it-cannot-know L3",
+     "put-rules-where-they-apply L3",
+     "notes-the-next-chat-reads L3",
+     "let-the-agent-fetch L3",
+     "compact-on-purpose L3"
+    ],
+    "challenges": [
+     "starts-from-zero",
+     "instruction-drift",
+     "context-clash",
+     "prompt-bloat"
+    ],
+    "why_it_matters": "At L3 the person must show that the setup, not they, carries the context. The hands-on track proves its work this way but the playbook never teaches it. Verifying Your Context in claude-md covers only /context.",
+    "closest_existing": "/setup/claude-md ('Verifying Your Context'); a standalone page is justified because it applies to five practices"
+   },
+   {
+    "title": "Point, don't paste: tell the agent once where knowledge lives (section in Context Management)",
+    "what_it_teaches": "Setting up a docs folder, decision records or a notes vault, the line that sends the agent there ('search docs/decisions first'), why pointers cost less than pasting, writing docs so they are found (aliases), and when to still hand over the real evidence yourself (the error, the screenshot).",
+    "practices": [
+     "let-the-agent-fetch"
+    ],
+    "rungs": [
+     "let-the-agent-fetch L2",
+     "let-the-agent-fetch L3"
+    ],
+    "challenges": [
+     "starts-from-zero",
+     "context-rot",
+     "attention-budget",
+     "context-confusion"
+    ],
+    "why_it_matters": "L2 to L3 on this practice is the difference between pointing at a file in every session and telling the agent once. The point-don't-paste pattern covers lines inside a CLAUDE.md, but nothing covers a whole knowledge store the agent searches on its own.",
+    "closest_existing": "/patterns/context-management ('Large Codebases' and 'The Token Budget Mental Model')"
+   },
+   {
+    "title": "Share your agent setup with the team",
+    "what_it_teaches": "What to commit (CLAUDE.md or AGENTS.md, shared settings, .mcp.json, shared skills), what stays personal (CLAUDE.local.md, local settings), how a teammate adds to the shared files through a pull request, how to check that a fresh clone gives a productive first session, what to do when the client forbids agent files in the repo, and how to move a good personal skill into a shared one.",
+    "practices": [
+     "share-the-setup-with-the-team"
+    ],
+    "rungs": [
+     "share-the-setup-with-the-team L2",
+     "share-the-setup-with-the-team L3"
+    ],
+    "challenges": [
+     "starts-from-zero",
+     "context-clash",
+     "instruction-stacking"
+    ],
+    "why_it_matters": "Members on client teams are the Proxify norm. The practice has no page of its own; the pieces are spread over onboarding, mcp-wiring, and hooks governance, and none says how teammates come to use or edit the files.",
+    "closest_existing": "/onboarding (the shared-vs-personal step), but it is about the engineer's own start. A new page under /setup is cleaner."
+   },
+   {
+    "title": "Hands-on stations for the rest of Context Engineering (1.3 to 1.7)",
+    "what_it_teaches": "The hands-on track's index lists seven challenges (where a rule lives, what earns a slot, depth behind a reference, tell it when to look, give it a structure it fills, so it remembers next session, the same correction third time). Only stations 1.1 and 1.2 exist, so no coached practice exists for scoping, pointers, memory structure, memory injection or fixing the code instead of the rule.",
+    "practices": [
+     "put-rules-where-they-apply",
+     "let-the-agent-fetch",
+     "notes-the-next-chat-reads",
+     "write-down-what-it-cannot-know",
+     "keep-always-loaded-small"
+    ],
+    "rungs": [
+     "put-rules-where-they-apply L3",
+     "let-the-agent-fetch L3",
+     "notes-the-next-chat-reads L3",
+     "write-down-what-it-cannot-know L3"
+    ],
+    "challenges": [
+     "prompt-bloat",
+     "starts-from-zero",
+     "instruction-drift",
+     "context-confusion"
+    ],
+    "why_it_matters": "The hands-on track is the only learning material that proves L3 with a fresh session. Without these stations L3 on these practices has no hands-on path.",
+    "closest_existing": "the playbook's hands-on track (and its assignments folder)"
+   },
+   {
+    "title": "Vocabulary: add the missing context terms (extend Vocabulary)",
+    "what_it_teaches": "One-line entries with source and grade for terms the substrate uses and the vocabulary lacks: summary drift, trajectory poisoning, instruction drift, instruction-induction conflict, context inertia, attention dilution, real context size, agent drift; and fixes: anchored iterative summarization, context editing and tool-result clearing, programmatic tool calling, ACE, memory tiers, sleep-time compute, recursive language models and context folding, design for the KV-cache and mask-don't-remove. Add the symptom rows to 'If you see this, reach for that'.",
+    "practices": [
+     "compact-on-purpose",
+     "isolate-side-work",
+     "design-the-context-you-send",
+     "agent-managed-memory",
+     "long-input-in-pieces"
+    ],
+    "rungs": [
+     "compact-on-purpose L3",
+     "design-the-context-you-send L4",
+     "agent-managed-memory L4",
+     "long-input-in-pieces L4"
+    ],
+    "challenges": [
+     "summary-drift",
+     "trajectory-poisoning",
+     "instruction-drift",
+     "instruction-induction-conflict",
+     "context-inertia",
+     "attention-dilution",
+     "real-context-size",
+     "agent-drift"
+    ],
+    "why_it_matters": "Eight challenges have no explanation in the playbook and three L4 practices have no named source there. The vocabulary is the page people look up after hearing a term on a call.",
+    "closest_existing": "/reference/vocabulary"
+   },
+   {
+    "title": "Context hooks that work: inject, save, restore, and a check the agent can't edit",
+    "what_it_teaches": "Working scripts and a test for hooks that deal with context: a hook that brings in a rule or doc when a matching file or command comes up (for example before migrations are edited), SessionStart loading the notes, PreCompact saving state and SessionStart restoring it, a hook or CI step that fails when an instruction file passes a size limit or repeats a rule, and a scripted fresh-chat check kept where the agent cannot edit it. Also when a hook is the wrong answer (an ignored rule is first a context problem).",
+    "practices": [
+     "write-down-what-it-cannot-know",
+     "put-rules-where-they-apply",
+     "keep-always-loaded-small",
+     "compact-on-purpose",
+     "notes-the-next-chat-reads",
+     "reset-with-a-handoff"
+    ],
+    "rungs": [
+     "write-down-what-it-cannot-know L4",
+     "put-rules-where-they-apply L4",
+     "keep-always-loaded-small L4",
+     "compact-on-purpose L3",
+     "compact-on-purpose L4",
+     "notes-the-next-chat-reads L4",
+     "reset-with-a-handoff L4"
+    ],
+    "challenges": [
+     "lobotomization",
+     "summary-drift",
+     "instruction-drift",
+     "prompt-bloat",
+     "context-anxiety",
+     "starts-from-zero"
+    ],
+    "why_it_matters": "Seven L4 levels in this discipline have no page that a reader could follow: hooks-playbook has a table for Context Preservation but no script, no test and no size check. Fewer members reach L4, so this ranks after the L2 and L3 pages.",
+    "closest_existing": "/setup/hooks-playbook (extend Context Preservation with scripts and add a 'Context hooks' section)"
+   },
+   {
+    "title": "Build retrieval and memory for agents you ship",
+    "what_it_teaches": "For people who build tools and agents: write your own MCP server or search tool over team docs or notes and test that it finds the right thing; for agents you ship, design the context you send (stable opening, append-only history, errors condensed, masked tools), memory as a curated store updated in small structured edits, memory tiers, and splitting long input into pieces the agent calls itself on. Each with an eval the agent can't edit.",
+    "practices": [
+     "let-the-agent-fetch",
+     "design-the-context-you-send",
+     "agent-managed-memory",
+     "long-input-in-pieces"
+    ],
+    "rungs": [
+     "let-the-agent-fetch L4",
+     "design-the-context-you-send L4",
+     "agent-managed-memory L4",
+     "long-input-in-pieces L4"
+    ],
+    "challenges": [
+     "context-collapse",
+     "context-rot",
+     "starts-from-zero"
+    ],
+    "why_it_matters": "These levels are only for builders. They matter least for most members at L1 to L3, so a curated section of outside links and a vocabulary entry may be enough before a full page.",
+    "closest_existing": "/setup/mcp-wiring (consume-only today) and /explore/memory (a list of community plugins)"
+   }
+  ]
+ },
+ {
+  "discipline": "prompt",
+  "practices": [
+   {
+    "id": "bound-the-task",
+    "note": "Strongest coverage of the four practices, but all at L2 and mostly framed as 'subagent invocation'. Nothing shows 'list extras at the end instead of doing them', 'stop and report if bigger than described', 'prove the change on one piece then do the rest' (as a hand-over move; permutation-frameworks has the build-one-then-fan-out shape for generation only), 'have another model draft the brief', or turning a ticket into a bounded ask. L3 and L4 are essentially unteachable from today's pages. The /goal technique, @-mentions and ticket-to-ask are not on any page. Drafter's learn link /patterns/autonomous-tasks 'success condition up front' is real (Write-Test Cycle) but is about test conditions, not the whole five-part ask. Drafter's /reference/common-pitfalls link is real ('Too much at once').",
+    "L2": [
+     {
+      "page": "/patterns/invocation-quality",
+      "section": "Anatomy of a Good Invocation (and The Invocation Checklist)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/invocation-quality",
+      "section": "Common Failure Modes (scope leakage, no success condition, missing file paths)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Be Specific, Not Emphatic",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Problem Decomposition",
+      "status": "teaches"
+     },
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Too much at once",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Bug Fix Cycle (paste the actual error)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "The Write-Test Cycle (give the success condition upfront)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/robots-first",
+      "section": "Specs as Lookup Tables > Explicit scope boundaries (Out of Scope section)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Task Sizing",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Large Codebases (point Claude to specific files)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "General Tips (be specific, share error output)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (escape hatch: TODO on a blocker)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/permutation-frameworks",
+      "section": "Three Phases > Phase 1: Manual Foundation (build one right, then fan out)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/system-evolution",
+      "section": "The Discipline (table row: add a mandatory test step to your task prompt or command template)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "The Skill Creation Threshold (repeated work becomes a skill or command)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/make-it-yours",
+      "section": "What Belongs Here > Slash commands",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "MCP + CLAUDE.md: Directing Reach (read the Linear ticket before implementing)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Composition Patterns > The Quality Gate (Stop hook blocks 'done' until tests pass)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (back-pressure: Stop hooks enforce completion)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "The Compounding Effect (week 4: Stop hook checks required files)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "settle-the-approach-first",
+    "note": "L2 is well covered by workflow-patterns and prompting-craft, but 'push back on the plan and say what you changed' is only implied (Review the plan, 'push back, ask questions'). Not taught anywhere: 'explain unfamiliar code, then check that against the code', 'skip it for a one-line fix' (only implied by 'When to use'), where the plan lives afterwards and keeping it current, any spec runner. Drafter's /patterns/robots-first link teaches spec-as-file (L3 material), but also 'What NOT to do' sections, which conflict with the pink-elephant fix. permission-modes lists Plan mode but does not show the push-back move. No page teaches plan-mode-vs-typing-'plan this', spec tools, or the declined-plan feedback move.",
+    "L2": [
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Plan-Then-Execute",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Pre-Planning: Reduce Assumptions First (clarifying questions before the plan)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Exploration Pattern (have the agent explain the code before the change)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Challenge Claude ('scrap this and implement the elegant solution')",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Plan mode row / decision flow",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Delegation Levels (Draft: review + approve plan)",
+      "status": "mentions"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Every new client > Ship your first contribution (/plan, review, then go)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "Plan Mode Handoff",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Examples in the wild (plan-challenger attacks a plan)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/robots-first",
+      "section": "Linkage Over Fancy Formats (implementation plan with spec section, file, pattern to follow)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/robots-first",
+      "section": "Specs as Lookup Tables (+ Explicit scope boundaries)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/permutation-frameworks",
+      "section": "Three Phases > Phase 2: Pattern Recognition (write the shape wanted, point at the reference file)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Plan-Then-Execute (Tip: lightweight PRD with in-scope/out-of-scope)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "The Handoff Pattern (HANDOFF.md for the next agent)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (progress files let a fresh agent resume)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "How it works / Division of labor (planner + checker, executors, verifier)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Examples in the wild (gsd-plan-checker verifies against goals)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/contract-chains",
+      "section": "How it works (waves from a plan)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "reword-the-ask",
+    "note": "L2 is partly covered (do not repeat louder, give the missing context, be specific not emphatic, smaller steps) but no page shows the full move: stop it, name the defect and what it was not told, give the reason, say what to do instead, vary the example. Nothing teaches varied examples; permutation-frameworks teaches the opposite use (one canonical reference). Nothing on Esc/refuse-with-reason, rewind, or 'say what to do instead'. L3 and L4 have nothing that teaches them, and the pages that touch kept prompts teach the opposite (append a rule after every correction: prompting-craft 'CLAUDE.md as a Self-Updating Artifact', self-improving-loop 'CLAUDE.md as a Living Document', system-evolution 'Trace, Patch, Never Repeat'; robots-first 'What NOT to do' and self-improving-loop 'add them as explicit Don't do X rules' contradict Pink Elephant; setup/claude-md's own example uses 'NEVER commit .env files', contradicting the no-shouting advice). Drafter's learn links /reference/common-pitfalls and /patterns/prompting-craft exist and say what the draft claims for L2.",
+    "L2": [
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Fighting the agent",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Be Specific, Not Emphatic",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Problem Decomposition (smaller step when one-shotting fails)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "The Discipline / Trace, Patch, Never Repeat (ask what was missing that let it happen)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "General Tips ('Don't fight the agent')",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "When to Intervene",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "If you see this, reach for that (fresh chat with a corrected prompt, not more arguing)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Prompts and instructions (aggressive prompt language, pink elephant, fighting the weights, right altitude rows)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "Forking (/fork to take a different direction)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "Why Skill Design Matters (rigid rules instead of thinking prompts)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/setup/skills-stack",
+      "section": "Writing Effective Descriptions (vague to 'use when' rewrite)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/make-it-yours",
+      "section": "Anti-Patterns > Don't skip the trial period (rewrite a description that never triggers)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "Why Skills Exist (adding emphasis was not the fix; the instruction file bloat)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/reference/vocabulary",
+      "section": "Checking the work (Evals, Error analysis rows)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Composition Patterns (hook that blocks edits to linter configs so rules can't be disabled)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "ask-without-leading",
+    "note": "Only prompting-craft touches this and it never names the move (keep your own guess out of the ask). Nothing shows describing the symptom instead of the guess, asking for causes before naming yours, or treating quick agreement as a reason to check; 'Are you sure?' (Self-Reflection Loops) is the weak version that can itself trigger a flip. No page names sycophancy outside the vocabulary table, and the vocabulary has no entry for anchoring bias. No L4 level by design.",
+    "L2": [
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Challenge Claude (three ways this could break; grill me)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Self-Reflection Loops (skeptical senior engineer, list assumptions)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Bug Fix Cycle > Reproduce (give the error, ask for understanding)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/maturity-ladder",
+      "section": "Level 4: interactive AI code reviews",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Behavior Injection for Agents (skeptical code review, consider three approaches, set in agent definitions or CLAUDE.md)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Builder-Validator Pairs (read-only validator) and Examples in the wild (plan-challenger)",
+      "status": "mentions"
+     }
+    ],
+    "L4": []
+   }
+  ],
+  "challenges": [
+   {
+    "id": "goal-drift",
+    "explained_in": [
+     "/reference/vocabulary — The context window > What goes wrong (Goal drift row)",
+     "/patterns/robots-first — The Shift (compaction drops the anchors; the spec is the pin)",
+     "/patterns/robots-first — Back-Pressure Engineering (when agent output drifts)",
+     "/patterns/prompting-craft — Pre-Planning: Reduce Assumptions First (assumption drift)"
+    ],
+    "how_to_in": [
+     "/patterns/invocation-quality — Anatomy of a Good Invocation",
+     "/patterns/workflow-patterns — Plan-Then-Execute",
+     "/patterns/robots-first — Specs as Lookup Tables / Explicit scope boundaries",
+     "/patterns/agentic-engineering — When to Intervene",
+     "/patterns/session-management — The Handoff Pattern",
+     "/patterns/autonomous-tasks — Designing for Overnight Autonomy"
+    ]
+   },
+   {
+    "id": "fighting-the-weights",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Fighting the weights row)",
+     "/reference/common-pitfalls — Fighting the agent (describes the symptom but blames missing context, not training pull)"
+    ],
+    "how_to_in": [
+     "/reference/common-pitfalls — Fighting the agent (give context, suggest an alternative)",
+     "/patterns/prompting-craft — Problem Decomposition (smaller step)"
+    ]
+   },
+   {
+    "id": "prompt-debt",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Prompt debt row)",
+     "/patterns/distribution — Why Skills Exist (adjacent: 400-line CLAUDE.md, emphasis added, same cause)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "whack-a-mole",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Whack-a-mole row)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "prompt-overfitting",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Prompt overfitting row)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "few-shotted",
+    "explained_in": [],
+    "how_to_in": []
+   },
+   {
+    "id": "anchoring-bias",
+    "explained_in": [],
+    "how_to_in": [
+     "/patterns/prompting-craft — Challenge Claude (three ways this could break)",
+     "/patterns/prompting-craft — Behavior Injection for Agents (consider three approaches)"
+    ]
+   },
+   {
+    "id": "aggressive-prompt-language",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Aggressive prompt language row)",
+     "/patterns/prompting-craft — Be Specific, Not Emphatic (the model responds to information, not emphasis)",
+     "/patterns/distribution — Why Skills Exist (adding ALWAYS/NEVER was not the fix)",
+     "/reference/common-pitfalls — Fighting the agent"
+    ],
+    "how_to_in": [
+     "/patterns/prompting-craft — Be Specific, Not Emphatic",
+     "/reference/common-pitfalls — Fighting the agent"
+    ]
+   },
+   {
+    "id": "pink-elephant",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Pink Elephant problem row)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "prompt-drift",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Prompt drift row, three meanings)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "sycophancy",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Sycophancy row)",
+     "/patterns/prompting-craft — Behavior Injection for Agents (counteracts optimism bias)"
+    ],
+    "how_to_in": [
+     "/patterns/prompting-craft — Challenge Claude",
+     "/patterns/prompting-craft — Self-Reflection Loops",
+     "/patterns/prompting-craft — Behavior Injection for Agents",
+     "/patterns/orchestration-patterns/builder-validator — Builder-Validator Pairs"
+    ]
+   },
+   {
+    "id": "overeagerness",
+    "explained_in": [
+     "/reference/vocabulary — Prompts and instructions (Overeagerness row)",
+     "/patterns/robots-first — Specs as Lookup Tables > Explicit scope boundaries (the OAuth/2FA example)",
+     "/patterns/invocation-quality — Common Failure Modes (scope leakage)",
+     "/reference/common-pitfalls — Skipping the review (Claude may change more than you asked)"
+    ],
+    "how_to_in": [
+     "/patterns/invocation-quality — Anatomy of a Good Invocation (what not to do)",
+     "/patterns/robots-first — Explicit scope boundaries",
+     "/reference/common-pitfalls — Too much at once",
+     "/patterns/agentic-engineering — When to Intervene / Task Sizing"
+    ]
+   }
+  ],
+  "missing_pages": [
+   {
+    "title": "From Ticket to Bounded Ask",
+    "what_it_teaches": "One worked example: a real-looking client ticket turned into a hand-over, before and after. Shows the five parts (what, where, why, finish line, leave alone) written in your own main session, not only for subagents. Pasting the real error, @-mentioning the files, asking for extras to be listed at the end instead of done, 'stop and report if this is bigger than described', splitting a big task and proving the change on one piece first, having another model draft the brief and editing it. Then the L3 step: turn the format into a command or skill that reads the ticket and asks for those parts, so the next ask and a teammate's come out bounded without retyping.",
+    "practices": [
+     "bound-the-task"
+    ],
+    "rungs": [
+     "bound-the-task L2",
+     "bound-the-task L3"
+    ],
+    "challenges": [
+     "overeagerness",
+     "goal-drift",
+     "fighting-the-weights"
+    ],
+    "why_it_matters": "The most common L1-to-L2 move for anyone starting out is the first ask. Today the only home is /patterns/invocation-quality, which is framed as subagent invocation and has no ticket example, no extras list, no stop-and-report line, and nothing on the template that would be the L3 level. Without it L3 for this practice is reachable only by guessing.",
+    "closest_existing": "/patterns/invocation-quality (extend with 'In your own session' and 'Make it a template' sections; the new walkthrough is only justified if you want a full before/after; /patterns/self-improving-loop 'The Skill Creation Threshold' could link to the L3 section)"
+   },
+   {
+    "title": "Reword, Don't Repeat: Fixing an Ask That Missed",
+    "what_it_teaches": "A recipe for the moment the result is wrong: stop it (Esc, or refuse the step and type why), name exactly what is wrong and what it was not told, add the missing fact, give the reason for the rule, say what to do instead of what not to do, make the step smaller, vary the examples. Before and after rewrites for each: capitals to plain words plus reason, 'don't add comments' to 'keep the existing comment style', one example to two different examples plus 'what must stay the same', rewind or fork to before the wrong turn instead of piling corrections. Ends with 'when it keeps resisting' (reshape the ask to what the model expects, try another model) and 'no regenerate-and-hope, no silent hand-fix'.",
+    "practices": [
+     "reword-the-ask"
+    ],
+    "rungs": [
+     "reword-the-ask L2"
+    ],
+    "challenges": [
+     "aggressive-prompt-language",
+     "pink-elephant",
+     "few-shotted",
+     "fighting-the-weights",
+     "goal-drift"
+    ],
+    "why_it_matters": "This is the L2 level for the broadest practice (handles nine challenges), and today it is scattered: a pitfall accordion, one table in prompting-craft, a one-line tip. Five of the nine challenges it handles (pink elephant, few-shotted, whack-a-mole, prompt overfitting, prompt drift) have no how-to anywhere. Shouting in capitals and 'don't do X' are exactly what members at L1 do.",
+    "closest_existing": "/patterns/prompting-craft (extend 'Be Specific, Not Emphatic') and /reference/common-pitfalls ('Fighting the agent'); the recipe is big enough for its own page that both link to"
+   },
+   {
+    "title": "Ask Without Leading: Getting an Honest Answer",
+    "what_it_teaches": "How to keep your own guess out of the question: describe the symptom and ask for possible causes before you name yours, ask for options with trade-offs and for the case against before choosing, treat quick agreement ('You're absolutely right') as a reason to check rather than proceed, and how to test whether agreement is real (ask again neutrally, ask a fresh session that never saw your opinion). For L3: a standing instruction or a reviewer sub-agent that tells the agent to push back with evidence, give options and say when it is unsure. Notes that a bare role ('act as an expert') does not help; a skeptical stance does.",
+    "practices": [
+     "ask-without-leading"
+    ],
+    "rungs": [
+     "ask-without-leading L2",
+     "ask-without-leading L3"
+    ],
+    "challenges": [
+     "sycophancy",
+     "anchoring-bias"
+    ],
+    "why_it_matters": "The practice has no home. prompting-craft only has 'Challenge Claude' and a persona table, and nothing says 'don't steer first'. Members at L1 hand the agent their hypothesis and then trust the agreement. Also the vocabulary has no entry for anchoring bias, so the challenge cannot even be named from the playbook.",
+    "closest_existing": "/patterns/prompting-craft ('Challenge Claude' and 'Behavior Injection for Agents' could be extended instead, if you prefer not to add a page)"
+   },
+   {
+    "title": "Settle the Plan: Pushing Back and Keeping It (section extension)",
+    "what_it_teaches": "Extend Plan-Then-Execute so 'review the plan' is concrete: the agent asks its questions first; for unfamiliar code it explains how it works, you check that against the code, then you ask for the change; a real example of pushing back on a plan and writing down what changed; skip it for a one-line fix; treat a first pass as exploration and say 'scrap that and build it cleanly'. L3 section: save the agreed plan or spec as a file in the repo (in scope, out of scope, files, pattern to copy, example of the shape), tell the next session and teammates to work from it, and update it when the approach changes.",
+    "practices": [
+     "settle-the-approach-first"
+    ],
+    "rungs": [
+     "settle-the-approach-first L2",
+     "settle-the-approach-first L3"
+    ],
+    "challenges": [
+     "goal-drift",
+     "overeagerness"
+    ],
+    "why_it_matters": "Planning alone reads no level (10-27 ruling), so what a member needs is the push-back and where the plan lives afterwards, which is the bit missing today. 'Review the plan' is one line and the L3 content exists only as a spec-format section in robots-first, not as 'the plan outlives the session'.",
+    "closest_existing": "/patterns/workflow-patterns ('Plan-Then-Execute') for L2; /patterns/robots-first ('Linkage Over Fancy Formats') for L3. Section extensions, no new page"
+   },
+   {
+    "title": "Maintaining Prompts You Keep: Rewrite, Don't Append",
+    "what_it_teaches": "For skills, commands and sub-agent instructions you wrote: when a miss repeats, rewrite the part that caused it and delete the clause the patch replaces, instead of adding a line; one patch at a time; dead-clause audit every few weeks; check no 'NEVER/MUST' crept in; pin the model in sub-agents so a model update is your choice. Includes what prompt debt looks like (a wall of special cases) and how to cut a long prompt by half. Also resolves the conflict: the 'update CLAUDE.md after every correction' habit must come with 'and remove what it replaces'.",
+    "practices": [
+     "reword-the-ask"
+    ],
+    "rungs": [
+     "reword-the-ask L3"
+    ],
+    "challenges": [
+     "prompt-debt",
+     "whack-a-mole",
+     "prompt-drift",
+     "prompt-overfitting",
+     "aggressive-prompt-language"
+    ],
+    "why_it_matters": "Writing your own skills is the L3 line (ruling 4), but the playbook only teaches how to start one and how to append rules. Three pages (prompting-craft, self-improving-loop, system-evolution) teach append-per-correction, the cause of whack-a-mole. A member who follows them faithfully builds prompt debt. Needs the existing pages fixed too, and 'Don't do X' guidance in robots-first and self-improving-loop and the NEVER in the claude-md example changed to 'say what to do'.",
+    "closest_existing": "/patterns/system-evolution (add a 'Rewrite, don't append' section and change 'Patch' wording); /patterns/self-improving-loop"
+   },
+   {
+    "title": "Vocabulary additions: 'Don't get few-shotted' and anchoring bias (section extension)",
+    "what_it_teaches": "Two of the twelve challenge terms are not on the Vocabulary page at all. Add 'few-shotted' (an example or a run of similar items gets copied too literally; fix: two or three varied examples, say what must stay the same) and 'anchoring bias' (your first words or guess weigh too much; fix: gather angles, neutral phrasing). Add a short note to /patterns/permutation-frameworks that the one-reference-copy approach is deliberate there and where it bites.",
+    "practices": [
+     "reword-the-ask",
+     "ask-without-leading"
+    ],
+    "rungs": [
+     "reword-the-ask L2",
+     "ask-without-leading L2"
+    ],
+    "challenges": [
+     "few-shotted",
+     "anchoring-bias"
+    ],
+    "why_it_matters": "Without a name the challenge cannot be explained to a member, and the vocabulary is the page other pages link to. Few-shotted also has no how-to anywhere.",
+    "closest_existing": "/reference/vocabulary ('Prompts and instructions' table); /patterns/permutation-frameworks"
+   },
+   {
+    "title": "Regression Cases for Prompts You Keep",
+    "what_it_teaches": "How to keep a small set of past failures as cases and rerun them whenever a kept prompt or the model changes: write the case when the miss happens, keep some cases aside that you never tune on, grade the output (by hand first, then a script), rerun before switching models, and make the cases something the agent cannot edit. Walks one skill through three edits where one fix breaks an older case and the rerun catches it.",
+    "practices": [
+     "reword-the-ask"
+    ],
+    "rungs": [
+     "reword-the-ask L4"
+    ],
+    "challenges": [
+     "whack-a-mole",
+     "prompt-overfitting",
+     "prompt-drift",
+     "prompt-debt"
+    ],
+    "why_it_matters": "The L4 level of the prompt discipline has no teaching anywhere. The only eval content is two vocabulary rows. L4 needs evals the agent can't edit (10-09, 10-13), so a member has no path from 'I rewrite my skill' to 'I rerun cases'. Coordinate with the verification discipline: this is the same material as verification:retest-agent-setup and one page can serve both.",
+    "closest_existing": "None. The nearest are /reference/vocabulary (Evals, Error analysis rows) and /patterns/autonomous-tasks 'Background Testing' (app tests, not prompts)"
+   },
+   {
+    "title": "A Finish Line the Agent Must Pass (section extension)",
+    "what_it_teaches": "Extend the Quality Gate to the task level: the ask's 'done' condition becomes a script or check the Stop hook runs (not only 'tests pass'), plus a small hook that sends back a task with no finish line. Shows the config and where the check lives so the agent cannot edit it.",
+    "practices": [
+     "bound-the-task"
+    ],
+    "rungs": [
+     "bound-the-task L4"
+    ],
+    "challenges": [
+     "goal-drift",
+     "overeagerness"
+    ],
+    "why_it_matters": "The only L4 teaching is a generic test-gate. Nothing ties it to the finish line stated in the ask, and nothing rejects a task with no finish line. The audience is small (L4), so after the L2/L3 pages.",
+    "closest_existing": "/setup/hooks-playbook ('The Quality Gate'); /patterns/autonomous-tasks ('Designing for Overnight Autonomy')"
+   },
+   {
+    "title": "Running From a Spec: Checks the Agent Can't Edit (section extension)",
+    "what_it_teaches": "Turn the spec into acceptance checks the agent cannot edit, or a runner that walks the spec's steps and stops when a step fails, using the existing pipeline and validator patterns. One minimal example: spec file to checks to a loop that stops at the first failure.",
+    "practices": [
+     "settle-the-approach-first"
+    ],
+    "rungs": [
+     "settle-the-approach-first L4"
+    ],
+    "challenges": [
+     "goal-drift",
+     "overeagerness"
+    ],
+    "why_it_matters": "No page teaches L4 of this practice; the orchestration pages build from waves and pipelines but not from a spec with checks. Small audience, so last.",
+    "closest_existing": "/patterns/orchestration-patterns/pipeline-chains and /patterns/orchestration-patterns/builder-validator (extend with a spec-driven example)"
+   },
+   {
+    "title": "Hands-on stations for the prompt discipline",
+    "what_it_teaches": "The hands-on track has only context-engineering challenges and two stations (1.1 first CLAUDE.md, 1.2 fetch-jobs skill). Add short hands-on challenges mirroring the context ones: write a bounded ask for a ticket and see the diff compact; reword a missed ask three ways and compare; ask with and without your guess in it and watch the agent anchor; rewrite a bloated skill instead of appending.",
+    "practices": [
+     "bound-the-task",
+     "reword-the-ask",
+     "ask-without-leading",
+     "settle-the-approach-first"
+    ],
+    "rungs": [
+     "bound-the-task L2",
+     "reword-the-ask L2",
+     "ask-without-leading L2",
+     "reword-the-ask L3"
+    ],
+    "challenges": [
+     "overeagerness",
+     "aggressive-prompt-language",
+     "pink-elephant",
+     "anchoring-bias",
+     "prompt-debt"
+    ],
+    "why_it_matters": "The hands-on track's design is 'seeing the before and after', and the prompt discipline is mostly before-and-after. Today none of its practices have hands-on material.",
+    "closest_existing": "the playbook's hands-on track (add a second track beside Context Engineering)"
+   }
+  ]
+ },
+ {
+  "discipline": "verification",
+  "practices": [
+   {
+    "id": "prove-it-works",
+    "note": "The playbook has the raw materials for L2 and part of L3 (verifiable success condition, TDD loop, bug-fix cycle with regression test, browser and tmux checks, Stop-hook quality gate) but spread across five pages, none framed as 'ask for proof before you believe done'. Not taught anywhere: telling the agent to report a wrong test instead of changing it, choosing the check that fits the change (spike vs durable test vs run like a user), auditing each progress claim against a tool result, checking a package exists before install, /goal, CI/pre-commit set up so the agent reads the result, and any L4 gate beyond a one-line Stop hook config (no script body shown, no 'agent cannot edit the tests' pattern, no runner loop). The Config Guardian protects linter configs, not tests.",
+    "L2": [
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "The Write-Test Cycle",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "TDD Loop",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Bug Fix Cycle (Verify step: run the tests, add a regression test for this bug)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Refactor Cycle (green baseline, verify after each step)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Browser-Based Verification",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/invocation-quality",
+      "section": "Anatomy of a Good Invocation (How to verify? plus the worked example with a success condition)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Plan-Then-Execute (execute step by step, review each change before moving on)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Delegating without tests",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Task Sizing (testable, verifiable output)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "Scope by file ownership (never split implementation from its tests)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Checking the work (backpressure, TDD with agents, reward hacking)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/system-evolution",
+      "section": "Trace, Patch, Never Repeat (Tests never run locally: add a CLAUDE.md rule to run the suite before marking done)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "Feedback Loops (PostToolUse lint hook with the settings JSON)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "The Quality Gate (PostToolUse lint-and-format half)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "tmux for Interactive Testing (agent drives a terminal and captures output)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Browser-Based Verification (agent drives the running app)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "What Goes In (Build/test/lint commands) - names the commands, says nothing about 'show a passing run before handing back'",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Practical Tips > Structure CLAUDE.md for multi-agent (list verification commands so every agent can self-check)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/maturity-ladder",
+      "section": "Agentic software engineering (pre-commit hooks, CI pipelines, thorough testing)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Team Hook Governance (test runners and linting committed to settings.json)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "MCP + Hooks (Stop checks that CI is green)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "The Quality Gate (Stop hook runs the tests, exit code 2 forces the agent to continue). Config shown, the script body is not",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (verification-first prompt, Stop hooks as back-pressure, escape hatches)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Self-Validating Agents (Macro tier: Stop hook checks tests pass before done)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "The Compounding Effect (week 4: Stop hook, agent cannot declare done prematurely)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "The Config Guardian / Anti-Patterns (LLM config gaming): the agent is blocked from editing linter configs, not tests",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "MCP + Hooks (Stop verifies MCP output)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "second-look",
+    "note": "Weakest-covered level is L2. The only review-by-AI page tells the reader to ask in the SAME session ('Any remaining concerns?'), which is the weak signal the level warns against. Nothing teaches pasting changes into a fresh session, giving a reviewer a short brief, or judging each finding yourself. L3 is taught for the read-only agent definition only; nothing shows wiring it into the usual pre-PR flow (a command or skill that calls it). L4 loop with a round cap is taught as an orchestration pattern, but not as a hook or runner that blocks the finish.",
+    "L2": [
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "How it works + Agent definition for a validator (a separate read-only agent checks the work)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Code Review Workflow (asks for review in the same chat; no fresh-eyes step, no judging findings)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Self-Reflection Loops (review this diff as a skeptical senior; same chat)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/subagent-patterns",
+      "section": "Permission Routing note (explicit trigger: 'Use the security-reviewer agent to audit this module')",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/maturity-ladder",
+      "section": "High-quality software engineering (interactive AI code reviews, self-reflection loops)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Agent definition for a validator (read-only tools, disallowedTools Write/Edit) and Why read-only matters",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Examples in the wild (plan-challenger, gsd-plan-checker)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/make-it-yours",
+      "section": "What Belongs Here > Custom agents / Slash commands (a code reviewer agent, /pr-review)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Model Routing Strategy (Validate on Sonnet, read-only)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "Division of labor (Verification stage: a verifier checks code against goals)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Iteration loop (builder, validator, revise, hard cap of 3 rounds, then escalate). Taught as an orchestration pattern, not as a hook or runner that blocks the finish",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Hook Types Beyond Command (Agent hook: verification that needs tool use)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Self-Validating Agents (Team tier)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "own-what-ships",
+    "note": "Mostly named, barely taught. The only step-level teaching is two lines: 'always read git diff, treat it like a PR from a new team member' (common-pitfalls) and one prompt, 'Grill me on these changes and don't make a PR until I pass your test' (prompting-craft). Correction to the drafter's checker_changes: /patterns/prompting-craft DOES have a quiz passage (Challenge Claude, first bullet), one line, by-hand only, no standing setup. Nothing teaches how to review a large diff, run the change as a user, write risky parts yourself, form your own view first, set a hand-back format, or practise without the agent. L4 is null by design.",
+    "L2": [
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Skipping the review (read the diff, git diff before committing, treat output like a PR from a capable new team member)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/maturity-ladder",
+      "section": "The four levels (file-level, function-level, line-by-line understanding; match the level to the stakes)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "General Tips (Review diffs, not just the outcome)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "Plan-Then-Execute (review each change before moving on)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Delegation Levels (Suggest: you decide and implement; Draft: you review and approve) and When to Intervene",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "The person using the agent (vibe coding, AI slop, meat proxy, comprehension debt, cognitive offloading)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Challenge Claude ('Grill me on these changes and don't make a PR until I pass your test'). One line, a by-hand prompt, not a standing setup",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "MCP + Hooks (Stop checks the PR has a description and links the ticket): the closest thing to a hand-back format",
+      "status": "mentions"
+     }
+    ],
+    "L4": []
+   },
+   {
+    "id": "retest-agent-setup",
+    "note": "No page teaches this practice at any level. The vocabulary defines evals, LLM-as-a-judge and error analysis in one line each; nothing shows evals, a fresh-copy run, a grader, or keeping the eval out of the agent's reach. The two closest worked examples are not framed as evals for your own setup: the Hands-on track's 'proven by a fresh Claude session that never saw your conversation' and the secrets-safety proof of concept (20 setups x 12 prompts, a public harness and one rerun command), which is in effect a saved-case eval of a setup. The drafter's note that the kit's 'evals' skill is missing from the index holds, it is not in the playbook docs.",
+    "L2": [
+     {
+      "page": "hands-on track index",
+      "section": "What you'll work through (work is proven by a fresh Claude session that never saw your conversation)",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Checking the work > Error analysis (read real traces, note each failure, group, count)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "Conversation History Mining (searching past chats for corrections and failed approaches)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/reference/vocabulary",
+      "section": "Checking the work > Evals and LLM-as-a-judge (definitions only)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/secrets-safety",
+      "section": "The Results and Run It Yourself (fixed cases, 20 setups, public harness, a rerun command): a worked example, not a how-to",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "Periodic CLAUDE.md Review (review-claudemd skill finds violated rules in recent chats)",
+      "status": "mentions"
+     }
+    ],
+    "L4": []
+   }
+  ],
+  "challenges": [
+   {
+    "id": "reward-hacking",
+    "explained_in": [
+     "/reference/vocabulary (Checking the work: reward hacking)",
+     "/setup/hooks-playbook (The Config Guardian; Anti-Patterns: LLM config gaming, the agent edits .ruff.toml or biome.json to disable rules)"
+    ],
+    "how_to_in": [
+     "/setup/hooks-playbook (The Config Guardian: PreToolUse block plus a Stop-time git diff, but only for linter configs, not tests)"
+    ]
+   },
+   {
+    "id": "special-casing-tests",
+    "explained_in": [
+     "/reference/vocabulary (Checking the work: special-casing tests)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "declaring-done-prematurely",
+    "explained_in": [
+     "/reference/vocabulary (Declaring done too early)",
+     "/patterns/invocation-quality (Common Failure Modes: No success condition)",
+     "/setup/hooks-playbook (The Quality Gate: 'cheerfully tell you it's done')",
+     "/patterns/system-evolution (The Compounding Effect, week 4)"
+    ],
+    "how_to_in": [
+     "/setup/hooks-playbook (The Quality Gate: Stop hook)",
+     "/patterns/invocation-quality (The Invocation Checklist: verifiable success condition)",
+     "/patterns/autonomous-tasks (The Write-Test Cycle; Designing for Overnight Autonomy)",
+     "/patterns/system-evolution (Trace, Patch, Never Repeat: rule to run the suite before marking done)",
+     "/patterns/orchestration-patterns/builder-validator (Verification depth)"
+    ]
+   },
+   {
+    "id": "laziness",
+    "explained_in": [],
+    "how_to_in": [
+     "/patterns/orchestration-patterns/builder-validator (Verification depth: Substantive, real implementation not a stub)",
+     "/patterns/system-evolution (The Compounding Effect, week 4: Stop hook checks required files and exports, for 'incomplete output')"
+    ]
+   },
+   {
+    "id": "doom-loop",
+    "explained_in": [
+     "/reference/vocabulary (Doom loop)",
+     "/patterns/agentic-engineering (When to Intervene: going in circles)",
+     "/reference/common-pitfalls (Fighting the agent)"
+    ],
+    "how_to_in": [
+     "/patterns/autonomous-tasks (Designing for Overnight Autonomy: escape hatches, stuck after 3 attempts)",
+     "/patterns/workflow-patterns (General Tips: don't fight the agent, step back and reframe)",
+     "/reference/common-pitfalls (Fighting the agent: provide the missing context)",
+     "/patterns/session-management (Fresh Context Is Your Best Context; When to Compact vs. Start Fresh)",
+     "/patterns/prompting-craft (Behavior Injection: verify each hypothesis before moving on)"
+    ]
+   },
+   {
+    "id": "package-hallucination",
+    "explained_in": [
+     "/reference/vocabulary (Package hallucination; Slopsquatting)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "comprehension-debt",
+    "explained_in": [
+     "/reference/vocabulary (Comprehension debt)",
+     "/patterns/maturity-ladder (levels by depth of understanding)",
+     "/patterns/agentic-engineering (The questions change)"
+    ],
+    "how_to_in": [
+     "/reference/common-pitfalls (Skipping the review)",
+     "/patterns/maturity-ladder (Agentic software engineering and High-quality SE levels)",
+     "/patterns/workflow-patterns (General Tips: review diffs)",
+     "/patterns/prompting-craft (Challenge Claude: grill me before the PR)"
+    ]
+   },
+   {
+    "id": "automation-bias",
+    "explained_in": [
+     "/reference/vocabulary (Automation bias)"
+    ],
+    "how_to_in": [
+     "/patterns/prompting-craft (Challenge Claude; Self-Reflection Loops: partial, asks the agent to doubt itself, not the person to weigh their own knowledge)",
+     "/patterns/orchestration-patterns/builder-validator (a separate validator as an independent view)"
+    ]
+   },
+   {
+    "id": "ai-slop",
+    "explained_in": [
+     "/reference/vocabulary (AI slop; Meat proxy)",
+     "/patterns/maturity-ladder (note: More tokens does not mean more slop)"
+    ],
+    "how_to_in": [
+     "/reference/common-pitfalls (Skipping the review)",
+     "/patterns/workflow-patterns (Code Review Workflow: before every PR)"
+    ]
+   },
+   {
+    "id": "vibe-coding",
+    "explained_in": [
+     "/reference/vocabulary (Vibe coding)",
+     "/patterns/maturity-ladder (Level 1: when it is and isn't appropriate)"
+    ],
+    "how_to_in": [
+     "/patterns/maturity-ladder (Flexibility is the skill: match the level to the stakes; the next levels' habits)",
+     "/reference/common-pitfalls (Skipping the review)"
+    ]
+   },
+   {
+    "id": "cognitive-surrender",
+    "explained_in": [
+     "/reference/vocabulary (Words with more than one meaning: Cognitive offloading, which names cognitive surrender in one sentence; no entry of its own)"
+    ],
+    "how_to_in": [
+     "/patterns/prompting-craft (Challenge Claude: grill me; partial)",
+     "/patterns/agentic-engineering (Delegation Levels: Suggest, you decide and implement; partial)"
+    ]
+   },
+   {
+    "id": "skill-atrophy",
+    "explained_in": [
+     "/reference/vocabulary (Skill atrophy)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "seventy-percent-problem",
+    "explained_in": [
+     "/reference/vocabulary (70% problem)"
+    ],
+    "how_to_in": []
+   }
+  ],
+  "missing_pages": [
+   {
+    "title": "Proof before 'done': make the agent show it works",
+    "what_it_teaches": "A reader-followable routine for ask-for-proof. (1) Never accept 'all tests pass': ask for the command and its output, and audit each progress claim against a tool result. (2) Pick the check that fits the change: a quick live try (spike) for throwaway work, a test worth keeping, or running it like a user. (3) Red/green with agents: see the new test fail first, then pass. (4) Anti-gaming prompts: 'write a general solution, not one that only works for the test inputs', 'if a test looks wrong, tell me, do not change it'; how to spot a deleted, skipped or weakened test and a hard-coded return value in the diff. (5) When a defect gets through, add the test that would have caught it. (6) On a risky job, check each step's result before the next starts. Worked example with a real stuck-test transcript.",
+    "practices": [
+     "prove-it-works"
+    ],
+    "rungs": [
+     "prove-it-works L2"
+    ],
+    "challenges": [
+     "declaring-done-prematurely",
+     "reward-hacking",
+     "special-casing-tests",
+     "laziness",
+     "automation-bias",
+     "comprehension-debt"
+    ],
+    "why_it_matters": "This is the first level most members must reach and the single biggest hole: the playbook has the TDD loop and the Write-Test Cycle, but nothing says what proof to ask for, how to tell a fake green from a real one, or what to do when the agent edits the test. Today three challenges (special-casing tests, reward hacking beyond linter configs, laziness) have no how-to anywhere. An L1-L2 member who has been burned by 'it said done' has nowhere to go.",
+    "closest_existing": "/patterns/workflow-patterns (add 'Prove it' next to TDD Loop) or /patterns/autonomous-tasks. Both are scoped to a workflow or to unattended runs; the topic has no home, so a new page that those two link to is the better move."
+   },
+   {
+    "title": "Reading and owning what the agent changed",
+    "what_it_teaches": "How to review an agent's changes so that you can explain them. Steps: read the diff top-down in a fixed order (what files, which ones should not be there, tests, then logic); how to triage a very large change (the '800 file changes' case: ask the agent for a map by risk, read the risky 10%, sample the rest, split the change); run it the way a user would before sending it on; the explain-it-back test (pick one function and say what it does in your words; if you can't, it doesn't ship); which parts to write yourself or read line by line (auth, money, migrations); when a scoped risk call such as 'I don't read copy changes' is acceptable and what it costs. A before/after example of a diff caught in review.",
+    "practices": [
+     "own-what-ships"
+    ],
+    "rungs": [
+     "own-what-ships L2"
+    ],
+    "challenges": [
+     "comprehension-debt",
+     "ai-slop",
+     "vibe-coding",
+     "seventy-percent-problem"
+    ],
+    "why_it_matters": "Every L1-L2 member hits this on day one, and the playbook's only teaching is two lines in Common Pitfalls plus the maturity-ladder level names. The vocabulary tells them 'meat proxy' and 'comprehension debt' are bad but not what to do instead. This is where reviewers and clients get burdened.",
+    "closest_existing": "/reference/common-pitfalls ('Skipping the review' accordion) is too small to hold it; /patterns/maturity-ladder describes the levels but gives no steps. Best: a new pattern page, with the accordion and the ladder linking to it."
+   },
+   {
+    "title": "A second look: have it checked by a reviewer that didn't write it",
+    "what_it_teaches": "The by-hand version first. Why asking 'does this look good?' in the same session does not count (the writer praises its own work). Then: paste the diff into a fresh session, or start a reviewer subagent with a five-line brief (what the change is for, what to look for, what not to do); ask it to find what's wrong, not to fix it; then judge each finding yourself (keep, drop, or test it) instead of forwarding all of them. Handling the team's AI review bot comments the same way. Example: one real finding that would have shipped.",
+    "practices": [
+     "second-look"
+    ],
+    "rungs": [
+     "second-look L2"
+    ],
+    "challenges": [
+     "reward-hacking",
+     "declaring-done-prematurely",
+     "automation-bias"
+    ],
+    "why_it_matters": "The one review recipe in the playbook (Code Review Workflow) is same-chat, which is the weak pattern, so a member following the playbook lands on the wrong move. The by-hand fresh-eyes review is the cheapest L2 act and nothing teaches it, nor the step of judging findings.",
+    "closest_existing": "Extend /patterns/workflow-patterns 'Code Review Workflow' (fix it to be a fresh session, add the reviewer brief and 'judge each finding') and cross-link /patterns/orchestration-patterns/builder-validator. A section, not a page."
+   },
+   {
+    "title": "Staying sharp: keep your own view while the agent does the work",
+    "what_it_teaches": "Practical defences for skill atrophy and cognitive surrender. Write down what you think before you ask for the agent's recommendation (design, fix, library); compare. Ask the agent to explain the approach and write a small part yourself; a scheduled 'no-agent' hour or task; conceptual questions instead of 'write it'; be able to take over a problem the agent could not solve; the 'quiz me before the PR' prompt and how to set the agent to do it every time. Includes the healthy vs harmful sense of cognitive offloading.",
+    "practices": [
+     "own-what-ships"
+    ],
+    "rungs": [
+     "own-what-ships L2",
+     "own-what-ships L3"
+    ],
+    "challenges": [
+     "skill-atrophy",
+     "cognitive-surrender",
+     "automation-bias",
+     "seventy-percent-problem"
+    ],
+    "why_it_matters": "Two challenges (skill atrophy, 70% problem) have no how-to anywhere, and cognitive surrender only has a one-line prompt. Without these the L2 clause 'knows what they think before taking the agent's advice' and the L3 'quiz me' variant are untaught. Matters most for members who rely on the agent for nearly everything.",
+    "closest_existing": "/patterns/prompting-craft ('Challenge Claude') has the one-line grill-me prompt and is the best place for the quiz part; the rest has no home. New short page, linked from prompting-craft and maturity-ladder."
+   },
+   {
+    "title": "Before you accept a new dependency",
+    "what_it_teaches": "How to check a package the agent adds is real and the right one: registry page (publisher, age, downloads, repo link), the lockfile diff, a clean build, a look-alike-name check, and what to do when an install fails with 'not found'. How to put it as a rule in CLAUDE.md ('list new dependencies and why, do not install without showing the registry page'), and an optional pre-install hook. Ties package hallucination to slopsquatting.",
+    "practices": [
+     "prove-it-works"
+    ],
+    "rungs": [
+     "prove-it-works L2",
+     "prove-it-works L3"
+    ],
+    "challenges": [
+     "package-hallucination"
+    ],
+    "why_it_matters": "The challenge has a vocabulary definition and no how-to at any level, and slopsquatting is a real attack route into client repos. Small effort, closes a challenge completely.",
+    "closest_existing": "/patterns/supply-chain (it covers vetting skills, not dependencies) or a section in the 'Proof before done' page. Prefer a section on supply-chain titled 'Dependencies the agent adds'."
+   },
+   {
+    "title": "Set up your project so the agent proves its work without being asked",
+    "what_it_teaches": "The L3 shift from asking to a setup. A CLAUDE.md block: how to run the tests, lint and build, how to read a failure, and 'show a passing run before you hand back'. Give the agent eyes in every session (wire a browser or terminal tool once, so it can run the app and report what it saw). 'Every fix comes with a test' as a standing rule. Run CI or pre-commit on every change and tell the agent to read the result. A copy-paste checking section and how to verify it works in a fresh session.",
+    "practices": [
+     "prove-it-works"
+    ],
+    "rungs": [
+     "prove-it-works L3"
+    ],
+    "challenges": [
+     "declaring-done-prematurely",
+     "doom-loop",
+     "laziness",
+     "reward-hacking"
+    ],
+    "why_it_matters": "The L3 level is the lever that makes the next session and the next teammate benefit. Today the playbook shows system-evolution's one rule and the lint hook, but no 'checking' section for CLAUDE.md, no setup for a standing browser or terminal tool, and nothing on CI or pre-commit that the agent reads. Also covers the open ruling about client repos with CI they didn't set up.",
+    "closest_existing": "Extend /setup/claude-md (add a 'Checks and proof' section to What Goes In) and /patterns/system-evolution. Section, not a page."
+   },
+   {
+    "title": "A reviewer you wrote, wired into your flow",
+    "what_it_teaches": "Turning the by-hand second look into a setup: write a reviewer agent or skill (what to look for, read-only tools, the output format 'blockers, concerns, nitpicks'), call it from a /pr-ready slash command or the workflow so it runs before every pull request, and have the main session judge its findings. A full working reviewer file and the command that calls it.",
+    "practices": [
+     "second-look"
+    ],
+    "rungs": [
+     "second-look L3"
+    ],
+    "challenges": [
+     "declaring-done-prematurely",
+     "reward-hacking",
+     "automation-bias"
+    ],
+    "why_it_matters": "builder-validator shows the agent file but not the wiring, so most members stop at a reviewer they have to remember to run. The 'without me remembering' step is the L3 level.",
+    "closest_existing": "Extend /patterns/orchestration-patterns/builder-validator (add 'Wire it into your flow') and /setup/make-it-yours. Section."
+   },
+   {
+    "title": "A hand-back format that makes the work easy to own",
+    "what_it_teaches": "A standing format the agent uses every time it hands work back: what changed and why, how it was proven (commands and output), what to look at first, what it did not do. How to set it in CLAUDE.md, as a skill, or in the PR template; the 'quiz me before opening the PR' standing rule; the Learning output style as an alternative. Example of one report before and after.",
+    "practices": [
+     "own-what-ships"
+    ],
+    "rungs": [
+     "own-what-ships L3"
+    ],
+    "challenges": [
+     "comprehension-debt",
+     "ai-slop",
+     "vibe-coding"
+    ],
+    "why_it_matters": "The whole L3 level of own-what-ships has no teaching at all except one unrelated hook example. Reviewers and the next session depend on it.",
+    "closest_existing": "Extend /setup/claude-md or /patterns/self-improving-loop with a section; a new page only if it grows beyond a template."
+   },
+   {
+    "title": "When the agent stalls: break a doom loop and finish the last 30%",
+    "what_it_teaches": "How to break a loop and finish the last stretch. Recognise it (same error three times, edits not aimed at the error); stop it; name the real cause yourself or have the agent explain the failure before another fix; change the approach or take over by hand; start clean with a handoff note; split the last part into small provable pieces. The 70% problem: why the last stretch costs more, and how to check and steer it.",
+    "practices": [
+     "prove-it-works",
+     "own-what-ships"
+    ],
+    "rungs": [
+     "prove-it-works L2",
+     "own-what-ships L2"
+    ],
+    "challenges": [
+     "doom-loop",
+     "seventy-percent-problem",
+     "special-casing-tests"
+    ],
+    "why_it_matters": "Doom loop has only scattered one-liners; the 70% problem has none. These are what members describe on calls ('it kept going in circles') and the answer today is 'don't fight the agent', which is not a procedure.",
+    "closest_existing": "/reference/common-pitfalls 'Fighting the agent' and /patterns/workflow-patterns 'General Tips' touch it. A section there plus link to /patterns/session-management is the better move; promote to a page if it grows."
+   },
+   {
+    "title": "Evals for your own agent setup",
+    "what_it_teaches": "How to test your prompts, rules, skills and sub-agents, step by step. By hand: re-run the same 3-5 saved tasks in a fresh session after a change and compare. Then: error analysis (read real sessions, note each failure, group, count, write cases for the biggest groups); a cases folder in the repo with what a pass looks like; a command anyone on the team runs (claude -p headless, one fresh copy per case, compare with the last run); grade by code first, with a judging model plus a rubric checked against your labels where code can't; a worked example with one regression an eval caught. Pointers to eval tools (promptfoo, Inspect).",
+    "practices": [
+     "retest-agent-setup"
+    ],
+    "rungs": [
+     "retest-agent-setup L2",
+     "retest-agent-setup L3"
+    ],
+    "challenges": [
+     "special-casing-tests"
+    ],
+    "why_it_matters": "A whole practice, with all three levels, has zero teaching in the playbook; the drafter's own open question says only outside material exists. It is the badge-bearing evidence for architects ('building tools, mcp, skills, and running evals'). Fewer members need it than L2 pages above, so it follows them.",
+    "closest_existing": "No home. /patterns/self-improving-loop is the nearest (it improves your setup from corrections) and should link to it; /reference/vocabulary defines the terms. New page."
+   },
+   {
+    "title": "Gates the agent can't skip or edit",
+    "what_it_teaches": "The L4 pieces missing from the Quality Gate: a real Stop-hook script (runs the tests, prints only the failing lines to stderr, exits 2, and a loop guard so it can't trap the agent forever); keeping tests and graders out of the agent's reach (PreToolUse block on the tests folder, deny rules, hidden or held-out tests in another folder, a runner that loops until an outside check goes green); a Stop hook of type agent or a runner that sends the work to a reviewer with a round cap; /goal with a condition; how to read your hook's refusal log to see whether it works. Includes the eval-the-agent-can't-edit pattern (cases and grader outside its writable folder, a drop blocks the change).",
+    "practices": [
+     "prove-it-works",
+     "second-look",
+     "retest-agent-setup"
+    ],
+    "rungs": [
+     "prove-it-works L4",
+     "second-look L4",
+     "retest-agent-setup L4"
+    ],
+    "challenges": [
+     "reward-hacking",
+     "special-casing-tests",
+     "declaring-done-prematurely",
+     "laziness"
+    ],
+    "why_it_matters": "L4 across three practices rests on one config snippet with no script and no 'the agent cannot edit it' idea. Reward hacking and special-casing tests have no real defence in the playbook beyond linter configs. Fewer members get here, but those who do are the ones building the setup others use.",
+    "closest_existing": "Extend /setup/hooks-playbook 'The Quality Gate' and 'The Config Guardian' (add the script body and 'protect the tests'); put the eval-out-of-reach and reviewer-gate material in the evals page above. Section."
+   }
+  ]
+ },
+ {
+  "discipline": "harness",
+  "practices": [
+   {
+    "id": "limit-what-the-agent-can-reach",
+    "note": "Strong on one slice only: keeping secret files and env vars out of the context (secrets-safety, tested). Nothing teaches the general move, which is deciding per task what the agent may touch (folders, commands, systems, keys), or the lethal-trifecta rule of dropping one of three. The L2 level (do the risky parts by hand) has no page at all. The learn links the drafters suggested (secrets-safety, permission-modes) cover L3 for secrets and mention L2 only sideways.",
+    "L2": [
+     {
+      "page": "/setup/secrets-safety",
+      "section": "Better: Don't Give It a Long-Lived Key at All",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Permissions and Instructions (lower instruction trust demands tighter capability restrictions)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Delegation Levels (match autonomy to risk)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/supply-chain",
+      "section": "Permission Modes as a Safety Net",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/setup/secrets-safety",
+      "section": "The Minimal Config: Layer 1 (deny Claude's file tools) and Layer 3 (hide environment variables)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/secrets-safety",
+      "section": "On a Personal Plan? (put the layers in user settings, re-check a repo's settings)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/secrets-safety",
+      "section": "Better: Don't Give It a Long-Lived Key at All (impersonation, short-lived tokens)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "Scoping Strategy (project vs user vs local connections)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "The Enforcement Ladder (permissions row: allowedTools, tools that cannot run)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Agent definition for a validator (tools / disallowedTools: a helper with a short tool list)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/secrets-safety",
+      "section": "Run It Yourself (canary-secret harness)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/secrets-safety",
+      "section": "Better: Don't Give It a Long-Lived Key at All",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "run-the-agent-in-a-box",
+    "note": "The rollback half of L2 is taught (autonomous-tasks). The box itself is taught only as a config for hiding secrets from the shell (secrets-safety Layer 2). No page shows the folders-and-servers allowlist, a dev container the repo always opens in, or turning prompts off only inside it; permission-modes names these in a table without a recipe.",
+    "L2": [
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (the overnight checklist: commit, branch)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Safety Rails (commit first, branch for risky work, containers for --dangerously-skip-permissions)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/context-management",
+      "section": "Large Codebases (commit between tasks = clean rollback point)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/maturity-ladder",
+      "section": "Agentic coding with discipline (commit before and after delegating)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Earn trust through engineering (engineer rollback mechanisms)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "When You Need Worktrees (separate working copy; framed for conflicts, not rollback)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/setup/secrets-safety",
+      "section": "Layer 2: Put the Shell in a Sandbox (enabled, failIfUnavailable, allowUnsandboxedCommands false, denyRead)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Sandboxing for Autonomous Work (filesystem, network, container table)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Modes as Workflow Levers (Bypass: containers only, never on the host)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/supply-chain",
+      "section": "Permission Modes as a Safety Net (bypass only in a container you can destroy)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/secrets-safety",
+      "section": "Run It Yourself (planted canary secrets, test harness)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "ask-before-what-cant-be-undone",
+    "note": "permission-modes teaches switching mode by task (the second half of L2). Nothing teaches reading a prompt and saying no, or the L3 move of sorting commands into allow, ask and deny so routine goes through and push, deploy and data writes stop. permission-modes says outright it is not about how to configure. Nothing on approval fatigue or the 93% accept rate. The L4 approval gate has no page.",
+    "L2": [
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Modes as Workflow Levers; The Trust Progression (Shift+Tab, loosen or tighten as risk changes)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Delegation Levels (Suggest, Draft, Execute, Autonomous)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Modes as Workflow Levers (Auto-accept approves safe operations)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "The Enforcement Ladder (permissions layer) and Anti-Patterns (duplicating what permissions already handle)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/subagent-patterns",
+      "section": "Permission Routing (a hook sends requests to a lighter model for auto-approval)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Choosing the Right Event (PreToolUse blocks before execution) and Composition Patterns: The Config Guardian (PreToolUse blocking script). Blocks, does not hold for a person",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "What to Patch Where (git push --force blocked by a PreToolUse hook)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "enforce-fixed-rules-in-code",
+    "note": "L2 is null on purpose. Hooks are the best-covered technique in the playbook, but the same page teaches the misuse his 10-16 ruling rejects: hooks-playbook 'The Quality Gate' and 'If you've written it in CLAUDE.md and it matters, back it up with a hook', system-evolution 'Feedback Loops' (Stop hook so the agent cannot declare done), autonomous-tasks 'Back-pressure patterns', permission-modes ('stop hooks'). Those sections must be fixed before they are linked as learning. Missing: wiring a ready-made pre-commit secret scan, 'say what it blocked last time', and a test the agent cannot edit.",
+    "L2": [],
+    "L3": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Composition Patterns: The Quality Gate (PostToolUse lint-and-format on Write|Edit). The Stop half is the misuse",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "Feedback Loops (PostToolUse eslint --fix settings.json example)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Team Hook Governance (what to commit vs keep personal)",
+      "status": "teaches"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Once, on your machine: Set your safety defaults (lint hook, block .env commits)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/maturity-ladder",
+      "section": "Agentic software engineering (pre-commit hooks for formatting, linting, secret scanning)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Safety Rails (pre-commit hooks block secret leaks, rm -rf, force pushes)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/secrets-safety",
+      "section": "Further Reading (gitleaks, trufflehog) and Hooks: Not the Tool for This",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/claude-md",
+      "section": "CLAUDE.md vs. Hooks",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Composition Patterns: The Config Guardian (PreToolUse script that blocks edits to linter configs; Stop audit)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Anti-Patterns: Inline one-liners (use a script file) and Choosing the Right Event",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Hook Types Beyond Command",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/make-it-yours",
+      "section": "What Belongs Here: Hooks tab; Growing It (own plugin bundling guards)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/system-evolution",
+      "section": "What to Patch Where (suggestion, scoped context, skill, enforced constraint)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/robots-first",
+      "section": "Back-Pressure Engineering (increase gating via hooks)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "vet-what-gets-in",
+    "note": "Plugins (skills) are well taught. The agent-suggested package half is not: no page says how to look a package up, pin versions or read the lockfile diff. L4 has no page.",
+    "L2": [
+     {
+      "page": "/patterns/supply-chain",
+      "section": "Vetting Before You Install (read the source, check the trigger, check the repo, verify what landed)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/supply-chain",
+      "section": "Skills Are Prompt Injections by Design",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/skills-stack",
+      "section": "Discovering Skills (Warning: vet before you install)",
+      "status": "mentions"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Every new client: skills step (Warning: read it before you install it)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Anti-Patterns: Trusting community hooks blindly",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Running agents safely / Checking the work (Slopsquatting, Package hallucination rows)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/supply-chain",
+      "section": "For Teams (approved list in CLAUDE.md, pin to commits, review updates like dependency updates)",
+      "status": "teaches"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Team Hook Governance",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/supply-chain",
+      "section": "For Teams (use hooks for enforcement: a PreToolUse hook can block operations)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "give-the-agent-tools-made-for-it",
+    "note": "No playbook page teaches this practice at any level. mcp-wiring is about wiring existing servers (the floor). The only nearby text is on skills, which is context. explore/tools lists mcp-use as a framework for building servers, which is a link, not a lesson. The hands-on stations (1.1, 1.2) are context and skills, not tools.",
+    "L2": [
+     {
+      "page": "/setup/mcp-wiring",
+      "section": "Composition Patterns: MCP + CLAUDE.md (directing reach). Wiring connections, the floor",
+      "status": "mentions"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Every new client: Connect first",
+      "status": "mentions"
+     }
+    ],
+    "L3": [],
+    "L4": [
+     {
+      "page": "/explore/tools",
+      "section": "Tools & Harnesses (mcp-use: framework for building MCP servers; a listing)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "keep-outside-text-from-steering",
+    "note": "Builder-only practice. The playbook has nothing on Dual LLM, plan-then-execute as a security pattern, or instruction hierarchy.",
+    "L2": [],
+    "L3": [
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Permissions and Instructions (two trust axes: what Claude can do vs is told)",
+      "status": "mentions"
+     }
+    ],
+    "L4": []
+   }
+  ],
+  "challenges": [
+   {
+    "id": "prompt-injection",
+    "explained_in": [
+     "/patterns/supply-chain (Skills Are Prompt Injections by Design; Who Authors Each Layer: tool output as an external trust boundary)",
+     "/reference/vocabulary (Running agents safely: Prompt injection)",
+     "/patterns/permission-modes (Permissions and Instructions)"
+    ],
+    "how_to_in": [
+     "/patterns/supply-chain (Vetting Before You Install; Permission Modes as a Safety Net; For Teams), covers injection through skills and MCP prompts only",
+     "/patterns/permission-modes (Sandboxing for Autonomous Work: a hard boundary that injection cannot bypass), a sentence, no steps"
+    ]
+   },
+   {
+    "id": "lethal-trifecta",
+    "explained_in": [
+     "/reference/vocabulary (Lethal trifecta and Agents Rule of Two rows: one sentence each)"
+    ],
+    "how_to_in": [
+     "/setup/secrets-safety (removes one leg: private data kept out of context; framed as secrets, not as the trifecta)"
+    ]
+   },
+   {
+    "id": "jailbreaking",
+    "explained_in": [],
+    "how_to_in": []
+   },
+   {
+    "id": "slopsquatting",
+    "explained_in": [
+     "/reference/vocabulary (Slopsquatting and Package hallucination rows)"
+    ],
+    "how_to_in": []
+   },
+   {
+    "id": "approval-fatigue",
+    "explained_in": [
+     "/reference/vocabulary (The person using the agent: Approval fatigue row, one line)"
+    ],
+    "how_to_in": [
+     "/patterns/permission-modes (Modes as Workflow Levers: fewer prompts by mode; does not name the fatigue or the 93% figure)",
+     "/patterns/subagent-patterns (Permission Routing)"
+    ]
+   },
+   {
+    "id": "yolo-mode",
+    "explained_in": [
+     "/reference/vocabulary (YOLO mode row: only inside a sandbox)",
+     "/patterns/permission-modes (mode table: Bypass, containers only)",
+     "/patterns/maturity-ladder (Vibe coding level)"
+    ],
+    "how_to_in": [
+     "/patterns/autonomous-tasks (Safety Rails: commit first, container for --dangerously-skip-permissions)",
+     "/setup/secrets-safety (Layer 2: sandbox with failIfUnavailable and allowUnsandboxedCommands false; tested in bypassPermissions mode)",
+     "/patterns/permission-modes (Sandboxing for Autonomous Work)"
+    ]
+   },
+   {
+    "id": "tools-made-for-people",
+    "explained_in": [],
+    "how_to_in": []
+   }
+  ],
+  "missing_pages": [
+   {
+    "title": "Permission rules: what goes through, what asks, what is denied",
+    "what_it_teaches": "How to sort the agent's actions into three piles in the project's committed settings: routine (reads, edits on a branch, tests) allowed; push, deploy, database writes and outbound messages ask; secrets and production commands denied. Worked example with real allow/ask/deny entries. How to read a prompt, what a good 'no' looks like, why 93% of prompts are accepted and how to get your prompt count down to the few that matter, and the refuse-rules-hold-in-every-mode point.",
+    "practices": [
+     "ask-before-what-cant-be-undone",
+     "limit-what-the-agent-can-reach"
+    ],
+    "rungs": [
+     "ask-before-what-cant-be-undone L2",
+     "ask-before-what-cant-be-undone L3",
+     "limit-what-the-agent-can-reach L3"
+    ],
+    "challenges": [
+     "approval-fatigue",
+     "yolo-mode"
+    ],
+    "why_it_matters": "Most L1-L2 members meet permission prompts every day and either click yes or turn prompts off. The L3 move (settings sort it for every session and teammate) is the most common harness level and no page shows it. permission-modes states it is about when to use a mode, not how to configure, so the settings recipe has no home.",
+    "closest_existing": "/patterns/permission-modes. Extending it with a 'Where approvals belong' section is the cheaper move if the page's scope note is changed."
+   },
+   {
+    "title": "Prompt injection and the lethal trifecta: what your agent reads can give it orders",
+    "what_it_teaches": "A reader audits one real session for the three legs (private data, text an attacker could have written, a way out). Where outside text comes from (web fetch, issue and PR comments, client emails, MCP replies, files inside dependencies). Remove one leg: a read-only key, no network while reading client data, connection off in that project. Worked case: GitHub and Slack connected, agent reads an issue comment and can push. Includes the Rule of Two.",
+    "practices": [
+     "limit-what-the-agent-can-reach",
+     "run-the-agent-in-a-box",
+     "keep-outside-text-from-steering"
+    ],
+    "rungs": [
+     "limit-what-the-agent-can-reach L2",
+     "limit-what-the-agent-can-reach L3",
+     "keep-outside-text-from-steering L2"
+    ],
+    "challenges": [
+     "prompt-injection",
+     "lethal-trifecta",
+     "jailbreaking"
+    ],
+    "why_it_matters": "The onboarding page tells every member to connect GitHub, the issue tracker and docs first, which creates the trifecta on day one. The playbook only treats injection through skills (supply-chain) and secrets leaks (secrets-safety). The decision of what to keep out of reach, which is the L2 level, is not taught anywhere.",
+    "closest_existing": "/patterns/supply-chain covers the instruction-trust side. A new page is justified because the topic (outside text plus reach) has no home. Link it from supply-chain, mcp-wiring and onboarding."
+   },
+   {
+    "title": "A box you can throw away: running without prompts safely",
+    "what_it_teaches": "Step by step: commit or branch first, start a throwaway worktree or copy, enable the sandbox with the folders and servers it may reach (network allowlist, not only denyRead), or open the repo in a dev container (a minimal devcontainer.json). Turn prompts off only inside it, never on the host. What the sandbox does not cover (MCP, hooks, the ! shell). Ends with a canary-secret check that the box holds.",
+    "practices": [
+     "run-the-agent-in-a-box"
+    ],
+    "rungs": [
+     "run-the-agent-in-a-box L2",
+     "run-the-agent-in-a-box L3",
+     "run-the-agent-in-a-box L4"
+    ],
+    "challenges": [
+     "yolo-mode",
+     "approval-fatigue",
+     "prompt-injection",
+     "lethal-trifecta"
+    ],
+    "why_it_matters": "Members who hit approval fatigue turn all checks off on the host, since no page shows the safe alternative. permission-modes says 'containers only' and autonomous-tasks says 'use containers' in a line, but nobody shows how. A reader at L2 stops at the rollback point and has no path to L3.",
+    "closest_existing": "/patterns/autonomous-tasks (Safety Rails) or /setup/secrets-safety (Layer 2). A section there is possible, but the practice needs its own walkthrough."
+   },
+   {
+    "title": "Checking what the agent installs: packages and plugins",
+    "what_it_teaches": "The package half of the supply chain: when the agent adds a dependency, look it up (exists, maintainer, age, the name you meant), pin versions, read the lockfile diff in review, put an ask rule on install commands. Defines slopsquatting with one real example. Ends with a project rule for the approved list.",
+    "practices": [
+     "vet-what-gets-in"
+    ],
+    "rungs": [
+     "vet-what-gets-in L2",
+     "vet-what-gets-in L3",
+     "vet-what-gets-in L4"
+    ],
+    "challenges": [
+     "slopsquatting"
+    ],
+    "why_it_matters": "Every member's agent adds packages daily and the playbook has no instruction for it. The page called 'The Supply Chain' is only about skills and MCP instructions, so a reader looking for package safety finds the wrong lesson.",
+    "closest_existing": "/patterns/supply-chain. Add a 'Packages the agent suggests' section instead of a new page."
+   },
+   {
+    "title": "Tools made for the agent: shape the command, not just the access",
+    "what_it_teaches": "Spot the signs (the agent scrolls through huge output, guesses flags, you paste tickets or logs in by hand). Fix in three steps: tell it which command-line tool or option gives short output, write a small script or task command with short output and plain errors and name it in CLAUDE.md, then build a small MCP server whose tool names, inputs and replies you designed. Before and after on one real task. Includes how to keep the tool working with a test the agent cannot edit.",
+    "practices": [
+     "give-the-agent-tools-made-for-it"
+    ],
+    "rungs": [
+     "give-the-agent-tools-made-for-it L2",
+     "give-the-agent-tools-made-for-it L3",
+     "give-the-agent-tools-made-for-it L4"
+    ],
+    "challenges": [
+     "tools-made-for-people"
+    ],
+    "why_it_matters": "This is a practice with zero coverage at any level. At L1-L3 it is the gap between 'I wired up an MCP server' (the floor) and the agent doing a job reliably. Pasting data in by hand is the most visible symptom of L1 and nothing tells the member what to do instead.",
+    "closest_existing": "/setup/mcp-wiring covers connecting others' servers only. A new page; link from mcp-wiring."
+   },
+   {
+    "title": "Hooks Playbook: fix the 'done' gate and add guards that fix fixed rules",
+    "what_it_teaches": "Rewrite the Quality Gate and the 'back it up with a hook' rule per the 10-16 hooks ruling: hooks for cheap fixed rules, hard gates on what cannot be undone, context at the right moment, watching. Not for defining done. Add: wiring a ready-made pre-commit secret scan, a PreToolUse hook that stops a push or deploy and asks a person, how to see what a guard blocked last time, and a test the agent cannot edit that tries the forbidden action and expects a refusal.",
+    "practices": [
+     "enforce-fixed-rules-in-code",
+     "ask-before-what-cant-be-undone"
+    ],
+    "rungs": [
+     "enforce-fixed-rules-in-code L3",
+     "enforce-fixed-rules-in-code L4",
+     "ask-before-what-cant-be-undone L4"
+    ],
+    "challenges": [
+     "prompt-injection",
+     "yolo-mode"
+    ],
+    "why_it_matters": "The current page teaches members a tip the model owners have ruled against, and the same tip is repeated in system-evolution, autonomous-tasks and permission-modes. Fixing it is needed before the page can be linked as learning. The L3 secret-scan wiring and L4 'a guard with a test' are not shown anywhere.",
+    "closest_existing": "/setup/hooks-playbook plus the repeats in /patterns/system-evolution, /patterns/autonomous-tasks and /patterns/permission-modes. Edit, do not add a page."
+   },
+   {
+    "title": "Prove your guardrails hold: tests the agent cannot edit",
+    "what_it_teaches": "The L4 proof for every harness practice using the canary method from secrets-safety: a planted fake secret that must never show up, a made-up package name that must be blocked, a push to main that must stop, an injected instruction in a fetched page that must not run. Where the tests live so the agent cannot change them, how to run them after every settings change.",
+    "practices": [
+     "limit-what-the-agent-can-reach",
+     "run-the-agent-in-a-box",
+     "ask-before-what-cant-be-undone",
+     "enforce-fixed-rules-in-code",
+     "vet-what-gets-in",
+     "give-the-agent-tools-made-for-it"
+    ],
+    "rungs": [
+     "limit-what-the-agent-can-reach L4",
+     "run-the-agent-in-a-box L4",
+     "ask-before-what-cant-be-undone L4",
+     "enforce-fixed-rules-in-code L4",
+     "vet-what-gets-in L4",
+     "give-the-agent-tools-made-for-it L4"
+    ],
+    "challenges": [
+     "prompt-injection",
+     "lethal-trifecta",
+     "yolo-mode",
+     "slopsquatting"
+    ],
+    "why_it_matters": "Every L4 level in this discipline needs a test the agent cannot edit, and no page shows the move except the research harness in secrets-safety. Without it, L4 builders have nothing to learn from and a hook that was never tested counts as a claim.",
+    "closest_existing": "/setup/secrets-safety (Run It Yourself). Could be a section there for the secrets case, but the generalisation needs its own page."
+   },
+   {
+    "title": "Building agents that read outside text (Dual LLM, plan-then-execute)",
+    "what_it_teaches": "For people who build agents: keep outside text from choosing actions. Fix the action list before any outside text is read, or use a reader with no tools that returns only checked values, keep your instructions in the top-ranked place, mark fetched text as data, turn off send-out tools while untrusted text is loaded. Small Agent SDK example and an injection test set.",
+    "practices": [
+     "keep-outside-text-from-steering"
+    ],
+    "rungs": [
+     "keep-outside-text-from-steering L2",
+     "keep-outside-text-from-steering L3",
+     "keep-outside-text-from-steering L4"
+    ],
+    "challenges": [
+     "prompt-injection",
+     "lethal-trifecta",
+     "jailbreaking"
+    ],
+    "why_it_matters": "Only a minority builds agents others use, so this ranks last. For them there is no page at all, and their agents face untrusted input by design. It is also the only place jailbreaking is handled.",
+    "closest_existing": "None. No orchestration or subagent page covers building agents for outside input."
+   },
+   {
+    "title": "Vocabulary: add the harness terms that are missing",
+    "what_it_teaches": "Add rows for jailbreaking, agent-computer interface, Dual LLM pattern, plan-then-execute (security sense), instruction hierarchy, and an entry for tools made for people. Update the 'Approval fatigue' row with the 93% figure and the fix. Each with source and how settled.",
+    "practices": [
+     "keep-outside-text-from-steering",
+     "give-the-agent-tools-made-for-it"
+    ],
+    "rungs": [
+     "keep-outside-text-from-steering L2",
+     "give-the-agent-tools-made-for-it L2"
+    ],
+    "challenges": [
+     "jailbreaking",
+     "tools-made-for-people",
+     "approval-fatigue"
+    ],
+    "why_it_matters": "Four of the seven challenges are only a one-line vocabulary row, and two (jailbreaking, tools-made-for-people) are not there at all. A member cannot look up the word the interviewer used.",
+    "closest_existing": "/reference/vocabulary, section 'Running agents safely'. Extend it."
+   }
+  ]
+ },
+ {
+  "discipline": "orchestration",
+  "practices": [
+   {
+    "id": "step-in-on-signals",
+    "note": "Playbook teaches the safety side of unattended runs (done condition, commit first, caps) but not the person's side: choosing when to look, being pinged, goal/background/monitor moves. No page shows the person doing other work and returning on a signal; the vocabulary names 'on the loop' in one clause. Nothing teaches a watchdog (L4).",
+    "L2": [
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "The Write-Test Cycle",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Background Testing",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "When to Intervene",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Delegation Levels",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Running agents safely (Human in the loop row: 'on the loop')",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/common-pitfalls",
+      "section": "Fighting the agent",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/workflow-patterns",
+      "section": "General Tips ('Don't fight the agent')",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Modes as Workflow Levers / The Trust Progression",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Modes and Multi-Agent Work (stalled agent waiting on a hidden prompt)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/subagent-patterns",
+      "section": "Permission Routing",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Team Hook Governance (notification preferences as a personal hook)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (escape hatches: cap retries, time-box)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "The Quality Gate (Stop hook blocks finishing; a completion brake, not a loop/time/budget brake)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Iteration loop (hard cap of 3, then escalate to a human)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "Hook Types Beyond Command (HTTP hooks for team dashboards)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "fresh-run-per-task",
+    "note": "Weakest-covered practice. Only the by-hand handoff file and a single overnight tip exist. The Ralph loop is one vocabulary row. No page shows a list, a saved prompt, a loop command, headless runs, limits per item, or resuming after a crash. Permutation Frameworks fans out N items in ONE prompt/session, which is the opposite of a fresh run per task (do not credit it).",
+    "L2": [
+     {
+      "page": "/patterns/session-management",
+      "section": "The Handoff Pattern (with 'Fresh Context Is Your Best Context')",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (progress files; 'create a TODO and move to the next task')",
+      "status": "mentions"
+     },
+     {
+      "page": "/reference/vocabulary",
+      "section": "Running agents safely (Ralph loop row)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Reference: Real-World Scale (README/progress files for each fresh agent)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/session-management",
+      "section": "Handoff skill tip (npx skills add ...@handoff)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/self-improving-loop",
+      "section": "The Skill Creation Threshold (turn a repeated job into a command)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/reference/vocabulary",
+      "section": "Running agents safely (Ralph loop row)",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/hooks-playbook",
+      "section": "The Config Guardian (checks the agent can't edit)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Reference: Real-World Scale (16 agents, 2,000 sessions: Anthropic compiler)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "parallel-work-kept-apart",
+    "note": "Best-covered practice at L2 and partly L3. Gaps: the built-in fan-out (/batch) is linked from three pages to an anchor that does not exist (#the-batch-command in parallel-execution), dynamic workflows are not mentioned anywhere, and no page shows a command/alias that opens each task in its own worktree. L4 (a program that starts agents, merges in order, runs checks the agent can't edit) is untaught.",
+    "L2": [
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "When You Need Worktrees",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "Scoping Parallel Work",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "How Many Is Too Many?",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "The Cascade",
+      "status": "teaches"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Get ready to work in parallel",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/session-management",
+      "section": "Forking",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/fan-out-fan-in",
+      "section": "How it works (file-boundary constraint)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agent-teams",
+      "section": "When to Use Agent Teams (/batch row)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/onboarding",
+      "section": "Get ready to work in parallel ('Write the strategy down for your agents')",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "Subagent Isolation (isolation: worktree in an agent definition)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/robots-first",
+      "section": "Repo Structure for Parallelization",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Practical Tips: Structure CLAUDE.md for multi-agent",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "Conflict Resolution (land in order, rebase, build+tests; done by hand)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/contract-chains",
+      "section": "How it works (waves with file ownership)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/supervisor",
+      "section": "Examples in the wild (dmux-workflows)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "runs-start-without-you",
+    "note": "One Desktop-scheduled-tasks tip is the whole coverage. No page shows /schedule, cron/launchd, the Claude Code GitHub action, a ticket label or webhook trigger, a saved prompt, where the result lands, or a limit on what a triggered run may do/spend.",
+    "L2": [
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Background Testing (second session, 'run the suite every 5 minutes and alert me')",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (overnight checklist)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/fan-out-fan-in",
+      "section": "How it works (run_in_background: true)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Modes and Multi-Agent Work (background agents)",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/autonomous-tasks",
+      "section": "Designing for Overnight Autonomy (Tip: scheduled tasks in Claude Desktop)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/permission-modes",
+      "section": "Modes as Workflow Levers ('Don't ask': background agents, CI/CD)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/agentic-engineering",
+      "section": "Delegation Levels ('Autonomous': background agents, CI agents)",
+      "status": "mentions"
+     }
+    ],
+    "L4": []
+   },
+   {
+    "id": "model-and-budget-per-step",
+    "note": "Model routing (L2, partly L3) is well taught. The spend half is not: no page on limits for unattended runs (turn/budget caps), stopping a run that burns for little, tracking cost against what a run left, or judging by outcome (the vocabulary's fix for token maxxing).",
+    "L2": [
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Model Routing Strategy",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "The opusplan Pattern (mid-session /model switch; per-task not per-session)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "A typical four-stage pipeline",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "The opusplan Pattern (model: haiku in agent frontmatter; plan/build default)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Agent definition for a validator (model: sonnet)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Practical Tips: Speed up test suites (route test agents to Sonnet)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/patterns/cost-and-model-routing",
+      "section": "Reference: Real-World Scale (token totals; review bandwidth is the constraint)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "Examples in the wild (cyber-defense-team: cost estimates per stage)",
+      "status": "mentions"
+     }
+    ]
+   },
+   {
+    "id": "lead-a-team-of-agents",
+    "note": "L2 is well covered by the pattern pages, but they show splitting and the brief more than 'reading and merging what comes back'. L3 (saved roles + a command that runs plan/build/review the same way next time) has one agent-definition snippet and no worked example. L4 (own coordinator on the SDK/headless, evals the agents can't edit) is untaught; dynamic workflows and ready-made frameworks are not explained.",
+    "L2": [
+     {
+      "page": "/patterns/agent-teams",
+      "section": "A Typical Session",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/agent-teams",
+      "section": "Delegate Mode Is Essential",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/agent-teams",
+      "section": "When to Use Agent Teams",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/supervisor",
+      "section": "How it works",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/fan-out-fan-in",
+      "section": "How it works (parent synthesizes)",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/contract-chains",
+      "section": "How it works + Example prompt for a Wave 2 agent",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "Division of labor",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "How it works / Iteration loop",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/invocation-quality",
+      "section": "Anatomy of a Good Invocation / The Invocation Checklist",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/parallel-execution",
+      "section": "Starter Patterns: Dual-Instance Kickoff",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/subagent-patterns",
+      "section": "When Subagents Help / When They Don't",
+      "status": "mentions"
+     },
+     {
+      "page": "/onboarding",
+      "section": "Ship your first contribution ('let your main session be the orchestrator')",
+      "status": "mentions"
+     }
+    ],
+    "L3": [
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Agent definition for a validator",
+      "status": "teaches"
+     },
+     {
+      "page": "/patterns/prompting-craft",
+      "section": "Behavior Injection for Agents",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/distribution",
+      "section": "Why Agents Exist",
+      "status": "mentions"
+     },
+     {
+      "page": "/setup/make-it-yours",
+      "section": "What Belongs Here: Custom agents",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/pipeline-chains",
+      "section": "Examples in the wild (gsd:quick composable pipeline)",
+      "status": "mentions"
+     }
+    ],
+    "L4": [
+     {
+      "page": "/explore/orchestration",
+      "section": "Community frameworks table (unaudited list; nothing teaches building one)",
+      "status": "mentions"
+     },
+     {
+      "page": "/patterns/orchestration-patterns/builder-validator",
+      "section": "Self-Validating Agents (Team tier: read-only validator)",
+      "status": "mentions"
+     }
+    ]
+   }
+  ],
+  "challenges": [
+   {
+    "id": "babysitting",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/agentic-engineering"
+    ],
+    "how_to_in": [
+     "/patterns/agentic-engineering",
+     "/patterns/autonomous-tasks",
+     "/patterns/permission-modes"
+    ]
+   },
+   {
+    "id": "one-at-a-time",
+    "explained_in": [
+     "/patterns/parallel-execution"
+    ],
+    "how_to_in": [
+     "/patterns/parallel-execution",
+     "/onboarding",
+     "/patterns/agent-teams",
+     "/patterns/orchestration-patterns",
+     "/patterns/orchestration-patterns/fan-out-fan-in",
+     "/patterns/subagent-patterns",
+     "/patterns/autonomous-tasks"
+    ]
+   },
+   {
+    "id": "meat-proxy",
+    "explained_in": [
+     "/reference/vocabulary"
+    ],
+    "how_to_in": [
+     "/patterns/parallel-execution",
+     "/patterns/cost-and-model-routing",
+     "/reference/common-pitfalls",
+     "/patterns/workflow-patterns"
+    ]
+   },
+   {
+    "id": "token-maxxing",
+    "explained_in": [
+     "/reference/vocabulary",
+     "/patterns/cost-and-model-routing"
+    ],
+    "how_to_in": [
+     "/patterns/cost-and-model-routing",
+     "/patterns/parallel-execution"
+    ]
+   }
+  ],
+  "missing_pages": [
+   {
+    "title": "Run it, walk away, come back: keeping watch from outside",
+    "what_it_teaches": "The person's side of an unattended run. (1) Start with what done looks like (an end condition, /goal), (2) move the session to the background or let the agent watch a long process itself (Monitor, timed wake-up) and do other work, (3) choose when to look: on finish, stuck or asking, via a notification hook, (4) let routine steps through (permission rules/auto mode) so only real decisions reach you, (5) stop it by hand when it drifts, with the signals from When to Intervene. A worked example of one 40-minute run: what you told it, what you did meanwhile, what brought you back. Includes following a run from another device (remote control).",
+    "practices": [
+     "step-in-on-signals",
+     "runs-start-without-you"
+    ],
+    "rungs": [
+     "step-in-on-signals L2",
+     "step-in-on-signals L3",
+     "runs-start-without-you L2"
+    ],
+    "challenges": [
+     "babysitting",
+     "one-at-a-time"
+    ],
+    "why_it_matters": "The most common L1-L2 state is sitting and watching, or typing 'continue'. The playbook teaches how to make an unattended run safe (autonomous-tasks) but never how the person leaves it and returns on a signal. The vocabulary even maps 'babysitting' to missing backpressure only, which is a different fix. This is the first move out of one-at-a-time and has no home today.",
+    "closest_existing": "/patterns/autonomous-tasks (extend) plus the 'When to Intervene' section of /patterns/agentic-engineering; a new page is justified because both are about verification/safety, not about where the person's attention goes."
+   },
+   {
+    "title": "Section: built-in fan-out in Parallel Execution (/batch, dynamic workflows, /fork)",
+    "what_it_teaches": "Create the missing section 'The /batch command' in parallel-execution: how to split one big change into sub-agents in worktrees, what to scope, how to read results back; plus when a dynamic workflow runs parallel agents from a script the tool writes (scope it, read it back, rerun it). Fixes a broken anchor: agent-teams, cost-and-model-routing and orchestration-patterns all link to parallel-execution#the-batch-command, which does not exist.",
+    "practices": [
+     "parallel-work-kept-apart",
+     "lead-a-team-of-agents"
+    ],
+    "rungs": [
+     "parallel-work-kept-apart L2",
+     "lead-a-team-of-agents L2"
+    ],
+    "challenges": [
+     "one-at-a-time"
+    ],
+    "why_it_matters": "Built-in fan-out is the lowest-effort way to reach L2 on both practices and three pages already point readers to it. Right now they land on a page that does not teach it, and dynamic workflows appear nowhere in the playbook.",
+    "closest_existing": "/patterns/parallel-execution (extend: add the section the links already promise)"
+   },
+   {
+    "title": "Don't be the meat proxy: reading what your agents hand back",
+    "what_it_teaches": "The orchestrator's reading discipline: size parallel work to what you can read back (the number that stops adding sessions), read the diff before a pull request goes to review, read what the lead/sub-agents return before the next step, answer reviewers' comments in your own words rather than forwarding the agent's reply, and never open with 'the agent said'. A before/after example of a review thread. Names the vocabulary term and the Gruhn/Allenby sources.",
+    "practices": [
+     "parallel-work-kept-apart",
+     "lead-a-team-of-agents"
+    ],
+    "rungs": [
+     "parallel-work-kept-apart L2",
+     "lead-a-team-of-agents L2"
+    ],
+    "challenges": [
+     "meat-proxy",
+     "one-at-a-time"
+    ],
+    "why_it_matters": "The more agents run, the easier it is to forward unread work; reviewers end up doing the engineering. The challenge exists only as one vocabulary row with no how-to; adjacent advice (review the diff, review bandwidth) is scattered across four pages and never framed for someone running several agents.",
+    "closest_existing": "/patterns/parallel-execution 'How Many Is Too Many?' plus /reference/common-pitfalls 'Skipping the review'. Extend one of them if the verification discipline already has a home for the reading itself; otherwise new page."
+   },
+   {
+    "title": "Work through a list: one fresh run per task (the Ralph loop)",
+    "what_it_teaches": "Handling a whole backlog without rotting one session: a task list plus a PROGRESS.md each run reads first and updates last; one task per fresh session by hand (L2), or the built-in /loop and a dynamic workflow with one agent per item; then a saved prompt and a command/skill that picks the next unfinished item (L3); then a headless loop with --max-turns/--max-budget-usd per item, resume after a crash, and stopping at a limit when checks the agent can't edit pass (L4). Shows why the ralph-wiggum plugin inside one window is not a fresh context per task.",
+    "practices": [
+     "fresh-run-per-task"
+    ],
+    "rungs": [
+     "fresh-run-per-task L2",
+     "fresh-run-per-task L3",
+     "fresh-run-per-task L4"
+    ],
+    "challenges": [
+     "one-at-a-time"
+    ],
+    "why_it_matters": "Every level of this practice is untaught. Only the HANDOFF.md pattern (one task, by hand) exists, and Permutation Frameworks fans out in one prompt, which readers may mistake for this. Long list jobs are where members first lose a night of work to a crashed or rotted session.",
+    "closest_existing": "/patterns/session-management (handoff) and /patterns/autonomous-tasks (overnight section); too much for a section, so a new page linked from both."
+   },
+   {
+    "title": "Agents that start themselves: schedules, events and the build pipeline",
+    "what_it_teaches": "Setting up a run that nobody types: a scheduled task or /schedule with a saved prompt (L3); a cron/launchd timer; the Claude Code GitHub action on pull requests or issues; a ticket label as trigger; where the result lands and how you review it; limits on what each triggered run may do and spend (permission mode, sandbox, turn/budget caps). Then the L4 jump: your own listener (webhook, ticket board) that starts headless runs and acts on what comes back. Each with one copyable example.",
+    "practices": [
+     "runs-start-without-you"
+    ],
+    "rungs": [
+     "runs-start-without-you L2",
+     "runs-start-without-you L3",
+     "runs-start-without-you L4"
+    ],
+    "challenges": [
+     "one-at-a-time"
+    ],
+    "why_it_matters": "Today the whole topic is one Tip in Autonomous Task Patterns. This is the L3 step most members can reach in an afternoon and it is the clearest answer to 'what were your agents doing during your last meeting?'.",
+    "closest_existing": "/patterns/autonomous-tasks (Tip on scheduled tasks); a new page is warranted because triggers, result handling and limits are a separate topic from the write-test cycle."
+   },
+   {
+    "title": "Section: limits and brakes for runs nobody watches, and judging runs by what they left",
+    "what_it_teaches": "Add to Cost & Model Routing: turn and spend limits on unattended runs, how to notice and stop a run burning time or money for little, effort level as an alternative to a bigger model, a plan-model/build-model default as setup (L3), tracking cost per run against what landed (a commit kept, a task closed) rather than a leaderboard, and a worked day: 'what did this day of agents leave behind, and was it worth it?'. Names token maxxing and the 'judge outcomes' fix.",
+    "practices": [
+     "model-and-budget-per-step",
+     "step-in-on-signals"
+    ],
+    "rungs": [
+     "model-and-budget-per-step L2",
+     "model-and-budget-per-step L3",
+     "model-and-budget-per-step L4",
+     "step-in-on-signals L4"
+    ],
+    "challenges": [
+     "token-maxxing"
+    ],
+    "why_it_matters": "The page teaches how to route models but nothing about stopping a run or measuring worth. Token maxxing has no how-to anywhere, and the vocabulary row only describes it. At L1-L3 the problem is running agents on work you won't keep; this is the check.",
+    "closest_existing": "/patterns/cost-and-model-routing (extend with these sections)"
+   },
+   {
+    "title": "Save your team: roles and a one-command pipeline",
+    "what_it_teaches": "Turning a split you did by hand into setup: write role definitions (planner, builder, read-only reviewer) with the model and tools set per role, then one command or skill that runs plan, build, review the same way on the next job or for a teammate; a repo rule saying which agent owns which folder; a command/alias that opens each task in its own worktree and branch. One full worked example with the files shown.",
+    "practices": [
+     "lead-a-team-of-agents",
+     "parallel-work-kept-apart",
+     "model-and-budget-per-step"
+    ],
+    "rungs": [
+     "lead-a-team-of-agents L3",
+     "parallel-work-kept-apart L3",
+     "model-and-budget-per-step L3"
+    ],
+    "challenges": [
+     "one-at-a-time",
+     "meat-proxy"
+    ],
+    "why_it_matters": "L3 means the next run or teammate gets it without you. The pattern pages teach shapes (pipeline, supervisor, builder-validator) as things you direct live; only one validator definition shows a saved role, and nothing shows the command that runs the team.",
+    "closest_existing": "/patterns/orchestration-patterns/pipeline-chains (could take a 'Save it as a command' section) with /patterns/orchestration-patterns/builder-validator; a new page if the worked example is longer than a section."
+   },
+   {
+    "title": "Section: what each agent hands back, and how the lead merges and checks it",
+    "what_it_teaches": "Extend Invocation Quality with the return side of the brief: say what shape the result must come back in (a short file, a list, a diff), where to write it, and how the lead reads and cross-checks returned parts before going on (spot-check one, run the checks, resolve conflicts between parts). Pairs with the Orchestration Patterns table.",
+    "practices": [
+     "lead-a-team-of-agents"
+    ],
+    "rungs": [
+     "lead-a-team-of-agents L2"
+    ],
+    "challenges": [
+     "meat-proxy"
+    ],
+    "why_it_matters": "The L2 evidence for leading a team is 'what each handed back, and how it was merged and checked'. The patterns say 'the parent synthesizes' but never show how, so members stop at the split.",
+    "closest_existing": "/patterns/invocation-quality (extend)"
+   },
+   {
+    "title": "Watchdog hooks: alert on or stop a run that loops, runs long or goes over budget",
+    "what_it_teaches": "Build the alarm and the brake: a hook or small program that watches a run and pings you, or blocks it, on repeated identical failures, elapsed time, a spend limit, or touching paths it shouldn't; plus where it logs. Distinct from the Quality Gate (which blocks 'done' without passing tests).",
+    "practices": [
+     "step-in-on-signals",
+     "model-and-budget-per-step",
+     "fresh-run-per-task"
+    ],
+    "rungs": [
+     "step-in-on-signals L4",
+     "model-and-budget-per-step L4",
+     "fresh-run-per-task L4"
+    ],
+    "challenges": [
+     "babysitting",
+     "token-maxxing"
+    ],
+    "why_it_matters": "Only L4. Nothing in the playbook shows a brake that works while nobody is watching; the existing 'escape hatches' are instructions the agent can ignore.",
+    "closest_existing": "/setup/hooks-playbook (extend with a 'Watchdog hooks' composition pattern)"
+   },
+   {
+    "title": "Build your own runner: headless runs and the Agent SDK",
+    "what_it_teaches": "The L4 step shared by four practices: a program that starts agents headlessly or through the Agent SDK, passes work and results between them, merges their work back in order, runs checks the agents can't edit before anything lands, enforces turn/spend limits, and resumes from a progress file. Includes when a one-line shell loop or cron line is enough, and how a ready-made orchestration framework differs (installing it is use; directing it is L2).",
+    "practices": [
+     "lead-a-team-of-agents",
+     "parallel-work-kept-apart",
+     "fresh-run-per-task",
+     "runs-start-without-you"
+    ],
+    "rungs": [
+     "lead-a-team-of-agents L4",
+     "parallel-work-kept-apart L4",
+     "fresh-run-per-task L4",
+     "runs-start-without-you L4"
+    ],
+    "challenges": [
+     "one-at-a-time",
+     "token-maxxing"
+    ],
+    "why_it_matters": "For members already at L3 who want to build something that runs without them. Neither headless runs nor the Agent SDK appear anywhere in the playbook, and /explore/orchestration is an unaudited list of repos with no guidance on choosing or building.",
+    "closest_existing": "/patterns/orchestration-patterns (could host as a sixth pattern page) and /explore/orchestration; no current page teaches it."
+   }
+  ]
+ }
+]

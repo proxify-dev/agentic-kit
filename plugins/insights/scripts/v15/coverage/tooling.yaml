@@ -1,0 +1,188 @@
+# Can the setup tool see each v15 practice on a laptop, and what would it cost to see it?
+#
+# verdict — what the tool's reading got right on ONE laptop (a staff member's), as judged by the AI audit
+#   wf_c4017b6d-f8c (5 large-model readers, ~970k tokens; raw: ~/.cache/setup-snapshot/v15-audit-*.json).
+#   holds · partly · wrong (said "not seen" or the wrong level, for something he does) · cant-see (nothing on a
+#   laptop shows it). No person has checked the audit yet.
+# cost — the cheapest way that should read it reliably, taken from the audit's suggested fix (detector_fix).
+#   A judgement, not built or measured:
+#   free     a script reads files, settings, git or log records; seconds, no AI
+#   cheap-ai a small model reads a short extract (one message, one prompt file)
+#   call     no laptop reading will settle it; the interviewer asks (the expensive one)
+# Session 44dea330, 2026-11-02. tools/map.py shows it as the "Can the tool see it?" tab.
+
+practices:
+  # --- Context engineering
+  write-down-what-it-cannot-know:
+    verdict: wrong
+    note: Said "not seen". He writes rule lines after corrections (161 edits in 65 sessions, 28 right after a step-in) and has rule hooks with evals.
+    cost: free
+    reads: Who wrote each instruction file (git), edits right after a step-in, his own rule hooks and their eval runs.
+  put-rules-where-they-apply:
+    verdict: partly
+    note: Said L3; his rule-injecting hooks with evals make it L4. The hook-added context (9,582 pieces) was never read.
+    cost: free
+    reads: Context each hook or plugin adds, and whether that plugin is his and has evals (git).
+  keep-always-loaded-small:
+    verdict: partly
+    note: Measured in lines, not words; missed his own lint hook; one file grew back past its old size.
+    cost: free
+    reads: Size in words of what loads every session, git history of trims, his own lint hook.
+  let-the-agent-fetch:
+    verdict: wrong
+    note: 'Said "not seen". The agent calls tools he built (a session-search tool: 1,341 calls in 265 sessions; memory search).'
+    cost: free
+    reads: Shell calls to tools from plugins he wrote (git), and whether those tools have eval runs.
+  notes-the-next-chat-reads:
+    verdict: partly
+    note: Right level for the wrong reason; about half the pickups followed a file he pointed it to (that's L2).
+    cost: free
+    reads: New sessions that read earlier notes without being pointed at them, plus his memory hooks and their evals.
+  reset-with-a-handoff:
+    verdict: wrong
+    note: Said "not seen". Fresh session after 7 of 19 correction streaks, /resume, /fork, hand-overs by session id.
+    cost: free
+    reads: history.jsonl slash commands, what followed a correction streak, first messages naming an earlier session.
+  compact-on-purpose:
+    verdict: partly
+    note: Called L2, but only about 4 of 45 compactions say what to keep; his hooks reload rules after each one.
+    cost: free
+    reads: /compact with focus text, context reloaded after a compaction, late and repeated compactions.
+  isolate-side-work:
+    verdict: partly
+    note: Said L2; sub-agents he wrote and standing rules to use them make it L3. /btw and /subtask were never read.
+    cost: free
+    reads: history.jsonl (/btw, /subtask), sub-agent types matched to agent files he wrote (git).
+  share-the-setup-with-the-team:
+    verdict: wrong
+    note: Said "not seen". The team repo commits rules, settings, 11 agents and 20 skills, edited by two people.
+    cost: free
+    reads: Committed instruction, agent and skill files with two or more git authors.
+  design-the-context-you-send:
+    verdict: cant-see
+    note: Only a trace from a gateway he built shows it; nothing general on a member's laptop does.
+    cost: call
+    reads: Ask on the call what their own agents send the model.
+  agent-managed-memory:
+    verdict: wrong
+    note: Said "not seen". His memory store writes at the end of every session and has on/off evals (20/20 vs 13/20).
+    cost: free
+    reads: A plugin he wrote that writes a store at session end, and its eval runs.
+  long-input-in-pieces:
+    verdict: cant-see
+    note: Nothing on the laptop reads it; "not seen" held only because there was nothing to find.
+    cost: call
+    reads: Ask on the call.
+
+  # --- Prompt engineering
+  bound-the-task:
+    verdict: partly
+    note: Shown at L2 from an English word list; his task templates and a gate that refuses bad hand-overs make it L4.
+    cost: cheap-ai
+    reads: Whether a typed ask says what "done" means (a small model on the ask, not a word list); templates and gates are free via git.
+  settle-the-approach-first:
+    verdict: wrong
+    note: Said "not seen". 126 plan proposals, 72 sent back; about 9 of 25 sampled replies push back on the content.
+    cost: cheap-ai
+    reads: The message typed right after sending a plan back (a small model judges whether it argues with the plan); plan files reused across sessions via code.
+  reword-the-ask:
+    verdict: wrong
+    note: Said "not seen". About 20 of 24 sampled step-ins name what was wrong.
+    cost: cheap-ai
+    reads: The message right after a refusal or Esc (a small model judges whether it names the defect); compacting skill files via git.
+  ask-without-leading:
+    verdict: wrong
+    note: Said "not seen". 33 messages invite disagreement ("prove me wrong?"); he keeps sceptic sub-agents.
+    cost: cheap-ai
+    reads: Whether his own agent and workflow prompts take a sceptic stance (a small model on short prompt files).
+
+  # --- Verification
+  prove-it-works:
+    verdict: partly
+    note: L4 holds (four checks he built refuse the agent's "done"), but one claim was wrong and L3 in hand-edited repos was hidden.
+    cost: free
+    reads: Checks that refuse "done" and what happened next; repos whose instructions name the test commands.
+  second-look:
+    verdict: wrong
+    note: Said "not seen". A second-model frame critic runs from his stop hook, capped.
+    cost: free
+    reads: Stop checks that call a second model, and review sub-agents used in 10 or more sessions.
+  own-what-ships:
+    verdict: partly
+    note: Laptop can hint (he asks for walkthroughs and diffs in 38 sessions) but can't show he understands what shipped.
+    cost: call
+    reads: Ask on the call; the laptop only shows asks to understand or see the diff.
+  retest-agent-setup:
+    verdict: wrong
+    note: Said "not seen"; the page even claimed no eval suite. His plugins log 70+ eval runs.
+    cost: free
+    reads: Eval folders with cases and a runs log he wrote (git), run inside the window.
+
+  # --- Harness engineering
+  limit-what-the-agent-can-reach:
+    verdict: wrong
+    note: Missed. His headless-run script gives each agent role its own tool list; program-started runs were dropped from the reading.
+    cost: free
+    reads: Permission settings, launch flags that limit tools, connector read-only flags, tool lists in agent files he wrote.
+  run-the-agent-in-a-box:
+    verdict: wrong
+    note: Missed. He built a micro-VM sandbox (unused since 09-22); worktrees serve as rollback points day to day.
+    cost: free
+    reads: Container or VM setups he wrote that start the agent, when they were last used, worktrees before long runs.
+  ask-before-what-cant-be-undone:
+    verdict: wrong
+    note: Shown at L2 from batched questions, which isn't this practice. Rejected tool calls were never read.
+    cost: free
+    reads: Permission mode per message, rejected tool calls, ask rules on risky commands.
+  enforce-fixed-rules-in-code:
+    verdict: holds
+    note: L4 holds — guards he wrote that block the agent fired in his logs.
+    cost: free
+    reads: Hooks he wrote that can block (git), and blocks that fired.
+  vet-what-gets-in:
+    verdict: wrong
+    note: Missed. His studio hooks refuse unpinned installs; on his own machine it's looser.
+    cost: free
+    reads: His hooks that refuse installs, unpinned launches in connector config, installs with or without a read of the source first.
+  give-the-agent-tools-made-for-it:
+    verdict: wrong
+    note: Missed. The agent uses tools he built every day (his session-search tool in 264 of 557 sessions).
+    cost: free
+    reads: Each connector or shell tool matched to its source, credited when git says he wrote it.
+  keep-outside-text-from-steering:
+    verdict: cant-see
+    note: Agent files show which readers hold risky tools, but whether the design holds is a judgement.
+    cost: call
+    reads: Flag readers of outside text that also hold shell or write tools, then ask on the call.
+
+  # --- Orchestration
+  step-in-on-signals:
+    verdict: wrong
+    note: Said "not seen". /goal in 22 sessions, 608 background sub-agents, 92 monitor calls, and a notify plugin he wrote.
+    cost: free
+    reads: /goal, background runs, monitor calls, his own alert hooks, blocks that fired with nobody typing.
+  fresh-run-per-task:
+    verdict: wrong
+    note: Said "not seen". He keeps fan-out workflows that run one agent per item.
+    cost: free
+    reads: Batches of program-started runs per repo, saved workflow files, workflow calls.
+  parallel-work-kept-apart:
+    verdict: partly
+    note: L3 shown from real numbers (103 worktrees, two or more agents most of the time); can't tell whether parallel sessions touched the same files.
+    cost: free
+    reads: Worktrees, agents at once, and whether parallel sessions edited the same files.
+  runs-start-without-you:
+    verdict: partly
+    note: L4 shown (6,236 runs started by his programs) but the kept-work check is thin.
+    cost: free
+    reads: Scheduled and program-started runs (git-credited) and whether they ended in kept work.
+  model-and-budget-per-step:
+    verdict: wrong
+    note: Said "not seen". 1,036 of 1,503 sub-agent calls set a model; his agent files pick a model per role.
+    cost: free
+    reads: Model set on sub-agent calls and in agent files he wrote, turn and spend limits in launch flags.
+  lead-a-team-of-agents:
+    verdict: partly
+    note: L4 shown from his studio, but the tool can't tell one job split across agents from many unrelated sub-agents.
+    cost: cheap-ai
+    reads: The brief each sub-agent was sent (a small model groups them into one job or many).

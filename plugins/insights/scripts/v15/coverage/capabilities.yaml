@@ -1,0 +1,198 @@
+# What the tool can do today: the "What it can do" tab of the substrate map (tools/map.py) reads this file.
+# One entry per job the tool must do, in plain words. Hand-kept: change `state`, `today`, `proof`, `missing`
+# the moment a run or a check changes them, and move `checked` to that date. Numbers marked "live" on the page
+# come from the latest ~/.cache/setup-snapshot/evidence-*/ run, not from here.
+#
+# state, strongest first:
+#   proven   ran on real input AND passed an independent check
+#   ran      ran on real input (so far: his laptop only); no independent check yet
+#   paper    built, never run on real input
+#   missing  not built
+checked: 2026-11-02 23:59
+groups:
+  - id: read
+    name: Read a laptop
+    question: Can it see what's on someone's machine?
+  - id: level
+    name: Read a level (our view only)
+    question: Can it say what level someone is, and show how it got there?
+  - id: advise
+    name: Advise
+    question: Can it say what to do next, and where to learn it?
+  - id: calls
+    name: Calls
+    question: Does the same system work on an evaluation call?
+  - id: members
+    name: Members' own machines
+    question: What does the public /my-agentic-setup do with it?
+  - id: scale
+    name: Cost and reach
+    question: Can it run on many people, at a price that works?
+
+capabilities:
+  - id: inventory
+    group: read
+    name: List everything on a laptop that could count as proof
+    state: ran
+    today: A script, no AI, counts every source in ~25 s for free (sessions, slash commands, hooks that ran, plugins and who wrote them, memory stores, schedules, instruction files).
+    proof: Your laptop, 2026-11-02 — 6,909 session files read; patched 3 times the same day after the skeptics found sources it skipped (Stop-hook runs, the notify plugin, cron logs).
+    missing: Run on anyone else's laptop. Not in the public tool yet.
+    where: ../setup-snapshot/experiments/2026-11-02-evidence/inventory.py
+
+  - id: who-built
+    group: read
+    name: Tell what someone built from what they installed
+    state: ran
+    today: Reads git authorship for every skill, agent, hook and plugin, so installed things count as use (L1), not as their build (ruling 10-20).
+    proof: Your laptop — e.g. 119 skills git says you wrote, kept apart from the ones that came with plugins.
+    missing: People who commit under several emails, or don't commit their setup at all.
+    where: ../setup-snapshot/experiments/2026-11-02-evidence/inventory.py (person, own_artifacts)
+
+  - id: rungs
+    group: read
+    name: Say which practices someone does, at which level, with the proof
+    state: ran
+    live: tally
+    today: An AI reader per discipline turns the inventory into one row per practice (level + why + where it was seen); a second AI tries to knock each row down.
+    proof: "Two loops, each re-audited by 5 fresh Opus auditors. Loop 2: 83% of 112 claims right or right with a thin reason, 15% wrong; practice levels 85% right or nearly (25 of 33 with a thin reason). The old checks were 14% hold, 46% wrong. Bar (wrong ≤ 5%) not met."
+    missing: "Problem verdicts default to the old checks, which pool all repos and read typed sessions only; levels miss evidence in files nobody opened (his gateway). Costs 1.4M tokens per person. Next shape waits on you: setup-snapshot/memory/problems/v15-evidence-rebuild-audit.md."
+    where: ../setup-snapshot/experiments/2026-11-02-evidence/evidence.workflow.js
+
+  - id: not-read
+    group: read
+    name: Tell "we looked, you don't do it" from "we never looked"
+    state: ran
+    live: states
+    today: Every practice ends in one of three states — seen · looked, not found · not read — so a gap is never a guess.
+    proof: "Loop 2 audit: 1 practice he does still shown without a level (design the context you send: his gateway's cache-aware request shaping, in a file nobody opened). The old checks: 26."
+    missing: Same audit bar as above.
+    where: engine/engine.py
+
+  - id: pointer
+    group: level
+    name: Give a level, for us
+    state: ran
+    live: pointer
+    today: Reads a level as a picture across the disciplines from the practice levels (levels.md); says "could be" when proof is missing and what to ask on the call.
+    proof: "Your laptop reads L4 under your 11-02 ruling ('an eval, period'): 14 practices at L4 plus re-tested evals on what you built. It read L3 before the ruling only because of the 'agent can't edit' gate. 8 rule tests pass (engine/test_engine.py), made-up cases, not real people."
+    missing: Compared with a single level a person decided. Not done once.
+    where: engine/engine.py (level_pointer), levels.md
+
+  - id: trail
+    group: level
+    name: Show how the level was reached
+    state: ran
+    live: levels
+    today: Every practice carries its level, the reason, where it was seen and what the skeptic changed; the level lists which practices carried it.
+    proof: "Your laptop: 'How this level was reached' lists the rule that decided, each condition met or not, and the practices and evidence rows behind it (our view only; hidden in the member's copy, 11-02 ruling)."
+    missing: The same audit as the levels.
+    where: engine/render.py
+
+  - id: builders
+    group: level
+    name: Tell someone who builds agents for clients from a heavy user of their own tooling
+    state: missing
+    today: Can't. Only 4 of 33 practices are about building agents, and 3 of those don't count toward a level; one hook plus one scheduled job already reads as L4.
+    proof: Assessment 2026-11-02 (agent assess-solutions, read-only).
+    missing: Record who each build is for (self, team, clients); 4–5 builder practices from Anthropic's architect exam; a builder reader on the laptop; a test on 5 client builders vs 5 heavy personal users.
+    where: "substrate/*.yaml (audience: builds-agents)"
+
+  - id: human-check
+    group: level
+    name: Check its level against levels a person decided
+    state: missing
+    today: No set of people with an approved level has been run through it.
+    proof: First candidate — a teammate approved at L3, read as L1 by the old script.
+    missing: 5–10 approved members who run it; done when it matches most of them.
+    where: —
+
+  - id: recommend
+    group: advise
+    name: Recommend the next step, with where to learn it
+    state: ran
+    live: recommendations
+    today: From a problem seen on the laptop to the practice that fixes it, one level up, with the playbook page that teaches it; a missing page becomes a content gap.
+    proof: "Loop 2 audit: 1 of 5 recommendations hold. Rules now drop climbs on problems that don't show (25 → 5 cards), but the rest still recommend what he already built or aim at the wrong repo: rules over evidence rows can't see his artifacts."
+    missing: A person (you) judging whether they're useful; the same on a member's machine.
+    where: engine/engine.py, levels.md
+
+  - id: playbook-gaps
+    group: advise
+    name: Show what the playbook is missing
+    state: ran
+    today: Reads every playbook page against every practice level.
+    proof: 90 levels — 48 taught, 35 only mentioned, 7 missing; 55 pages to write or extend; 4 places it teaches the opposite of your rulings (AI read of the real pages, 2026-11-02; see "Pages to write").
+    missing: Nobody has checked the read; none of the 55 pages written yet.
+    where: coverage/README.md, tools/coverage.py
+
+  - id: call-sheet
+    group: calls
+    name: Give the interviewer questions from the same substrate
+    state: paper
+    today: Prints a question sheet from the challenges; questions the laptop already answered drop to the bottom.
+    proof: Generated, never used on a real call. Only 1 of 59 questions assumes the person built an agent others use; the builder questions in the substrate aren't printed.
+    missing: One real evaluation call run end to end.
+    where: engine/call_sheet.py
+
+  - id: call-evidence
+    group: calls
+    name: Turn what's said on a call into the same proof rows
+    state: missing
+    today: Designed (said · showed · did), not built — the engine reads laptop rows only.
+    proof: engine/engine.py has no transcript input.
+    missing: A reader that turns a transcript into practice rows, so call and laptop add up to one level.
+    where: levels.md (Evidence, strongest first)
+
+  - id: public-scan
+    group: members
+    name: Members run it on their own machine
+    state: ran
+    today: The public /my-agentic-setup (agentic kit, insights 0.5.0) counts their setup with a script, no AI, in 1–2 minutes; never a level on their page.
+    proof: Shipped; members have run it and shared reports.
+    missing: Still built on v13's practices — none of v15, the new inventory or the AI reading is in it.
+    where: the kit's insights plugin, skills/my-agentic-setup/
+
+  - id: shared-report
+    group: members
+    name: Members share a masked report with us
+    state: ran
+    today: Client names masked; organised by v13's four badges.
+    proof: Shipped (REPORT-SCHEMA.md).
+    missing: A v15 version that carries practice rows, so we can read a level from it.
+    where: the kit's insights plugin, skills/my-agentic-setup/REPORT-SCHEMA.md
+
+  - id: member-v15
+    group: members
+    name: v15 recommendations on a member's own machine
+    state: missing
+    today: Not decided where the AI reading runs (their machine or ours); the rule today is "AI readers stay in the Proxify version".
+    proof: —
+    missing: That decision, and a cost a member's plan can carry.
+    where: ../setup-snapshot/CLAUDE.md (The member version)
+
+  - id: other-laptops
+    group: scale
+    name: Work on anyone else's laptop
+    state: missing
+    today: Every number so far is from one laptop — yours, the hardest case (you built your own session-search and memory tools).
+    proof: —
+    missing: two testers' laptops next, then 5–10 approved members.
+    where: STATUS.md (Next)
+
+  - id: cost
+    group: scale
+    name: Cost per person
+    state: ran
+    today: The inventory is free. The AI reading (5 readers + 5 skeptics) is the cost.
+    proof: "Lab, measured on your laptop: 1.4M tokens per person (Sonnet readers 0.47M + Opus skeptics 0.92M); each agent starts at 28k here. Audit 1.27M on Opus. Of 94 rows, 23 follow from inventory numbers alone (all problems); 0 of 33 practice rows do."
+    missing: "Cheap version built and run on your laptop (not released): 73,720 tokens, ≈ 5 min; matches the audited lab on the level, 59 of 61 problem calls, 31 of 33 levels within one (20 exact). Still to run on anyone else's machine; nothing goes out until you've seen it (setup-snapshot/memory/problems/cheap-version-vs-lab.md)."
+    where: ../setup-snapshot/experiments/2026-11-02-evidence/
+
+  - id: new-patterns
+    group: scale
+    name: Spot patterns that have no name yet
+    state: missing
+    today: Reads only the 61 named challenges and 33 practices.
+    proof: —
+    missing: A pass that flags repeated moments matching none of them.
+    where: —

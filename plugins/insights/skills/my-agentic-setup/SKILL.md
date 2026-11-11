@@ -1,93 +1,149 @@
 ---
 name: my-agentic-setup
-description: Show this person how they really work with Claude Code — how they run sessions and helpers, what the agent knows before it starts, how they hand work over, check it and correct it, what they built for themselves — rebuilt from the files Claude Code keeps on this machine. Writes one private page for them with two tabs: how they work (each finding with how it was counted) and a few small steps to try next, plus a brief their own agent can follow (pull requests only, never merged); only on their yes, a masked report they can choose to share with Proxify. It never shows a level or a score. Use when the person asks "what's my agentic setup", "how do I work with agents", "/my-agentic-setup", or before an agentic-engineering evaluation call.
-allowed-tools: Bash(python3 *), Read, AskUserQuestion
+description: Read how this person really works with Claude Code from the files Claude Code keeps on this machine (sessions, helpers, hooks, skills, agents, evals, git) and build one local page: what they do, what they built, problems, next steps, and the level their laptop reads (a call confirms or raises it; AGENTIC_SETUP_MEMBER=1 leaves the level out). The page's Share tab can send Proxify a summary of practice ids and levels, only when the person presses Send there. One AI pass (a sonnet subagent) fills in the practice rungs. Read-only; the page is a local file. Use when asked "/my-agentic-setup", "what's my agentic setup", or to try the v15 setup tool.
+allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Read, Agent, AskUserQuestion
 ---
 
-# My agentic setup
+# My agentic setup (Proxify internal trial, v15)
 
-You rebuild how this person works with coding agents from files on their own machine. You read; you never
-change, install or send anything. Everything is written to `agentic-setup/` in their home folder
-(`~/agentic-setup/`, on Windows `%USERPROFILE%\agentic-setup`); it stays there until they delete the folder.
-Not `/tmp`: on Ubuntu, Firefox installed as a snap has its own private `/tmp` and showed "File not found" for a
-page written there (2026-10-26). A non-hidden folder in home is readable by every browser on every system.
+You rebuild how this person works with coding agents from files on their own machine, then show it as one page.
+This is an early trial (a beta). The page is the person's own copy: what they do, what they built, the problems it
+saw and next steps, and the level the laptop reads (the Level tab). That level is a starting point a call confirms
+or raises, never a final score. A person who wants the copy with no level sets `AGENTIC_SETUP_MEMBER=1` before running.
+Say it is a beta when you start.
 
-The scripts sit in `${CLAUDE_SKILL_DIR}/scripts/` (if that variable is empty: `scripts/` beside this file).
-They need nothing but `python3` (stdlib only). On Windows use `python` or `py` where this says `python3`.
+It is read-only. It reads `~/.claude` and the git repos Claude Code ran in, and writes only into the run folder
+(`~/agentic-setup/`), the page beside it, and `archive/` there (each rebuild keeps the page it replaces). It installs nothing and changes no repo. The scan sends
+nothing anywhere. The one AI pass is a Claude Code subagent in this very session, so the digest it reads goes
+through Claude Code like any chat does, nowhere else. Opening the page in a browser fetches the Inter font from
+Google Fonts when online. The page sends one thing, and only when the person presses Send on its "Share with Proxify"
+tab: the summary shown there (practice ids and levels, no file names, no text) and the email they type, to Proxify.
 
-## Never a level, never a score
+The code is `${CLAUDE_PLUGIN_ROOT}/scripts/` (if that is empty: `../../scripts/` from this file). It is a copy of
+Proxify's labs code; `scripts/GENERATED.md` says when.
 
-This page shows no level and no score, and you never give one in the chat either (ruling 2026-10-26: levels are
-set together with Proxify, never on the member's own machine). If they ask for their level, say it isn't something
-this tool gives, and point them to what it does show: how they work and what to try next.
+## Where things go
 
-## 1. Build their page
+The run folder is `~/agentic-setup/run-<YYYY-MM-DD>/` and the page is `~/agentic-setup/my-setup.html`. Never `/tmp`:
+on Ubuntu, Firefox installed as a snap has its own private `/tmp` and shows "File not found" for a page written
+there. A non-hidden folder in the home directory is readable by every browser. On Windows that is
+`%USERPROFILE%\agentic-setup`. Write RUN_DIR below as an **absolute** path (expand `~` yourself): the subagent's Read
+tool does not expand it.
 
-Tell them first: one question about who they are in git, one scan (1–2 minutes on a heavy machine), then one page with two tabs.
+Python: the code needs Python 3.12 or newer (macOS's own `python3` is 3.9, too old). Run `run.py` with `python3` (on
+Windows `python` or `py`); it re-runs itself under `uv run --with pyyaml` when `uv` is on PATH and the Python is too old
+or PyYAML is missing (uv brings its own Python and fetches PyYAML once; that download is the only thing this tool
+fetches, say so if it happens). With no `uv`, a Python older than 3.12 stops with a message: tell them to install uv
+(https://docs.astral.sh/uv/) and run it again. A new enough Python without PyYAML works too: the substrate tabs say
+"not in this run" and the person's own tabs are complete.
 
-**Who they are in git.** Everything they built counts as theirs only if git knows their email, and many people
-commit with a different email per folder. List what their git config knows:
+## 1. Before the AI pass (code only)
 
-```
-python3 -c "import os; os.makedirs(os.path.expanduser('~/agentic-setup'), exist_ok=True)"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/identity.py" --out "$HOME/agentic-setup/identity.json"
-```
-
-Ask with AskUserQuestion: "Git knows you as <the emails printed>. Are these all the emails you commit with?"
-Options: "Yes, that's all of them" / "One isn't me" / "I also use another one". Write the emails they confirm to
-`~/agentic-setup/identity.json` as `{"emails": [...]}`. Then run:
-
-```
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan.py" --days 30 --story --dev --identity "$HOME/agentic-setup/identity.json" --out "$HOME/agentic-setup/story.json" --facts-out "$HOME/agentic-setup/scan.json" --report-out "$HOME/agentic-setup/report.json"
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_all.py" "$HOME/agentic-setup/story.json" "$HOME/agentic-setup/scan.json" --brief "$HOME/agentic-setup/next-steps-brief.md" -o "$HOME/agentic-setup/my-setup.html"
-python3 -c "import pathlib, webbrowser; webbrowser.open_new_tab((pathlib.Path.home() / 'agentic-setup' / 'my-setup.html').as_uri())"
-```
-
-`my-setup.html` has two tabs:
-- **How you work** (opens first): one view per part of the work, each finding with "how we know" folded under it.
-- **What to try next**: up to four small steps picked from what the logs don't show yet, and how to hand the
-  repo ones to their own agent with `~/agentic-setup/next-steps-brief.md`. The brief makes the agent work one step
-  at a time, ask first, and open a pull request it never merges.
-
-**Do not Read `story.json`, `scan.json`, session logs, CLAUDE.md files or anything under
-`~/.claude/projects/`.** They hold real project names, git emails and excerpts of their prompts. Those stay on
-the page, out of this conversation. To talk about it, print only the headlines:
+Tell them first: a scan of about 3 minutes on a heavy machine (a minute on a light one), then one AI pass of a few
+minutes, then the page. Then:
 
 ```
-python3 -I -c "import json, os; r=json.load(open(os.path.expanduser('~/agentic-setup/story.json'))); print(r.get('coverage',{}).get('line','')); [print('-', s['title'] + ':', s['lead']) for s in r['sections']]"
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" pre RUN_DIR
 ```
 
-## 2. Tell them what it says
+Set the Bash timeout to the maximum (600000 ms). It prints each step as it goes: inventory of the machine and the
+sessions, a check of whether the agent's commits were looked at, the named problems decided by code, what they built,
+and the brief for the AI pass. If it stops, it says which step and why; read the message to them and stop. Nothing
+outside the run folder was touched. Re-running it on the same folder is fine.
 
-Address them as "you". Plain words, short, friendly and professional. Say what the page shows about how they
-work, then the first step on the "What to try next" tab. Prefer "not yet" and "not visible in your logs" to
-negatives, and never give a level, a score or a ranking.
+## 2. The AI pass (one subagent)
 
-Say plainly that this is an early version:
-- It reads this machine's records only, so work on other machines or tools won't show.
-- "Not visible in your logs" means the logs held too little to say, never "you don't do it".
+Do not read `RUN_DIR` files yourself: they hold real project names, paths and excerpts of their prompts. Only the
+subagent reads them. This works without the Workflow tool: call the **Agent** tool once, with `subagent_type:
+"general-purpose"`, `model: "sonnet"`, a short description, and as `prompt` the text between the markers below with
+RUN_DIR replaced by the absolute run folder. Do not shorten or reword it.
 
-If something looks wrong to them, ask what they actually do. That's the feedback we need.
+<!-- brief:start -->
+You give each agentic-engineering practice listed in cheap-practices.md a rung for the person who owns this laptop (never write
+their name). Read exactly two files, each once, whole, and nothing else (no other file, no shell):
+RUN_DIR/cheap-practices.md (the practices, their ladders, how a rung is read) and RUN_DIR/cheap-digest.md (every artifact
+they built, with authorship and whether it ran in the 30 days, and what they do by hand, with counts).
 
-## 3. Share with Proxify — only on their yes
+For EACH practice listed there, one row:
+- rung: the highest rung whose ladder text the digest's evidence matches. L2 = they do it by hand (the "by hand" counts
+  at the end of the digest); L3 = a setup of theirs does it (their files, skills, agents, standing rules); L4 = they built
+  something that does it and changes how the agent runs (their hook, program, plugin, gateway), with whatever that
+  practice's own L4 text asks for (often a test or eval: the digest's eval folders say which ran and how the runner
+  keeps the agent out). Use only artifacts marked as theirs; installed things others wrote are L1 use.
+- state: 'seen' with a rung; 'looked, not found' when the digest has the sources that would show it and they show
+  nothing; 'not read' when nothing in the digest covers it.
+- could_be: a higher rung the evidence points to but doesn't prove ('' otherwise).
+- why: one or two plain sentences for their page, with the number and its base from the digest. No level words.
+  Use the industry's words: session, not chat; sub-agent, not helper; compaction;
+  worktree; evals; sandbox; headless run (claude -p, Agent SDK); tool calls they rejected. Never name what we
+  read or how: no 'digest', 'detector', 'probe', 'pointer', 'rung'; say 'your files' or 'your logs'.
+- basis: the artifact id in [brackets] (or the by-hand line) the rung rests on.
+- evidence: 1-3 items {source: artifact id or digest section, detail: the exact number or phrase}.
+- rule: what you matched, in one line (e.g. "hook:memory ran 254 chats + eval with runs, sandboxed -> L4 text").
+- ask: a question for the call when the digest can't settle it, else ''.
+Be exact: copy numbers from the digest; never invent one. Return one row per listed practice: as many as the first line of cheap-practices.md says, no more.
 
-Ask with AskUserQuestion whether they want a version they could share with Proxify. It comes from the same scan,
-so there is nothing to scan again. On yes:
+Then write the result with the Write tool to RUN_DIR/ai-result.json: one JSON object {"rows": [ ...one row per practice... ]} and
+nothing else in the file (no prose, no code fence). Each row has exactly these keys: id (string, the practice id as in
+cheap-practices.md), state ("seen" | "looked, not found" | "not read"), rung ("L1" | "L2" | "L3" | "L4" | "" when state is
+not "seen"), could_be ("L2" | "L3" | "L4" | ""), why (string), basis (string), evidence (array of {"source": string,
+"detail": string}), rule (string), ask (string). When done, reply with one line: how many rows you wrote.
+<!-- brief:end -->
+
+When it returns, check that `RUN_DIR/ai-result.json` exists (`post` validates its shape and says what is wrong). If the
+subagent wrote nothing or something unusable, run the pass once more; if that fails too, tell them and stop.
+
+**The anatomy readers (the "Part by part" tab).** `pre` lists one `RUN_DIR/anatomy-brief-<project>.md` per most active
+project. In the same message as the subagent above, call the **Agent** tool once per brief, all at once, with
+`subagent_type: "general-purpose"`, `model: "sonnet"`, and as `prompt`, with BRIEF replaced by the brief's absolute path:
+
+> Read the brief at BRIEF and do exactly what it says. Read-only on the project: never edit, create or delete a project
+> file and never run its code. The only file you write is the JSON answer file the brief names, with the Write tool.
+> Answer every question; a "yes" always needs a path:line quote, and "yes" always means the thing the question
+> describes is there. Finish with one line: how many yes / no / unclear.
+
+A reader that fails is not a stop: its questions show as "couldn't check" on the page. Do not read the briefs yourself.
+
+## 3. After the AI pass
 
 ```
-python3 -I "${CLAUDE_SKILL_DIR}/scripts/render_report.py" "$HOME/agentic-setup/report.json" -o "$HOME/agentic-setup/report.html"
-python3 -c "import pathlib, webbrowser; webbrowser.open_new_tab((pathlib.Path.home() / 'agentic-setup' / 'report.html').as_uri())"
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" post RUN_DIR
 ```
 
-It holds counts and plain sentences only: no project, skill, agent or MCP server names, no prompt text, and no
-grading. Tell them to read `~/agentic-setup/report.html` before sharing it: it is exactly what Proxify would see.
-They can delete `~/agentic-setup/` whenever they like. Nothing has been sent; they choose whether and where to upload
-it. Never offer to send it for them.
+It checks the rows, assembles them with the code's problems into `evidence.json`, runs the engine (rungs, level,
+recommendations) and builds `~/agentic-setup/my-setup.html`, then opens it in the browser. If the browser does not open
+(a remote or headless machine), give them the path; they open it themselves.
 
-## What it cannot see
+Get the headline without reading the run files:
 
-Say so when it matters for this person:
-- work on another machine, a client VM or a devcontainer;
-- how Cursor, Copilot or other tools are used: only that they exist and when they were last touched;
-- anything older than Claude Code's log retention (`cleanupPeriodDays`, 30 days unless changed);
-- memory or notes kept outside what Claude Code reads (an MCP server, a notes app).
+```
+python3 -I -c "import json,os,sys; r=json.load(open(os.path.join(sys.argv[1],'v15-result.json'))); [print('-', x.get('challenge_name') or x.get('practice_name')) for x in r['recommendations']]" RUN_DIR
+```
+
+## 4. Tell them what it says
+
+Plain words, short, "you". Say where the page is and the first recommendation. Say the Level tab's read in one line, as
+what the laptop shows so far, which a call can confirm or raise (never a score; not when AGENTIC_SETUP_MEMBER=1 is set). Then say
+plainly that this is an early trial:
+- It reads this machine only: work on another machine, a client VM or a devcontainer does not show.
+- Each practice rung is one AI reading of a digest, not checked by a second reader (the page says "unchecked").
+  "Can't tell" and "not read" mean the logs held too little, never "you don't do it".
+- What counts as theirs comes from git authorship (the top commit author of their repos, plus `git config --global`).
+  Someone who commits under several emails may be undercounted. Ask what they actually do if something looks wrong.
+- Claude Code keeps session logs 30 days unless `cleanupPeriodDays` says otherwise.
+
+If something on the page looks wrong to them, ask what they really do and write it down: that is the feedback this
+trial is for. They can delete `~/agentic-setup/` whenever they like. Nothing has been sent unless they press Send on the page.
+
+## 5. Sharing with Proxify
+
+The page has a "Share with Proxify" tab (and a "Get your level confirmed" button at its top): it shows exactly what
+would be sent, and sends it to Proxify, with the email they type, only when they press Send there. Proxify then emails
+them the link to book their evaluation call. Say in one line that the tab exists and is optional. Never press Send for
+them, never urge them to, and never send anything yourself.
+
+If they would rather send a file by hand, this writes the same summary to `~/agentic-setup/share-with-proxify.json`:
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" share RUN_DIR
+```
