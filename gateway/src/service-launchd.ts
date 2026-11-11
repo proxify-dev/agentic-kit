@@ -57,6 +57,11 @@ export function renderPlist(args: {
     // crawl. Five keeps a port-collision retry visible in the log without
     // hammering.
     `  <key>ThrottleInterval</key><integer>5</integer>`,
+    // Every claude call waits on the gateway, so it runs with an app's
+    // priority, not a background job's. Without ProcessType, launchd may apply
+    // background limits; under memory pressure the gateway's page-ins queued
+    // behind other disk work until its health check timed out.
+    `  <key>ProcessType</key><string>Interactive</string>`,
     `  <key>StandardOutPath</key><string>${xml(args.log)}</string>`,
     `  <key>StandardErrorPath</key><string>${xml(args.log)}</string>`,
     ...(env.length

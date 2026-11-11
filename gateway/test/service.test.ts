@@ -52,7 +52,7 @@ test("the backend follows the OS, and the unit name comes from the label", () =>
 test("launchd: the plist keeps the keeper alive, logs, and reads back what it runs", () => {
   const text = renderPlist({ label: "com.ak.gateway", program: ["/n/node", "/a & b/keeper.mts"], log: "/d/gw.log", env: { PATH: "/n" } })
   for (const want of ["<key>Label</key><string>com.ak.gateway</string>", "<key>RunAtLoad</key><true/>", "<key>KeepAlive</key><true/>",
-    "<key>ThrottleInterval</key><integer>5</integer>", "<key>StandardOutPath</key><string>/d/gw.log</string>", "<key>PATH</key><string>/n</string>",
+    "<key>ThrottleInterval</key><integer>5</integer>", "<key>ProcessType</key><string>Interactive</string>","<key>StandardOutPath</key><string>/d/gw.log</string>", "<key>PATH</key><string>/n</string>",
     "<string>/a &amp; b/keeper.mts</string>"])
     assert.ok(text.includes(want), want)
   assert.deepEqual(readProgram(text), ["/n/node", "/a & b/keeper.mts"])

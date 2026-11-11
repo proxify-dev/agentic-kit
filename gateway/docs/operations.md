@@ -198,7 +198,8 @@ release the keeper runs; each backend writes one file and drives one tool, throu
 `run` so a test drives it with a fake:
 
 ```
-   macOS     launchd          ~/Library/LaunchAgents/com.ak.gateway.plist   KeepAlive, ThrottleInterval 5
+   macOS     launchd          ~/Library/LaunchAgents/com.ak.gateway.plist   KeepAlive, ThrottleInterval 5,
+                                                                            ProcessType Interactive (an app's priority)
              (service-launchd.ts)   launchctl bootstrap · bootout · kickstart · print (the pid)
    Linux     systemd --user   <configDir>/systemd/user/ak-gateway.service    Restart=always, RestartSec=5,
              (service-systemd.ts)   KillMode=mixed (SIGTERM to the keeper alone; it drains), log appended
