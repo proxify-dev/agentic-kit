@@ -59,22 +59,20 @@ def _quote(m):
     return f"<q>{esc(t)}</q>"
 
 
-def moments(chk, limit=None):
+def moments(chk):
     ms = chk.get("moments") or []
     if not ms:
         note = chk.get("no_moments") or "No moments kept."
         return f'<p class="nomo">No moments to open: {esc(note)}</p>'
-    shown = ms[:limit] if limit else ms
     rows = "".join(
         f'<li><span class="when">{esc(m.get("when") or "date not kept")}<span>{esc(_project(m.get("project")))}</span></span>'
         f'{_quote(m)}'
         + (f'<button class="open" type="button" data-cmd="{esc(m["open"])}">Copy open command</button>' if m.get("open") else "<span></span>")
-        + "</li>" for m in shown)
-    more = f'<p class="nomo">{len(ms) - len(shown)} more in the Problems view.</p>' if limit and len(ms) > limit else ""
-    return f'<h6>The moments it found ({len(ms)})</h6><ol>{rows}</ol>{more}'
+        + "</li>" for m in ms)
+    return f'<h6>The moments it found ({len(ms)})</h6><ol>{rows}</ol>'
 
 
-def block(row, limit=None):
+def block(row):
     """The check, then its moments. `row` is a cheap-problems row."""
     chk = row.get("check") or {}
     kind = chk.get("kind") or "none"
@@ -87,4 +85,4 @@ def block(row, limit=None):
     grid = "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows if v)
     if chk.get("depends_on"):
         grid += f'<dt>Holds only if</dt><dd class="{"hold" if kind in FRAGILE else ""}">{esc(chk["depends_on"])}</dd>'
-    return f'<div class="ck"><dl class="ck-grid">{grid}</dl>{moments(chk, limit)}</div>'
+    return f'<div class="ck"><dl class="ck-grid">{grid}</dl>{moments(chk)}</div>'

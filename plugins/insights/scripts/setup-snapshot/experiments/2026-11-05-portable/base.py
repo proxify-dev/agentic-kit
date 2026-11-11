@@ -787,9 +787,30 @@ class Laptop:
             if p and os.path.basename(p) in ("CLAUDE.md", "CLAUDE.local.md", "AGENTS.md") and os.path.exists(p) \
                     and (top is None or top in self.repos) and os.path.realpath(p) not in have:
                 have.add(os.path.realpath(p))
-                out.append(("folder", p))
+                out.append(("folder" if self.below_project_root(p) else "root", p))
         self._instr_memo = list(out)
         return out
+
+    def below_project_root(self, path):
+        """Is this rule file scoped: does it sit BELOW the root of the project it belongs to, or is it a `.claude/rules`
+        file? A file at its project's root (CLAUDE.md, AGENTS.md, .claude/CLAUDE.md) is that project's always-loaded
+        file wherever the session started. Why (11-11): Claude Code records a repo's root file as `nested_memory`
+        when the session was started above the repo (the home folder), and a tester with one rule file per repo read
+        "rules scoped to where they apply". The project: the git root around the file; in no repo, the deepest folder
+        a session started in that holds it (the home folder is never a project, as in `repos`)."""
+        real = os.path.realpath(path)
+        if "/.claude/rules/" in real.replace(os.sep, "/"):
+            return True
+        top = self.toplevel(real)
+        if not top:
+            d = os.path.dirname(real)
+            skip = (self.home, os.path.realpath(self.claude))
+            starts = {os.path.realpath(s["cwd"]) for s in self.sessions.values() if s.get("cwd")} - set(skip)
+            top = max((c for c in starts if d == c or d.startswith(c + os.sep)), key=len, default=None)
+            if not top:
+                return False
+        rel = os.path.relpath(real, os.path.realpath(top)).replace(os.sep, "/")
+        return "/" in (rel[len(".claude/"):] if rel.startswith(".claude/") else rel)
 
     def declared_rx(self, repo):
         """All of a repo's declared checks as one pattern (one regex search per command, not one per declared check)."""

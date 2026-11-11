@@ -1,6 +1,6 @@
 ---
 name: my-agentic-setup
-description: Read how this person really works with Claude Code from the files Claude Code keeps on this machine (sessions, helpers, hooks, skills, agents, evals, git) and build one local page: what they do, what they built, problems, next steps, and the level their laptop reads on its first tab, Your level (a call confirms or raises it; AGENTIC_SETUP_NO_LEVEL=1 leaves it out). The page's Share tab can send Proxify a summary of practice ids and levels, only when the person presses Send there. One AI pass (a sonnet subagent) fills in the practice rungs. Read-only; the page is a local file. Use when asked "/my-agentic-setup", "what's my agentic setup", or to try the v15 setup tool.
+description: Read how this person really works with Claude Code from the files Claude Code keeps on this machine (sessions, helpers, hooks, skills, agents, evals, git) and build one local page: what they do, what they built, problems, next steps, a written review of their setup on its first tab, and the level their laptop reads on the Your level tab (a call confirms or raises it; AGENTIC_SETUP_NO_LEVEL=1 leaves it out). The page's Share tab can send Proxify a summary of practice ids and levels, only when the person presses Send there. One AI pass (a sonnet subagent) fills in the practice rungs. Read-only; the page is a local file. Use when asked "/my-agentic-setup", "what's my agentic setup", or to try the v15 setup tool.
 allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Read, Agent, AskUserQuestion
 ---
 
@@ -8,7 +8,8 @@ allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Read,
 
 You rebuild how this person works with coding agents from files on their own machine, then show it as one page.
 This is an early trial (a beta). The page is the person's own copy: what they do, what they built, the problems it
-saw and next steps, and the level the laptop reads (the first tab, "Your level"). That level is a starting point a call
+saw and next steps, a written review of their setup (the first tab, "Review"), and the level the laptop reads (the
+"Your level" tab). That level is a starting point a call
 confirms or raises, never a final score. A person who wants the copy with no level sets `AGENTIC_SETUP_NO_LEVEL=1` before running.
 Say it is a beta when you start.
 
@@ -67,7 +68,9 @@ they built, with authorship and whether it ran in the 30 days, and what they do 
 
 For EACH practice listed there, one row:
 - rung: the highest rung whose ladder text the digest's evidence matches. L2 = they do it by hand (the "by hand" counts
-  at the end of the digest); L3 = a setup of theirs does it (their files, skills, agents, standing rules); L4 = they built
+  at the end of the digest: only the list "What they do by hand" can show an L2, and a number under "What Claude Code or
+  the model did unasked" is never the person's habit, however large); L3 = a setup of theirs does it (their files,
+  skills, agents, standing rules); L4 = they built
   something that does it and changes how the agent runs (their hook, program, plugin, gateway), with whatever that
   practice's own L4 text asks for (often a test or eval: the digest's eval folders say which ran and how the runner
   keeps the agent out). Use only artifacts marked as theirs; installed things others wrote are L1 use.
@@ -94,16 +97,24 @@ not "seen"), could_be ("L2" | "L3" | "L4" | ""), why (string), basis (string), e
 When it returns, check that `RUN_DIR/ai-result.json` exists (`post` validates its shape and says what is wrong). If the
 subagent wrote nothing or something unusable, run the pass once more; if that fails too, tell them and stop.
 
-**The anatomy readers (the "Part by part" tab).** `pre` lists one `RUN_DIR/anatomy-brief-<project>.md` per most active
-project. In the same message as the subagent above, call the **Agent** tool once per brief, all at once, with
+**The readers (the "Review" tab).** `pre` lists one `RUN_DIR/anatomy-brief-<project>.md` per most active project. In
+the same message as the subagent above, call the **Agent** tool once per brief, all at once, with
 `subagent_type: "general-purpose"`, `model: "sonnet"`, and as `prompt`, with BRIEF replaced by the brief's absolute path:
 
-> Read the brief at BRIEF and do exactly what it says. Read-only on the project: never edit, create or delete a project
-> file and never run its code. The only file you write is the JSON answer file the brief names, with the Write tool.
-> Answer every question; a "yes" always needs a path:line quote, and "yes" always means the thing the question
-> describes is there. Finish with one line: how many yes / no / unclear.
+> Read the brief at BRIEF and do exactly what it says, and open no more files than it allows. Read-only on the project:
+> never edit, create or delete a project file and never run its code. The only file you write is the JSON answer file
+> the brief names, with the Write tool. Every quote is one exact line copied from the file; never copy a line that
+> holds a key, a token or a password. Where the brief asks questions, a "yes" always needs a path:line quote, and
+> "yes" always means the thing the question describes is there. Finish with one line: what you judged each part.
 
-A reader that fails is not a stop: its questions show as "couldn't check" on the page. Do not read the briefs yourself.
+Each reader reviews the project's agent-facing files (rule files, memory, skills) from an outline the scan drew, and
+writes the review the page opens on: what the agent starts with there, what works, what to change first. The laptop's
+L3 rests on that review, each reading backed by a line quoted from the person's own file. A member's brief asks for
+that review and nothing else. On Proxify's own run (`AGENTIC_SETUP_PROXIFY=1` set before `pre`) the brief also holds
+the part-by-part questions the staff page shows, and the same prompt covers them.
+
+A reader that fails is not a stop: without any review the level reads "could be" until the tool is run again. Do not
+read the briefs yourself.
 
 ## 3. After the AI pass
 
@@ -111,24 +122,62 @@ A reader that fails is not a stop: its questions show as "couldn't check" on the
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" post RUN_DIR
 ```
 
-It checks the rows, assembles them with the code's problems into `evidence.json`, runs the engine (rungs, level,
-recommendations) and builds `~/agentic-setup/my-setup.html`, then opens it in the browser. If the browser does not open
-(a remote or headless machine), give them the path; they open it themselves.
+It checks the rows, merges the readers' reviews with the outline the scan drew (`setup-read.json`: a reading counts
+only when the code finds its quoted line in the person's own file), runs the engine (the level) and builds
+`~/agentic-setup/my-setup.html`, then opens it in the browser. If the browser does not open (a remote or headless
+machine), give them the path; they open it themselves.
 
-Get the headline without reading the run files:
+Get what to say without reading the run files. This prints only what the page's first screen says: one line about
+the person across the projects that were read, one line per project (its headline), the first thing to change with
+what it costs and the step, and the level with its reason (no level line when `AGENTIC_SETUP_NO_LEVEL=1` is set):
 
 ```
-python3 -I -c "import json,os,sys; r=json.load(open(os.path.join(sys.argv[1],'v15-result.json'))); [print('-', x.get('challenge_name') or x.get('practice_name')) for x in r['recommendations']]" RUN_DIR
+python3 -I -c "
+import json, os, sys
+def load(n):
+    try: return json.load(open(os.path.join(sys.argv[1], n)))
+    except (OSError, ValueError): return {}
+sr, res = load('setup-read.json'), load('v15-result.json')
+ps = sr.get('projects') or []
+opening = sr.get('opening') or []
+print('REVIEW:', opening[0] if opening else 'the read of the files did not finish')
+for p in ps:
+    if p.get('headline'): print('PROJECT ' + str(p.get('label') or p.get('slug')) + ':', p['headline'])
+first = ([{'saw': h.get('why'), 'cost': h.get('cost'), 'do': h.get('do')} for h in sr.get('holds') or [] if h.get('fired')]
+         + (sr.get('cards') or []) + [c for p in ps for c in p.get('change') or []]
+         + [{'saw': g.get('why'), 'do': g.get('next')} for g in sr.get('parts') or [] if g.get('judged') in ('partly', 'not shown')])
+for k, label in (('saw', 'CHANGE FIRST:'), ('cost', 'IT COSTS:'), ('do', 'DO:')):
+    if first and first[0].get(k): print(label, first[0][k])
+pt = res.get('pointer') if res.get('level_model') == 'practices' else res.get('pointer_things') or res.get('pointer')
+off = '1' in (os.environ.get('AGENTIC_SETUP_NO_LEVEL'), os.environ.get('AGENTIC_SETUP_MEMBER'))
+if pt and pt.get('level') and not off:
+    print('LEVEL:', pt['level'] + (', could be ' + pt['could_be'] if pt.get('could_be') else ''))
+    print('BECAUSE:', (pt.get('reasons') or [''])[0])
+" RUN_DIR
 ```
 
 ## 4. Tell them what it says
 
-Plain words, short, "you". Say where the page is and the first recommendation. Say the "Your level" tab's read in one line, as
-what the laptop shows so far, which a call can confirm or raise (never a score; not when AGENTIC_SETUP_NO_LEVEL=1 is set). Then say
-plainly that this is an early trial:
+Plain words, short, "you". Say what the terminal just printed, in this order, so it matches the page:
+1. Where the page is, and that it opens on a review of their setup (the "Review" tab).
+2. What the review found about them (`REVIEW`): it is about the person across the projects that were read, so say it
+   first. Then each project in one short sentence, by its name (`PROJECT <name>:`). If `REVIEW` says the read of the
+   files did not finish, say that and offer to run the tool again; do not make a review up.
+3. The first thing to change (`CHANGE FIRST`), what it costs them (`IT COSTS`) and the one step (`DO`). Say all three:
+   a step without its reason is a chore.
+4. The level (`LEVEL`, `BECAUSE`), in one sentence, as what the laptop shows so far, which a call confirms or raises.
+   "L2, could be L3" means their files don't yet show a setup that carries the context, or the read didn't finish: say
+   which, from `BECAUSE`. Never call it a score. No `LEVEL` line was printed: say nothing about a level.
+
+Then say plainly that this is an early trial:
 - It reads this machine only: work on another machine, a client VM or a devcontainer does not show.
-- Each practice rung is one AI reading of a digest, not checked by a second reader (the page says "unchecked").
-  "Can't tell" and "not read" mean the logs held too little, never "you don't do it".
+- The review is one AI reader per project. A reading counts toward the level only when it quotes a line the code then
+  found in their own file, but no second reader checked the judgement. "Couldn't read" means the read didn't finish,
+  never "you don't do it".
+- A habit counts only when Claude Code's records show it was their own act (typed, or started by them). What the model
+  did unasked shows as "Claude did this" and counts for nothing, so a habit they have but never type may be missing.
+- How much is enough (how many layers, how many weeks, how many sessions) is our first guess, not yet checked against
+  anyone's evaluation call.
 - What counts as theirs comes from git authorship (the top commit author of their repos, plus `git config --global`).
   Someone who commits under several emails may be undercounted. Ask what they actually do if something looks wrong.
 - Claude Code keeps session logs 30 days unless `cleanupPeriodDays` says otherwise.

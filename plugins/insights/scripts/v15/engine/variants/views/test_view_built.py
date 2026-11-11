@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""'What you've built' shows the per-skill depth under the skills row. Made-up board rows, the fields board.skill_depth writes.
+"""'What you've built': each row says what the part is, whether it is theirs and ran, and why it matters; the parts not seen
+fold behind one line; the per-skill depth sits under the skills row. Made-up board rows, the fields board.py writes.
 Run: python3 -m unittest test_view_built   (from this folder; standard library only)"""
 import html
 import os
@@ -26,10 +27,16 @@ SKILLS = [
 ]
 
 
-def page(row_extra, member=False):
+def page(row_extra, member=False, masked=False, more=()):
     row = {"id": "cap-skills-own", "name": "Skills and commands you wrote", "kind": "build", "state": "built and used",
            "items": 4, "calls": 9, "unit": "calls", "examples": ["deploy-secret"], "source": "anatomy.json", "why": "4 skills", **row_extra}
-    return view_built.render({"esc": html.escape, "member": member, "v15_result": {"board": {"rows": [row]}}})
+    return view_built.render({"esc": html.escape, "member": member, "masked": masked,
+                              "v15_result": {"board": {"rows": [row, *more]}}})
+
+
+def other(id_, name, state, kind="build", items=0, calls=0, unit="runs", why="", examples=()):
+    return {"id": id_, "name": name, "kind": kind, "state": state, "items": items, "calls": calls, "unit": unit,
+            "examples": list(examples), "source": "inventory.json", "why": why}
 
 
 class SkillDepth(unittest.TestCase):
@@ -71,8 +78,15 @@ class SkillDepth(unittest.TestCase):
         self.assertLess(out.index("review</span>"), out.index("Show 1 not used"))
         self.assertLess(out.index("Show 1 not used"), out.index("dusty"))
 
-    def test_member_copy_masks_skill_and_file_names(self):
+    def test_the_persons_own_page_names_their_skills(self):
+        # a tester, 11-09: "own-skill-N" on her own laptop told her nothing. Only the copy made to leave the laptop masks
         out = page({"skills": SKILLS, "skills_summary": SUMMARY}, member=True)
+        self.assertIn("deploy-secret</span>", out)
+        self.assertIn("refs/review-rules.md", out)
+        self.assertNotIn("own-skill-", out)
+
+    def test_masked_copy_hides_skill_and_file_names(self):
+        out = page({"skills": SKILLS, "skills_summary": SUMMARY}, member=True, masked=True)
         for leaked in ("deploy-secret", "review-rules", "bigone", "dusty", "scripts/", "refs/", ".md", ".sh"):
             self.assertNotIn(leaked, out)
         self.assertIn("own-skill-1", out)
@@ -89,8 +103,36 @@ class SkillDepth(unittest.TestCase):
         self.assertIn("(!`...`)", view_built._mask_why("its SKILL.md runs a command when it loads (!`...`)"))
 
     def test_skill_called_like_a_word_does_not_damage_the_sentence(self):
-        out = page({"skills": [sk("file", 1, "one file, read whole in all 3 loads")], "skills_summary": "1 skill"}, member=True)
+        out = page({"skills": [sk("file", 1, "one file, read whole in all 3 loads")], "skills_summary": "1 skill"}, member=True, masked=True)
         self.assertIn("one file, read whole in all 3 loads", out)
+
+    def test_a_row_says_what_it_is_whether_it_is_theirs_and_ran_and_why_it_matters(self):
+        out = page({"why": "4 skills and commands of yours; 9 calls in the window"}, member=True)
+        self.assertIn("Yours, and in use in the last 30 days", out)                 # whose it is and whether it ran: the group
+        self.assertIn("Claude loads one only when the task comes up.", out)         # what it is
+        self.assertIn("4 skills and commands of yours; 9 calls in the last 30 days.", out)  # the numbers, in the board's sentence
+        self.assertNotIn("in the window", out)
+        self.assertIn("Why it matters", out)
+        self.assertNotIn("how we know", out)                                        # the field a state rests on is Proxify's
+        self.assertIn("how we know", page({}))
+
+    def test_parts_not_seen_fold_behind_one_line(self):
+        gone = [other("cap-hooks", "Hooks", "not seen"), other("cap-evals", "Evals", "not seen"),
+                other("cap-mcp", "MCP servers", "uses others'", kind="use", items=6, calls=902, unit="calls",
+                      why="6 MCP servers set up; 902 calls in the window")]
+        out = page({}, member=True, more=gone)
+        self.assertIn("You built 1 part of your setup yourself, and it ran in the last 30 days. 1 part you use as others made them.", out)
+        self.assertIn("2 parts not seen on this laptop</summary>", out)
+        self.assertEqual(out.count("<details class=\"bnone\">"), 1)
+        self.assertNotIn("<details class=\"bnone\" open", out)
+        self.assertLess(out.index("2 parts not seen"), out.index(">Hooks</h4>"))   # the rows sit inside the fold
+        self.assertLess(out.index(">MCP servers</h4>"), out.index("2 parts not seen"))
+        self.assertIn("A hook makes a rule hold every time.", out)                   # what it would give them
+
+    def test_nothing_built_says_so(self):
+        out = view_built.render({"esc": html.escape, "member": True, "v15_result": {"board": {"rows": [
+            other("cap-mcp", "MCP servers", "uses others'", kind="use", items=2, calls=5, unit="calls")]}}})
+        self.assertIn("Nothing on this laptop shows a part of the setup that you built yourself yet.", out)
 
     def test_old_run_without_the_fields_does_not_crash(self):
         out = page({})

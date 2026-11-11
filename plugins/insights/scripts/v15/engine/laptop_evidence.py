@@ -47,8 +47,8 @@ COUNT_KINDS = ("memory",)            # Claude Code's record of sessions reading 
 def fact(r, built):
     """What a laptop practice row rests on that reads the same on every laptop:
       built  its basis cites something the scan found they built (their own files, by git)
-      count  the code set it from Claude Code's own records, or its basis cites a count from those records (a by-hand
-             line, or a memory store sessions read)
+      count  the code set it from Claude Code's own records (the signal map, a portable check), or its basis cites a
+             memory store sessions read. A by-hand line the AI cites is not one: see below
       file   its basis cites one of their own files the scan read (rule files, their settings)
       None   only an AI reader's opinion, or a count from a word list"""
     if r.get("found_by") == "code":
@@ -71,8 +71,12 @@ def fact(r, built):
     recs = [built[c] for c in cited if isinstance(built, dict) and c in built]
     if any(x.get("kind") not in FILE_KINDS + COUNT_KINDS and x.get("own", True) for x in recs):
         return "built"
-    if any(c.startswith("by hand:") and not WORD_LIST_LINE.search(c) for c in cited) or any(
-            x.get("kind") in COUNT_KINDS and (x.get("reads") or 0) > 0 for x in recs):
+    # A "by hand:" line the AI pass cites is NOT a fact (11-11). Those lines count what Claude Code and the model do
+    # by default (the model's own sub-agents, automatic compactions, plan files) with no minimum, and the AI chose
+    # which practice a number speaks for: a tester read L2 on "restart with a handoff" from 21 automatic compactions.
+    # A by-hand count moves a rung only through the signal map (signals.yaml: the person's own act, with its
+    # `enough` bar), which arrives as found_by "code" or as a `signal` evidence entry (rows(), below).
+    if any(x.get("kind") in COUNT_KINDS and (x.get("reads") or 0) > 0 for x in recs):
         return "count"
     if any(x.get("kind") in FILE_KINDS and x.get("own") for x in recs) or any(c.startswith(("~/", "/")) for c in cited):
         return "file"

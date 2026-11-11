@@ -20,8 +20,10 @@ A row: id, name, kind ("build" | "use"), state, items (count of their own things
 unit (what `calls` counts), examples (up to 3 names: the Proxify copy only; the member copy shows counts, never names of
 the client's things), source (file: field), why (one plain sentence). Standard library only.
 """
+import hashlib
 import json
 import os
+import re
 
 BUILT_USED, BUILT_IDLE, USES_OTHERS, NOT_SEEN, CANT_TELL = (
     "built and used", "built, not used lately", "uses others'", "not seen", "can't tell")
@@ -99,6 +101,68 @@ def _path(p):
     return os.path.normpath(os.path.expanduser(str(p or "")))
 
 
+_VERSION_TAIL = re.compile(r"@v?\d[\w.+-]*$")           # a folder named name@1.2.3 is one version of name
+_CLAUDE_WORKTREE = re.compile(r"^(.*?)/\.claude/worktrees/[^/]+$")
+_main_cache = {}
+
+
+def _main_checkout(root):
+    """The main checkout a linked worktree belongs to, else the folder itself. Read from the worktree's `.git` file
+    (`gitdir: <main>/.git/worktrees/<name>`), never by running git: the board reads the run's files only."""
+    root = _path(root)
+    if root in _main_cache:
+        return _main_cache[root]
+    main = root
+    m = _CLAUDE_WORKTREE.match(root)
+    if m:
+        main = m.group(1)
+    else:
+        try:
+            g = os.path.join(root, ".git")
+            if os.path.isfile(g):
+                line = open(g).read(600).strip()
+                d = line.partition(":")[2].strip() if line.startswith("gitdir:") else ""
+                d = d if os.path.isabs(d) else os.path.normpath(os.path.join(root, d))
+                if "/.git/worktrees/" in d:
+                    main = d.split("/.git/worktrees/")[0]
+        except OSError:
+            pass
+    _main_cache[root] = main
+    return main
+
+
+def repo_name(root):
+    """One name for a repo however many copies of it sit on the laptop: its main checkout's folder name, a trailing
+    @version dropped. A worktree resolves to its main checkout; a second full copy keeps the folder's name. Two
+    unrelated repos that share a folder name fold only where the same path sits in both."""
+    return _VERSION_TAIL.sub("", os.path.basename(_main_checkout(root))) if root else ""
+
+
+def one_per_repo_path(entries, root_of):
+    """(one entry per file, the repos they sit in). The setup tool's rule (setup-snapshot CLAUDE.md, "Detectors"):
+    compare files by their path inside the repo, across worktrees and checkouts. Why here (11-11): a laptop with three
+    copies of one repo read "2914 rule files of yours", every copy of every file counted. `root_of(entry)` gives the
+    checkout the file sits in; an entry with no path or no checkout is kept as it is."""
+    def main_first(x):
+        r = root_of(x)
+        return 0 if r and _main_checkout(r) == _path(r) and not _VERSION_TAIL.search(_path(r)) else 1
+    kept, repos, loose = {}, set(), []
+    for x in sorted(entries, key=main_first):   # stable: the main checkout's copy stands for the others
+        p, root = str(x.get("path") or ""), root_of(x)
+        if not p or not root or not _path(p).startswith(_path(root) + os.sep):
+            loose.append(x)
+            continue
+        rel = re.sub(r"^\.claude/worktrees/[^/]+/", "", os.path.relpath(_path(p), _path(root)))
+        repos.add(repo_name(root))
+        kept.setdefault((repo_name(root), rel), x)
+    return list(kept.values()) + loose, repos
+
+
+def _ids(names):
+    """Repo names as opaque ids: a row may say how many projects without naming one."""
+    return sorted({hashlib.sha1(str(n).encode()).hexdigest()[:8] for n in names if n})
+
+
 def _short(name):
     """'plugin:skill' -> ('plugin', 'skill'); 'skill' -> ('', 'skill')."""
     ns, _, short = str(name or "").rpartition(":")
@@ -122,7 +186,9 @@ class Facts:
         self.r, self.a, self.i = r, a, i
         arts = [x for x in _l(a.get("artifacts")) if isinstance(x, dict)]
         self.arts = arts
-        self.own = lambda *kinds: [x for x in arts if x.get("kind") in kinds and x.get("origin") == "own"]
+        # one copy per file across worktrees and checkouts of one repo (one_per_repo_path): a skill in three copies is one skill
+        self.own = lambda *kinds: one_per_repo_path(
+            [x for x in arts if x.get("kind") in kinds and x.get("origin") == "own"], lambda x: x.get("project"))[0]
         self.others = lambda *kinds: [x for x in arts if x.get("kind") in kinds and x.get("origin") in ("installed", "third_party")]
         self.typed = _n(_d(i.get("chats")).get("typed_chats"))
         tools = _d(_d(i.get("tools")).get("typed_chats"))
@@ -152,10 +218,15 @@ class Facts:
         return bool(x) and _n(x.get("theirs_in_window")) > 0 and 2 * _n(x.get("theirs_in_window")) >= _n(x.get("commits_in_window"))
 
 
-def row(rid, state, items=0, calls=0, unit="calls", examples=(), source="", why=""):
+def row(rid, state, items=0, calls=0, unit="calls", examples=(), source="", why="", repos=None):
+    """`repos`: the repo names the items sit in (repo_name). The row keeps how many, and opaque ids so two rows can be
+    joined (a program that both starts `claude -p` and imports the SDK sits in one project, not two)."""
     name, kind = next((n, k) for i, n, k in ROWS if i == rid)
-    return {"id": rid, "name": name, "kind": kind, "state": state, "items": items, "calls": calls, "unit": unit,
-            "examples": list(dict.fromkeys(x for x in examples if x))[:3], "source": source, "why": why}
+    out = {"id": rid, "name": name, "kind": kind, "state": state, "items": items, "calls": calls, "unit": unit,
+           "examples": list(dict.fromkeys(x for x in examples if x))[:3], "source": source, "why": why}
+    if repos is not None:
+        out.update(projects=len(set(repos)), project_ids=_ids(repos))
+    return out
 
 
 def build_state(own, calls, others=0, none=NOT_SEEN):
@@ -332,7 +403,10 @@ def own_instruction_files(f):
 
 def r_instructions(f):
     full = own_instruction_files(f)
+    repos = None
     if full is not None:
+        every = [str(x.get("path")) for x in full]   # each copy still loads in the sessions that ran beside it
+        full, repos = one_per_repo_path(full, lambda x: _d(x.get("git")).get("repo") or x.get("project"))
         paths = [str(x.get("path")) for x in full]
         always = sum(1 for x in full if x.get("scope") in ("home", "project", "ancestor", "managed"))
         rules = full
@@ -340,27 +414,28 @@ def r_instructions(f):
         return cant("cap-instructions", "cheap-artifacts.json is missing, so whose each file is isn't known", "cheap-artifacts.json")
     else:
         rules = [x for x in f.r.cheap if isinstance(x, dict) and x.get("kind") == "rules" and x.get("own") is True]
-        paths = [str(x.get("id", "")).partition(":")[2] for x in rules]
+        paths = every = [str(x.get("id", "")).partition(":")[2] for x in rules]
         always = None
     sessions = 0
     home_claude = _path("~/.claude") + os.sep
-    if any(_path(p).startswith(home_claude) for p in paths):
+    if any(_path(p).startswith(home_claude) for p in every):
         sessions = f.typed
     else:
         for repo, x in f.repos.items():
-            if any(_path(p).startswith(repo + os.sep) for p in paths):
+            if any(_path(p).startswith(repo + os.sep) for p in every):
                 sessions += _n(x.get("typed_chats"))
     names = [os.path.basename(p) for p in paths]
     if always is not None:
         source = ("anatomy.json: instruction_files (origin own by ownership.py, test fixtures left out); "
                   "inventory.json: repos typed_chats (sessions in a repo holding one of them)")
-        why = (f"{len(rules)} instruction files of yours: {always} load in every session where they sit, "
+        where = f" in {len(repos)} project{'s' if len(repos) != 1 else ''}" if repos else ""
+        why = (f"{len(rules)} instruction files of yours{where}: {always} load in every session where they sit, "
                f"{len(rules) - always} load when Claude works in their folder; {sessions} sessions ran where they load")
     else:
         source = "cheap-artifacts.json: kind rules, own true; inventory.json: repos typed_chats (sessions in a repo holding one of them)"
         why = f"{len(rules)} instruction files of yours; {sessions} sessions ran where they load"
     return row("cap-instructions", build_state(len(rules), sessions), len(rules), sessions, "sessions", sorted(set(names)),
-               source, why if rules else "no instruction file of yours found")
+               source, why if rules else "no instruction file of yours found", repos=repos)
 
 
 def r_hooks(f):
@@ -539,7 +614,11 @@ def _own_scripts(f, kinds):
             continue
         if f.repo_is_theirs(s.get("project")):
             out.append(s)
-    return out
+    return one_per_repo_path(out, lambda x: x.get("project"))[0]
+
+
+def _repos_of(scripts):
+    return {repo_name(s.get("project")) for s in scripts if s.get("project")}
 
 
 def r_own_rig(f):
@@ -553,7 +632,7 @@ def r_own_rig(f):
         return row("cap-own-rig", build_state(len(mine), calls), len(mine), calls, "headless runs",
                    [os.path.basename(str(s.get("path"))) for s in mine],
                    "anatomy.json: launchers.scripts (starts claude -p / SDK, in a repo with their commits); inventory.json: headless.by_repo",
-                   f"{len(mine)} scripts of yours start an agent; {calls} headless runs in those repos")
+                   f"{len(mine)} scripts of yours start an agent; {calls} headless runs in those repos", repos=_repos_of(mine))
     if total:
         return cant("cap-own-rig", f"{total} headless runs, but a run is recorded the same whether you typed `claude -p`, a script of yours "
                     "or a plugin started it, and no script of yours that starts an agent was found",
@@ -590,7 +669,7 @@ def r_sdk(f):
     if mine:
         return row("cap-sdk", build_state(len(mine), calls), len(mine), calls, "SDK runs", [os.path.basename(str(s.get("path"))) for s in mine],
                    "anatomy.json: launchers.scripts (SDK import or query call, in a repo with their commits); inventory.json: headless.entrypoints sdk-py / sdk-ts",
-                   f"{len(mine)} scripts of yours use the Agent SDK; {calls} SDK runs in the window")
+                   f"{len(mine)} scripts of yours use the Agent SDK; {calls} SDK runs in the window", repos=_repos_of(mine))
     if calls:
         return cant("cap-sdk", f"{calls} runs came through the Agent SDK, but none from a script of yours that was found "
                     "(an installed plugin or an app can start them too)", "inventory.json: headless.entrypoints; anatomy.json: launchers.scripts")

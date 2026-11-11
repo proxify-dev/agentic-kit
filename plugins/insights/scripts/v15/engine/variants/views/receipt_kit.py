@@ -1,7 +1,6 @@
-"""Small helpers shared by the two "precisely" views (view_practices, view_problems). Not a view: frame.py only loads view_*.py.
-
-Plain words for a source id, tolerant reading of the raw-number strings the detectors store, and the card CSS.
-Stdlib only.
+"""Small helpers for what a check stored: plain words for a source id, tolerant reading of the raw-number strings the
+detectors store, and their CSS. The side panel's "How we measured it" (panel_kit) and the substrate pages
+(substrate_pages) use them. Not a view: frame.py only loads view_*.py. Stdlib only.
 """
 import ast
 import html
@@ -142,53 +141,16 @@ def render_raw(detail):
             '</table></div>' + ('<p class="note">The stored figures stop here: the rest was cut off.</p>' if cut else ""))
 
 
-def css(name):
-    """Card CSS shared by both views. Sizes 12/14/18 only; colours only from the frame's palette."""
-    p = f".v-{name}"
+def css(p):
+    """The CSS of a stored check under the selector `p` (panel_kit's "How we measured it" uses `.kp-m`): the source
+    lines, the raw-number tables and the fold that holds them. Sizes 12/14 only; colours only from the frame's palette."""
     return f"""
-{p} [hidden]{{display:none!important}}
-{p} .bar{{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 16px}}
-{p} .chip{{all:unset;cursor:pointer;box-sizing:border-box;padding:4px 12px;border:1px solid #EAECF0;border-radius:999px;
-  background:#FFFFFF;color:#475467;font:500 12px/1.5 Inter,system-ui,sans-serif}}
-{p} .chip:hover{{border-color:#B1B8FF}}
-{p} .chip:focus-visible,{p} summary:focus-visible,{p} .openall:focus-visible{{outline:2px solid #5258FB;outline-offset:2px}}
-{p} .chip[aria-pressed=true]{{border-color:#B1B8FF;background:#F5F5FF;color:#272594}}
-{p} .chip b{{font-weight:600;margin-left:4px}}
-{p} .openall{{all:unset;cursor:pointer;margin-left:auto;font:500 12px/1.5 Inter,system-ui,sans-serif;color:#3C3ED4;padding:4px 8px}}
-{p} .area{{margin:0 0 32px}}
-{p} .area>h3{{font-size:18px;font-weight:600;margin:0 0 4px}}
-{p} .area .sub{{color:#475467;margin:0 0 4px}}
-{p} .area .counts{{font-size:12px;color:#667085;margin:0 0 12px}}
-{p} .card{{background:#FFFFFF;border:1px solid #EAECF0;border-radius:12px;margin:0 0 8px}}
-{p} .card[open]{{border-color:#B1B8FF}}
-{p} .card>summary{{list-style:none;cursor:pointer;padding:12px 16px 12px 40px;position:relative;display:flex;flex-wrap:wrap;
-  gap:2px 12px;align-items:center}}
-{p} .card>summary::-webkit-details-marker{{display:none}}
-{p} .card>summary::before{{content:"";position:absolute;left:16px;top:18px;width:6px;height:6px;border-right:2px solid #667085;
-  border-bottom:2px solid #667085;transform:rotate(-45deg);transition:transform .12s}}
-{p} .card[open]>summary::before{{transform:rotate(45deg);top:16px}}
-{p} .nm{{font-weight:600}}
-{p} .one{{flex:1 1 100%;color:#475467;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}}
-{p} .card[open] .one{{display:none}}
-{p} .pill{{font-size:12px;font-weight:500;padding:0 8px;border-radius:999px;border:1px solid #D5D5FE;background:#F5F5FF;color:#272594;white-space:nowrap}}
-{p} .pill.none{{border-color:#EAECF0;background:#F9FAFB;color:#475467}}
-{p} .pill.shows{{border-color:#FDF1D9;background:#FEFBF5;color:#B54708}}
-{p} .pill.ok{{border-color:#EAECF0;background:#F9FAFB;color:#039855}}
-{p} .pill.unk{{border-color:#EAECF0;background:#F9FAFB;color:#667085}}
-{p} .could{{font-size:12px;color:#667085}}
-{p} .area-tag{{font-size:12px;color:#667085}}
-{p} .body{{padding:4px 16px 16px 40px;display:grid;grid-template-columns:1fr;gap:0 32px}}
-@media(min-width:900px){{{p} .body.two{{grid-template-columns:1fr 1fr}}}}
 {p} .sec{{border-top:1px dotted #D0D5DD;padding:12px 0 0;margin:12px 0 0;min-width:0}}
-{p} .sec:first-child{{border-top:0;margin-top:0;padding-top:0}}
-@media(max-width:899px){{{p} .body.two>div+div>.sec:first-child{{border-top:1px dotted #D0D5DD;padding-top:12px;margin-top:12px}}}}
-{p} .lab{{font-size:12px;font-weight:600;color:#475467;margin:0 0 4px}}
 {p} .sec p{{margin:0 0 4px}}
 {p} .sec p.dim,{p} .note{{color:#667085;font-size:12px;margin:4px 0 0}}
-{p} .ev{{display:grid;grid-template-columns:minmax(0,170px) minmax(0,1fr);gap:4px 12px;margin:0;padding:0;list-style:none}}
-{p} .ev li{{display:contents}}
-{p} .ev .src{{font-size:12px;font-weight:500;color:#475467}}
-@media(max-width:600px){{{p} .ev{{grid-template-columns:1fr}}{p} .ev .src{{margin-top:8px}}}}
+{p} .sec .src-line{{margin:8px 0 4px}}
+{p} .sec .src-line:first-of-type{{margin-top:0}}
+{p} .lab{{font-size:12px;font-weight:600;color:#475467;margin:0 0 4px}}
 {p} .mono{{font:400 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;color:#15172F}}
 {p} ul.items{{margin:0;padding:0;list-style:none}}{p} ul.items li{{margin:0 0 4px}}
 {p} .tag{{color:#667085}}
@@ -201,8 +163,6 @@ def css(name):
 {p} .fold>summary::-webkit-details-marker{{display:none}}
 {p} .fold>summary::before{{content:"+ "}}{p} .fold[open]>summary::before{{content:"- "}}
 {p} .fold .inner{{margin-top:4px;color:#475467;font-size:12px;overflow-wrap:anywhere}}
-{p} .warn{{color:#B54708;font-weight:500}}
-{p} .ask{{color:#15172F}}
 {p} .missing{{color:#667085}}
 """
 

@@ -1,5 +1,5 @@
-"""The experimental views page (Proxify's own view, not the member's): one page, many views, each answering one
-question. A picker at the top switches views on and off (kept in localStorage), so he can keep what he wants.
+"""The setup page: one page, many views, each answering one question. The member's copy (--member) shows four of
+them (MEMBER_GROUPS); Proxify's copy shows those four and then every other view, grouped.
 
 A view is a module `view_<name>.py` next to this file with:
     ORDER = 30                      # place on the page
@@ -11,7 +11,7 @@ A view is a module `view_<name>.py` next to this file with:
 A badge that shows a practice's level carries `lvl_tip.attrs(practice_id, level)`; lvl_tip.py holds the one tooltip.
 ctx = load(run_dir): every JSON the run wrote, plus ctx["vm"] = common.load(...) (the member wording) and helpers.
 
-Build: uv run --no-project --with pyyaml python frame.py [RUN_DIR] [OUT.html] [--member] [--no-level]  (pyyaml: the substrate tab reads coverage/tooling.yaml)   (defaults: the 11-02 cheap run -> RUN_DIR/variants/views.html)
+Build: uv run --no-project --with pyyaml python frame.py [RUN_DIR] [OUT.html] [--member] [--no-level] [--masked]  (pyyaml: the substrate tab reads coverage/tooling.yaml)   (defaults: the 11-02 cheap run -> RUN_DIR/variants/views.html)
 """
 import glob
 import html
@@ -36,7 +36,9 @@ import panel_kit  # noqa: E402  the one side panel for every practice, problem a
 import finder_kit  # noqa: E402  the ⌘K finder: views, practices, problems, terms
 
 FILES = ["v15-result.json", "anatomy.json", "inventory.json", "cheap-artifacts.json", "cheap-problems.json",
-         "evidence.json", "comprehension-debt.json", "cheap-vs-lab.json", "portable-checks.json", "portable-rows.json"]
+         "evidence.json", "comprehension-debt.json", "cheap-vs-lab.json", "portable-checks.json", "portable-rows.json",
+         "setup-read.json",  # the agent's read of their files (view_review, the first tab)
+         "setup-map.json"]   # the code's map of those files: each memory store's shape (view_review's grid)
 
 
 def esc(s):
@@ -65,20 +67,27 @@ def views():
     return sorted(out, key=lambda m: getattr(m, "ORDER", 99))
 
 
-# The report's navigation: five groups as top tabs, a second row only where a group holds more than one view.
-# A view module not listed here still shows, in a "More" group, so a new view never disappears.
-GROUPS = [("mylevel", "Your level", ["mylevel"]),
-          ("setup", "My setup", ["anatomy", "areas", "built", "who", "overview", "systems", "numbers"]),
-          ("practices", "Practices", ["board", "found", "practices", "layers"]),
-          ("problems", "Problems", ["problems"]),
-          ("next", "Next steps", ["next"]),
-          ("share", "Share with Proxify", ["share"]),
-          ("substrate", "Substrate", ["sub_board", "sub_levels", "sub_context", "sub_prompt", "sub_verification", "sub_harness", "sub_orchestration",
-                                      "vocabulary", "playbook", "crosswalk", "questions"]),
-          ("calls", "Calls", ["callsheet"]),
-          ("internal", "Internal", ["capabilities", "checks", "level", "trust"])]
-TAB = {"mylevel": "Your level", "anatomy": "Part by part", "board": "Board", "areas": "By discipline", "who": "Who did it", "overview": "At a glance", "systems": "Your systems", "built": "What you've built", "numbers": "Numbers", "found": "What you have",
-       "practices": "Precisely", "layers": "Where it lives", "problems": "Problems", "next": "Next steps",
+# The report's navigation: groups as top tabs, a second row only where a group holds more than one view.
+# Both copies open on the same four tabs, which tell one story: the written review, the level it adds up to, what the
+# person built, and the summary they can send. They rest on the setup read and on plain things with one home level.
+STORY = [("review", "Review", ["review"]),  # first: the page opens on what the setup is and why, in sentences (his 11-11)
+         ("mylevel", "Your level", ["mylevel"]),
+         ("built", "What you've built", ["built"]),
+         ("share", "Share with Proxify", ["share"])]
+# The member's copy is exactly STORY (11-11). A view that is not listed here never reaches a member, so a new view has
+# to be added on purpose. What to do next lives in Review ("Change this first") and in Your level, not in a tab of its own.
+MEMBER_GROUPS = STORY
+# Proxify's copy adds the substrate, the call sheet and the internal checks after the four. The twelve views built on
+# the 33 practices and their four rungs (Part by part, By discipline, Board...) are gone from both copies (11-11): the
+# level no longer rests on them, on a tester's page "Part by part" said session resets were "not seen yet" while the
+# level tab ticked the same thing, and he ruled they shouldn't be on the staff page either.
+# A view module listed nowhere still shows here, in a "More" group, so a new view never disappears.
+GROUPS = STORY + [
+    ("substrate", "Substrate", ["sub_board", "sub_levels", "sub_context", "sub_prompt", "sub_verification", "sub_harness", "sub_orchestration",
+                                "vocabulary", "playbook", "crosswalk", "questions"]),
+    ("calls", "Calls", ["callsheet"]),
+    ("internal", "Internal", ["capabilities", "checks", "level", "trust"])]
+TAB = {"review": "Review", "mylevel": "Your level", "built": "What you've built",
        "sub_board": "Overview", "sub_levels": "Levels", "sub_context": "Context", "sub_prompt": "Prompt", "sub_verification": "Verification",
        "sub_harness": "Harness", "sub_orchestration": "Orchestration", "level": "Level read", "trust": "Trust vs lab", "checks": "Checks",
        "vocabulary": "Vocabulary", "playbook": "Playbook", "crosswalk": "From v13", "questions": "Open questions",
@@ -98,10 +107,11 @@ html{scrollbar-color:#D0D5DD transparent}
 .rp-bar{display:flex;align-items:center;gap:16px;min-height:64px}
 .rp-mark{flex:none;width:28px;height:28px;border-radius:8px;background:#5258FB;display:grid;place-items:center}
 .rp-mark svg{width:16px;height:16px;color:#FFFFFF}
-.rp-id{min-width:0}
+.rp-id{min-width:0;flex:1}
 .rp-id b{display:block;font-size:14px;font-weight:600;line-height:1.3}
 .rp-id span{display:block;font-size:12px;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rp-top .theme-switch{position:static;margin-left:auto;box-shadow:none;background:#F9FAFB}
+.rp-top .theme-switch button{font-size:0;gap:0;padding:6px}.rp-top .theme-switch svg{width:15px;height:15px}
 .rp-tabs{display:flex;gap:24px;overflow-x:auto;scrollbar-width:none}
 .rp-tabs::-webkit-scrollbar{display:none}
 .rp-tabs a{flex:none;display:block;padding:12px 0 10px;border-bottom:2px solid transparent;color:#475467;text-decoration:none;font-weight:500;font-size:14px}
@@ -117,13 +127,13 @@ main.rp-wrap{padding-top:32px;padding-bottom:96px}
 .view{display:none}.view.on{display:block}
 .view,.view [id]{scroll-margin-top:136px}
 .view>header{margin:0 0 32px;max-width:72ch}
+.view>header.rp-sr{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .view h2{font-size:24px;font-weight:600;line-height:1.3;letter-spacing:-.01em;margin:0}
 .view .q{color:#475467;margin:4px 0 0}
 .rp-note{font-size:12px;color:#667085;margin:8px 0 0}
 .rp-key{font-size:12px;color:#667085;margin:-16px 0 24px}
 .empty{color:#667085}
-@media (max-width:760px){.rp-wrap{padding-left:16px;padding-right:16px}.rp-bar{gap:12px}.rp-id span{white-space:normal}
-  .rp-top .theme-switch button{font-size:0;gap:0;padding:6px 8px}.rp-top .theme-switch svg{width:16px;height:16px}}
+@media (max-width:760px){.rp-wrap{padding-left:16px;padding-right:16px}.rp-bar{gap:12px}main.rp-wrap{padding-top:24px}}
 """
 
 JS = """
@@ -204,24 +214,46 @@ def built_from():
     return line
 
 
-def build(run, out, member=False, level=True):
-    """member=True renders the member's copy: no view marked PROXIFY_ONLY, no level key, and the views that read ctx["member"] show
-    who carries a practice in words instead of a level (his 10-26 ruling). The member's copy still opens on "Your level"
-    (view_mylevel, his 11-11 ask: the level on the member's page, without the internal views); level=False drops every view
-    marked LEVEL_VIEW, for the copy with no level at all."""
+def window_line(meta):
+    """The header's one muted line: "Last 30 days · read 11 Nov"."""
+    days, to = meta.get("days", 30), str(meta.get("to") or "")
+    try:
+        t = time.strptime(to, "%Y-%m-%d")
+        to = f"{t.tm_mday} {time.strftime('%b', t)}"
+    except ValueError:
+        pass
+    return f"Last {days} days" + (f" · read {to}" if to else "")
+
+
+def build(run, out, member=False, level=True, masked=False):
+    """member=True renders the member's copy: only the views in MEMBER_GROUPS (never one marked PROXIFY_ONLY), no level key,
+    no side panel and no finder (both open practice cards, which that copy no longer has a tab for). level=False drops
+    every view marked LEVEL_VIEW, for the copy with no level at all. masked=True hides the names of the person's own
+    things (a skill is own-skill-N): for a copy made to leave the laptop. The person's own page names them."""
     ctx = load(run, member)
+    ctx["level"] = level  # a view may point at the level tab only when this page has one
+    ctx["masked"] = masked
     card_kit.set_logs(ctx)  # how much log the run stands on, shown next to every "not seen"
+    inv = ctx.get("inventory") or {}
+    meta = inv.get("meta", {})
+    stamp = built_from()
+    print(stamp)
+    # The header says what the page is and when it was read, nothing more (his 11-11 "users get lost"). Who it was read
+    # for, Claude Code's version and log setting, and how this copy was built sit in the Review tab's "About this report".
+    ctx["about"] = {"who": (inv.get("person", {}).get("identities") or [""])[0], "days": meta.get("days", 30),
+                    "to": meta.get("to", ""), "laptop": card_kit.header_note(), "stamp": stamp}
     vs = [v for v in views() if not (member and getattr(v, "PROXIFY_ONLY", False)) and (level or not getattr(v, "LEVEL_VIEW", False))]
     by_name = {v.NAME: v for v in vs}
-    groups = [(g, t, [n for n in names if n in by_name]) for g, t, names in GROUPS]
+    groups = [(g, t, [n for n in names if n in by_name]) for g, t, names in (MEMBER_GROUPS if member else GROUPS)]
     listed = {n for _, _, names in groups for n in names}
     extra = [v.NAME for v in vs if v.NAME not in listed]
-    if extra:
+    if extra and not member:
         groups.append(("more", "More", extra))
     groups = [g for g in groups if g[2]]
-    sections, css, tabs, subs = [], [CSS, check_kit.CSS, card_kit.CSS, panel_kit.CSS, finder_kit.CSS] + ([] if member else [lvl_tip.CSS]), [], []
+    vs = [by_name[n] for _, _, names in groups for n in names]  # the views this copy really shows
+    sections, css, tabs, subs = [], [CSS, check_kit.CSS, card_kit.CSS] + ([] if member else [panel_kit.CSS, finder_kit.CSS, lvl_tip.CSS]), [], []
     for gid, gtitle, names in groups:
-        if gid == "internal":
+        if gid in ("substrate", "internal"):  # a rule in the tab bar: the four tabs of the story | substrate, calls | internal
             tabs.append('<span class="rp-sep" aria-hidden="true"></span>')
         tabs.append(f'<a href="#{names[0]}" data-group="{gid}">{esc(gtitle)}</a>')
         if len(names) > 1:
@@ -237,16 +269,17 @@ def build(run, out, member=False, level=True):
             css.append(getattr(v, "CSS", ""))
             note = ('<p class="rp-note">Internal: never on the member\'s copy.</p>'
                     if getattr(v, "PROXIFY_ONLY", False) else "")
-            sections.append(f'<section class="view v-{n}" id="v-{n}" data-group="{gid}"><header><h2>{esc(v.TITLE)}</h2>'
+            # HIDE_HEADER: a view that opens on its own picture keeps its title for screen readers and the window title
+            head = ' class="rp-sr"' if getattr(v, "HIDE_HEADER", False) else ""
+            sections.append(f'<section class="view v-{n}" id="v-{n}" data-group="{gid}"><header{head}><h2>{esc(v.TITLE)}</h2>'
                             f'<p class="q">{esc(getattr(v, "QUESTION_MEMBER", v.QUESTION) if member else v.QUESTION)}</p>{note}</header>{body}</section>')
     finder_views = [(n, TAB.get(n, by_name[n].TITLE), gtitle) for _, gtitle, names in groups for n in names]
-    inv = ctx.get("inventory") or {}
-    meta = inv.get("meta", {})
-    who = (inv.get("person", {}).get("identities") or [""])[0]
     level_key = "" if member else ('<p class="rp-key" title="What each practice level means">Levels: ' + " · ".join(
         f"{k} {w[0].lower() + w[1:]}" for k, w in sorted(common.RUNG_WORD.items())) + "</p>")
-    stamp = built_from()
-    print(stamp)
+    # the side panel (a practice's card) and the ⌘K finder (practices, problems, terms): Proxify's copy only, where the
+    # substrate, call sheet and internal tabs open practice and problem cards
+    lab = "" if member else (f"{panel_kit.ASIDE}{panel_kit.data_script(ctx)}{panel_kit.JS}\n"
+                             f"{finder_kit.DIALOG}{finder_kit.data_script(ctx, finder_views)}{finder_kit.JS}")
     mark = ('<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
             'stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h10M3 8h7M3 11.5h4"/></svg>')
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -254,11 +287,10 @@ def build(run, out, member=False, level=True):
 <link rel=stylesheet href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <style>{"".join(css)}</style></head><body>
 <header class="rp-top"><div class="rp-wrap"><div class="rp-bar"><span class="rp-mark">{mark}</span>
-<div class="rp-id"><b>Agentic setup report</b><span>{esc(who)} · last {meta.get("days", 30)} days to {esc(meta.get("to", ""))} · experimental · {esc(stamp)}</span>{"<span>" + esc(card_kit.header_note()) + "</span>" if card_kit.header_note() else ""}</div>
-{getattr(by_name.get("share"), "BUTTON", "")}{finder_kit.BUTTON}{theme.SWITCH}</div>
+<div class="rp-id"><b>Your agentic setup</b><span>{esc(window_line(meta))}</span></div>
+{getattr(by_name.get("share"), "BUTTON", "")}{"" if member else finder_kit.BUTTON}{theme.SWITCH}</div>
 <nav class="rp-tabs" aria-label="Report sections">{"".join(tabs)}</nav></div></header>
-{panel_kit.ASIDE}{panel_kit.data_script(ctx)}{panel_kit.JS}
-{finder_kit.DIALOG}{finder_kit.data_script(ctx, finder_views)}{finder_kit.JS}
+{lab}
 <main class="rp-wrap">{level_key}{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""
     if member:  # a check's text can point at another check by its level code ("see L4#2"); the member's copy never names a level
         page = re.sub(r"\bL[1-4]#\d+\b", "another check", page)
@@ -272,7 +304,7 @@ def build(run, out, member=False, level=True):
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if a not in ("--member", "--no-level")]
+    args = [a for a in sys.argv[1:] if a not in ("--member", "--no-level", "--masked")]
     run = args[0] if args else os.path.expanduser("~/.cache/setup-snapshot/cheap-2026-11-02")
     out = args[1] if len(args) > 1 else os.path.join(run, "variants", "views.html")
-    build(run, out, member="--member" in sys.argv, level="--no-level" not in sys.argv)
+    build(run, out, member="--member" in sys.argv, level="--no-level" not in sys.argv, masked="--masked" in sys.argv)
