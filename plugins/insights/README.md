@@ -14,7 +14,7 @@ It opens on **Your level**: the level your laptop reads, a starting point a call
 
 ## Privacy
 
-- It reads only. Nothing is installed or changed. What it writes goes to `~/agentic-setup/`; delete that folder whenever you like.
+- It reads only. Nothing is installed or changed. What it writes goes to `~/agentic-setup/`, plus a speed-up cache in `~/.cache/setup-snapshot/` that the next run clears once it is 6 hours old; delete either folder whenever you like.
 - The page holds real project names and excerpts of your prompts. It stays on your machine.
 - The page's Share tab sends Proxify a short summary (practice ids and how far each goes, no file names, no prompt
   text) only when you press Send there.
