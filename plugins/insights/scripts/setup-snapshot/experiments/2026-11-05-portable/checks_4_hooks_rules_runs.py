@@ -31,7 +31,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from base import check, epoch, CHECK_ROLE, NOT_A_CHECK
-from fixture import fixture
+from fixture import Session, fixture
 
 DAY = 86400
 
@@ -1498,12 +1498,14 @@ def _(fx):
 
 @check("put-rules-where-they-apply", "L3", 0)
 def subfolder_rule_files_loaded(lt):
-    """Distinct rule files Claude Code loaded in the middle of a session (nested_memory attachment: a subfolder's file, read
-    when work reached that folder) that the person wrote."""
+    """Distinct rule files Claude Code loaded in the middle of a session (nested_memory attachment: read when work reached
+    that folder) that the person wrote AND that sit below their project's root (or are `.claude/rules` files). The record
+    alone is not enough: a repo's root file arrives the same way when the session started above the repo, and one rule
+    file per repo is not a scoped rule (lt.below_project_root, 11-11)."""
     paths = {}
     for a in _atts(lt, "nested_memory"):
         p = a.get("path")
-        if p and _live(lt, a):
+        if p and _live(lt, a) and lt.below_project_root(p):
             paths.setdefault(p, a)
     _warm_authors(lt, paths)
     mine = [p for p in paths if _mine(lt, p)]
@@ -1513,19 +1515,29 @@ def subfolder_rule_files_loaded(lt):
 
 @_fixture("put-rules-where-they-apply", "L3", 0)
 def _(fx):
-    fx.repo("~/work/shop", {"CLAUDE.md": "root", "services/api/CLAUDE.md": "api", "services/web/CLAUDE.md": "web", "services/ops/CLAUDE.md": "ops"})
+    fx.repo("~/work/shop", {"CLAUDE.md": "root", "services/api/CLAUDE.md": "api", "services/web/CLAUDE.md": "web", "services/ops/CLAUDE.md": "ops",
+                            ".claude/rules/billing.md": "---\npaths: services/billing/**\n---\nbilling"})
     fx.repo("~/work/team", {"legacy/AGENTS.md": "legacy"}, by="teammate")
     for i in range(2):                                                                         # the same file twice: once
         s = fx.session("~/work/shop", entrypoint="claude-vscode"); s.typed("hi")
         s.attachment("nested_memory", path=fx.p("~/work/shop/services/api/CLAUDE.md"), content={"path": "x", "type": "Project", "content": "api"})
     s = fx.session("~/work/shop", entrypoint="claude-desktop"); s.typed("hi")
     s.attachment("nested_memory", path=fx.p("~/work/shop/services/web/CLAUDE.md"), content={"path": "x", "type": "Project", "content": "web"})
+    s.attachment("nested_memory", path=fx.p("~/work/shop/.claude/rules/billing.md"), content={"path": "x", "type": "Project", "content": "billing"})  # a rules file counts
     s.attachment("nested_memory", path=fx.p("~/work/team/legacy/AGENTS.md"), content={"path": "x", "type": "Project", "content": "legacy"})   # trap: teammate's
     s.attachment("nested_memory", path=fx.p("~/work/gone/x/CLAUDE.md"), content={"path": "x", "type": "Project", "content": "gone"})            # trap: removed
     h = fx.session("~/work/shop", entrypoint="sdk-cli"); h.typed("go")                         # trap: headless
     h.attachment("nested_memory", path=fx.p("~/work/shop/services/ops/CLAUDE.md"), content={"path": "x", "type": "Project", "content": "ops"})
     fx.session("~/work/team").typed("x")
-    return {"value": 2}
+    # trap (11-11 tester): a session started in the home folder reaches two repos, each with only its ROOT rule file. Claude
+    # Code records both as nested_memory, but one rule file per repo is that repo's always-loaded file, not a scoped rule
+    fx.repo("~/work/blog", {"CLAUDE.md": "blog"}); fx.repo("~/work/tool", {"AGENTS.md": "tool", ".claude/CLAUDE.md": "tool"})
+    u = Session(fx, fx.home, "claude-vscode"); u.typed("hi")                                  # no repo around the home folder
+    for rel in ("blog/CLAUDE.md", "tool/AGENTS.md", "tool/.claude/CLAUDE.md"):
+        u.attachment("nested_memory", path=fx.p("~/work/" + rel), content={"path": "x", "type": "Project", "content": "root"})
+    fx.file("~/notes/CLAUDE.md", "notes")                                                     # trap: a plain folder's own file, no repo
+    u.attachment("nested_memory", path=fx.p("~/notes/CLAUDE.md"), content={"path": "x", "type": "Project", "content": "notes"})
+    return {"value": 3}
 
 
 def _skill_file(lt, name, cwd):

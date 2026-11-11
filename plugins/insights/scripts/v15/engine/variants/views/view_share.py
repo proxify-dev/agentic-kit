@@ -7,8 +7,10 @@ to Proxify's Slack by email, and emails the member the booking link, so only the
 Why not Slack itself (11-06): no Slack link can fill in a message or attach a file, and nothing may be installed in the
 workspace; a paste of the summary arrived as an unreadable wall.
 
-This view never prints a level (the member's copy shows none): it says who carries each practice in the page's own words.
-The file they can download holds the levels, as the share file always has.
+This view never prints a level: "Your level" is the tab for that, and "What Proxify gets" says the summary holds it. The
+kinds of things built and used lead the summary. The line per practice, and the questions left for the call, sit one
+click away: they are sent, so they must be shown, but they come from the practice read, which the level no longer rests
+on and which can contradict Review (11-11). The file they can download holds the levels, as the share file always has.
 """
 import json
 import os
@@ -49,6 +51,10 @@ def icon(name, size=16):
 BUTTON = f'<a class="rp-share" href="#share">{icon("badge", 14)}<span>Get your level confirmed</span></a>'
 
 CSS = """
+.v-share h4.sh-h{font-size:14px;font-weight:600;margin:24px 0 8px;color:#15172F}
+.v-share details.sh-lines{margin-top:16px}
+.v-share details.sh-lines>summary{font-size:13px;font-weight:500;color:#3C3ED4;width:max-content}
+.v-share .sh-older{margin:8px 0;font-size:13px;color:#475467;max-width:76ch}
 .rp-share{flex:none;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;
   background:#5258FB;color:#FFFFFF;font-weight:500;font-size:14px;text-decoration:none;white-space:nowrap}
 .rp-share:hover{background:#3C3ED4}
@@ -99,6 +105,63 @@ CSS = """
 @media (max-width:820px){.v-share .sh-steps,.v-share .sh-two,.v-share .sh-cols{grid-template-columns:1fr}}
 @media (max-width:520px){.v-share .sh-row{flex-direction:column}.v-share .sh-go{justify-content:center}}
 """
+
+# The new read's lines (share_payload NEW_KEYS), in the page's words. They are printed only when Send carries them:
+# the tab shows what is sent, never more (share_payload.RECEIVER_TAKES_NEW_KEYS).
+PART_NAME = {"rules": "Rules that reach the agent", "instructions": "Rules that reach the agent",
+             "corrections": "Corrections that stick", "memory": "Memory a new session reads"}
+SIGN_NAME = {"endless-sessions": "Sessions that only compact automatically", "session-scope": "How long sessions stay open",
+             "starting-context": "How full a session starts", "unused-setup": "Setup that isn't used",
+             "rules-only-grow": "Rule files that only grow"}
+
+
+def part_word(g, ran):
+    """One word for a part's verdict, the same rule the level uses: shown only when the code proved the structure, the
+    agent read it as shown and its quote was found."""
+    if g.get("structure") and g.get("judged") == "shown" and g.get("quote_ok"):
+        return "r3", "Shown"
+    if not ran or (g.get("judged") == "can't tell" and not g.get("structure")):
+        return "r0", "Couldn't read"
+    if g.get("structure") or g.get("judged") in ("shown", "partly"):
+        return "r2", "Partly"
+    return "r0", "Not shown"
+
+
+def new_lines(esc, sent):
+    """The read the level rests on, as the summary holds it: a verdict per part, the signs from Claude Code's records by
+    name, and each thing with its state. No level word (the tab beside this one shows the level)."""
+    if "things" not in sent and "setup_read" not in sent:
+        return ""
+    sr = sent.get("setup_read") or {}
+    parts = "".join(f'<tr><td>{esc(PART_NAME.get(g["id"], g["id"].replace("-", " ")))}</td>'
+                    f'<td><span class="rung {c}">{esc(w)}</span></td></tr>'
+                    for g in sr.get("parts") or [] for c, w in [part_word(g, sr.get("ran"))])
+    signs = [SIGN_NAME.get(i, i.replace("-", " ")) for i in (sr.get("holds") or []) + (sr.get("cards") or [])]
+    try:
+        import things as level_things
+        names, order = {t["id"]: t["name"] for t in level_things.THINGS}, list(level_things.STATE_RANK)
+    except Exception:  # noqa: BLE001 - without the list the ids show as they are
+        names, order = {}, []
+    by_state = {}
+    for tid, t in (sent.get("things") or {}).items():
+        by_state.setdefault(t.get("state"), []).append(names.get(tid, tid.replace("-", " ")))
+    groups = "".join(f'<div><h4>{esc(st[:1].upper() + st[1:])}</h4><ul class="sh-chips">'
+                     + "".join(f"<li>{esc(n)}</li>" for n in ns) + "</ul></div>"
+                     for st, ns in sorted(by_state.items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99))
+    out = []
+    if parts:
+        out.append('<h4 class="sh-h">What the read of your files says</h4><p class="sh-older">One word per part. The lines '
+                   'it quoted and the reasons stay on your laptop.</p>' + f'<table class="sh-tbl">{parts}</table>')
+    elif "setup_read" in sent:
+        out.append('<h4 class="sh-h">What the read of your files says</h4><p class="sh-older">The read of your files '
+                   "didn't finish in this run, and the summary says so.</p>")
+    if signs:
+        out.append('<h4 class="sh-h">Seen in Claude Code\'s records</h4><ul class="sh-chips">'
+                   + "".join(f"<li>{esc(n)}</li>" for n in signs) + "</ul>")
+    if groups:
+        out.append('<h4 class="sh-h">The parts of your setup, and whose each is</h4>' + f'<div class="sh-cols">{groups}</div>')
+    return "".join(out)
+
 
 # the page's own words for who carries a practice (common.RUNG_WORD), and the rung colours the page already uses
 RUNG_CLASS = {"L4": "r4", "L3": "r3", "L2": "r2", "L1": "r1"}
@@ -179,9 +242,24 @@ def render(ctx):
     n_seen = sum(1 for p in sh["practices"].values() if p.get("rung") in RUNG_CLASS)
     days = (sh.get("logs") or {}).get("days_with_sessions")
     email = known_email(ctx)
-    data = json.dumps({"share": sh, "file": json.dumps(sh, indent=1), "receiver": RECEIVER}).replace("</", "<\\/")
+    # The summary still carries the scan's line per practice, and since 11-11 the level is read another way (plain things
+    # plus the read of their files). The lines can credit a habit that Claude Code did unasked, so they sit one click
+    # away with that said: the tab must show everything that is sent, but must not lead with what Review contradicts.
+    # the summary holds the level this page shows; say so in words (this view prints no level: the tab beside it does)
+    level_line = (f'<li>{icon("yes")}<span>The level your laptop shows, as on the Your level tab</span></li>'
+                  if ctx.get("level", True) and sh.get("laptop_level") else "")
+    older = ('<p class="sh-older">One line per habit: seen on your laptop or not. A line can say "seen" for something '
+             'Claude Code did by itself, so where these differ from the Review and Your level tabs, go by those tabs. '
+             'Proxify gets these lines too.</p>' if sh.get("level_model") == "things" else "")
+    # what Send carries: everything, or only the keys the deployed receiver knows (share_payload.wire). The tab prints
+    # and offers for download exactly that, so "what you'd send" stays true either way.
+    sent = share_payload.wire(sh)
+    fresh = new_lines(esc, sent)
+    fresh_gets = ('<li>' + icon("yes") + '<span>What the read of your files says for each of its three parts, in one word, '
+                  'and whose each part of your setup is</span></li>' if fresh else "")
+    data = json.dumps({"share": sent, "file": json.dumps(sent, indent=1), "receiver": RECEIVER}).replace("</", "<\\/")
     return f"""<ol class="sh-steps" id="sh-steps">
- <li class="now"><b>Check what you'd send</b><p>It's further down this page: which practices we saw, and who carries each. Nothing else.</p></li>
+ <li class="now"><b>Check what you'd send</b><p>One summary, shown in full further down this page: the kinds of things you built and use, and one line per habit saying whether your laptop showed it. Nothing else is sent.</p></li>
  <li><b>Send it to Proxify</b><p>Type the email you use with Proxify and press Send. Your summary goes as a file.</p></li>
  <li><b>Book your evaluation call</b><p>The booking link arrives in that inbox, so only you can book with it.</p></li>
 </ol>
@@ -194,7 +272,7 @@ def render(ctx):
 <div class="sh-status" id="sh-status" role="status" aria-live="polite" hidden></div>
 <div class="sh-two">
  <section class="sh-yes"><h3>What Proxify gets</h3><ul>
-  <li>{icon("yes")}<span>Which of the {n_all} practices we saw, and who carries each</span></li>
+  {level_line}{fresh_gets}<li>{icon("yes")}<span>One line for each of {n_all} habits: whether your laptop showed it, never how or where</span></li>
   <li>{icon("yes")}<span>The kinds of things you built, like skills or hooks, but not their names</span></li>
   <li>{icon("yes")}<span>How many days your logs cover, and how sure the reading is</span></li>
   <li>{icon("yes")}<span>The email you type, so we can send you the booking link</span></li>
@@ -208,12 +286,13 @@ def render(ctx):
 </div>
 <div class="sh-warn">{icon("warn")}<p><b>Don't send this page or your agentic-setup folder.</b> They hold your project names, file paths and pieces of your prompts. Only the summary below is made to leave your laptop.</p></div>
 <section class="sh-sum" aria-labelledby="sh-sum-h"><h3 id="sh-sum-h">The summary, in plain words</h3>
-<p>This is everything in it. {n_seen} of {n_all} practices seen{f", over {days} days of your logs" if days else ""}.</p>
-<table class="sh-tbl">{rows}</table>
-<div class="sh-cols">
+<p>This is everything in it{f", read from {days} days of your logs" if days else ""}.</p>
+{fresh}<div class="sh-cols">
  <div><h4>Kinds of things you built</h4><ul class="sh-chips">{chips(sh.get("built_kinds") or [])}</ul></div>
  <div><h4>Kinds of things you use</h4><ul class="sh-chips">{chips(sh.get("uses_kinds") or [])}</ul></div>
- {f'<div style="grid-column:1/-1"><h4>For your call</h4><p>Your laptop can&#x27;t settle these on its own, so the call asks about them.</p><ul class="sh-chips">{asks}</ul></div>' if asks else ""}
-</div></section>
+</div>
+<details class="sh-lines"><summary>See the {n_all} habit lines in it ({n_seen} seen){", and the questions left for your call" if asks else ""}</summary>
+{older}<table class="sh-tbl">{rows}</table>
+{f'<div class="sh-cols"><div style="grid-column:1/-1"><h4>For your call</h4><p>Your laptop can&#x27;t settle these on its own, so the call asks about them.</p><ul class="sh-chips">{asks}</ul></div></div>' if asks else ""}</details></section>
 <p class="sh-foot">Changed your mind? Nothing has been sent. Nothing leaves your laptop until you press Send. You can delete your agentic-setup folder whenever you like.</p>
 <script type="application/json" id="sh-data">{data}</script>{JS}"""

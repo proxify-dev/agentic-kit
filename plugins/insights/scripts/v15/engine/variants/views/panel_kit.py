@@ -28,8 +28,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))
 import card_kit as C  # noqa: E402
+import check_kit  # noqa: E402  how a problem's verdict was reached: the check and its moments
 import common  # noqa: E402  the member wording
-import receipt_kit  # noqa: E402  plain(): the checks' wording says he/his, the page says you/your
+import receipt_kit  # noqa: E402  plain(): the checks' wording says he/his, the page says you/your; the raw numbers a check stored
 import substrate_kit as S  # noqa: E402
 
 esc = lambda s: html.escape("" if s is None else str(s))  # noqa: E731
@@ -41,11 +42,6 @@ KIND_NAME = {"p": "Practice", "c": "Problem", "t": "Term"}
 def link(kind, id_, text, cls=""):
     """An anchor that opens the panel on this item: `#p/<id>`, `#c/<id>` or `#t/<id>`."""
     return f'<a class="pl{" " + cls if cls else ""}" href="#{kind}/{esc(id_)}">{esc(text)}</a>'
-
-
-def link_html(kind, id_, inner_html, cls=""):
-    """Like link(), for text that is already escaped html."""
-    return f'<a class="pl{" " + cls if cls else ""}" href="#{kind}/{esc(id_)}">{inner_html}</a>'
 
 
 def _first(s, n=160):
@@ -329,6 +325,32 @@ def practice(K, pid):
     return "".join(out)
 
 
+def _stored(r, why):
+    """The raw numbers a problem's check stored, source by source; none when they only repeat the sentence above."""
+    rows = r.get("evidence") or []
+    if not rows:
+        return '<p class="missing">No numbers were read: nothing on this laptop covers this problem.</p>'
+    out = []
+    for e in rows:
+        det = (e.get("detail") or "").strip()
+        out.append(f'<div class="src-line"><span class="lab">{esc(receipt_kit.source_label(e.get("source")))}</span></div>')
+        if det and (det[:60] in why or why[:60] in det):
+            out.append('<p class="dim">The figures are the ones in the sentence above.</p>')
+        else:
+            out.append(receipt_kit.render_raw(det))
+    return "".join(out)
+
+
+def _measured(r, clean):
+    """How a problem's verdict was reached (Proxify's copy): the sentence, the check, whether code or an AI decided, and
+    the raw numbers. `r` is a cheap-problems row; the CSS is receipt_kit.css(".kp-m"), added to CSS below."""
+    why = clean(r.get("why")) or receipt_kit.plain(r.get("why"))
+    how = ("<p><b>Plain code</b> decided this: a counted measure over your logs and files, no AI read.</p>"
+           if r.get("derivation") == "code" else "<p><b>An AI read</b> decided this.</p>")
+    return (f'<div class="kp-m"><p>{esc(why)}</p>{check_kit.block(r)}<div class="sec" style="margin-top:16px">{how}'
+            + receipt_kit.fold("The raw numbers the check stored", _stored(r, why)) + "</div></div>")
+
+
 def challenge(K, cid):
     c, run = K.Ch[cid], K.run_c.get(cid) or {}
     area = K.area.get(c.get("discipline")) or c.get("discipline") or ""
@@ -347,8 +369,7 @@ def challenge(K, cid):
            _sec("Words it uses", K.vocab_links(c.get("vocab") or []))]
     if not K.member and cid in K.rows:
         try:
-            import view_problems  # noqa: E402  how the verdict was reached: the same block the Problems view used to show
-            out.append(_sec("How we measured it", f'<details class="kp-more"><summary>Show the check</summary><div>{view_problems.detail(K.rows[cid], run, K.clean)}</div></details>'))
+            out.append(_sec("How we measured it", f'<details class="kp-more"><summary>Show the check</summary><div>{_measured(K.rows[cid], K.clean)}</div></details>'))
         except Exception as e:  # noqa: BLE001
             out.append(_sec("How we measured it", f'<p class="empty">Could not build: {esc(e)}</p>'))
     if not K.member:
@@ -483,7 +504,7 @@ a.kp-chip:hover,a.kp-chip:focus-visible{color:#272594;background:#F5F5FF;box-sha
 .kp-tip[hidden]{display:block!important;opacity:0;visibility:hidden}
 @media (max-width:560px){.kp-top{padding:20px 64px 12px 20px}.kp-body{padding:8px 20px 48px}.kp-lad li{grid-template-columns:1fr;gap:4px}}
 @media (prefers-reduced-motion:reduce){.kp,.kp[hidden],.kp-scrim,.kp-scrim[hidden]{transition:none}}
-"""
+""" + receipt_kit.css(".kp-m")
 
 JS = """<script>(function(){
 var D={};try{D=JSON.parse(document.getElementById('kp-data').textContent)}catch(e){}

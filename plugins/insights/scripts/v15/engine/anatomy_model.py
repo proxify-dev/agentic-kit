@@ -126,7 +126,7 @@ def rung_result(sigs):
     return "can't tell"
 
 
-# ---- the tree: one builder for the lab page (tools/anatomy.py) and the member's tab (views/view_anatomy.py) ----
+# ---- the tree: the lab page's one builder (tools/anatomy.py) ----
 SEE = ["none", "call", "todo", "ai", "weak", "scan+ai", "solid"]  # how well any laptop can see a rung, worst to best
 
 

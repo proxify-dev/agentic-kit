@@ -1484,7 +1484,7 @@ def who_did_it(inv, chats, raw, meta):
            f"credits to you. Git can't say for {nown.get('files_gone', 0)} that are gone (a removed worktree, say) and "
            f"{nown.get('files_unknown', 0)} outside any repo."),
         it("setup.hook_text_chats", "Sessions where hook text was in Claude's context (yours or installed)", inv["hook_context"]["typed_chats_with_hook_text"], None,
-           "Which of these hooks are yours is decided by git under Your systems.", of=inv["hook_context"]["typed_chats"]),
+           "Which of these hooks are yours is decided by git.", of=inv["hook_context"]["typed_chats"]),
     ]
     programs = [
         it("programs.runs_started_by_code", "Headless runs (claude -p, Agent SDK)", inv["headless"]["runs"], None,

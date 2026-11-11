@@ -12,6 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import board as capability_board  # noqa: E402  v13's yes/no board of what they built, from laptop facts
 import laptop_evidence  # noqa: E402
+import things as level_things  # noqa: E402  the level read from plain things, a trial beside the practice read (11-11)
 
 RANK = {"L1": 1, "L2": 2, "L3": 3, "L4": 4}
 STRENGTH = {"did": 3, "showed": 2, "said": 1}
@@ -282,7 +283,9 @@ def level_pointer(S, rung, states=None, built_by_board=()):
             "missing_for_next": {"level": nxt, "practices": [list(ids) for ids, _ in missing.get(nxt, [])]} if nxt else None,
             # what no laptop can count for the next level (or this one, at L4): the call's questions (countable())
             "call_questions": [list(ids) for ids, _ in call_q],
-            "best_rung_by_discipline": {d: f"L{v}" for d, v in best.items()}}
+            "best_rung_by_discipline": {d: f"L{v}" for d, v in best.items()},
+            # today's L4 conditions as decided here, for the read from things (things.py)
+            "builds": {"areas": built_areas, "areas_ok": len(built_areas) >= MIN_BUILT_AREAS, "evals": eval_gate}}
 
 def recommendations(S, rung, ev, top=3):
     """levels.md: a problem seen → the practice that handles it, one rung above where the person is → material.
@@ -653,19 +656,24 @@ REFINE_CHECK = ("built-for-the-agent-roll-call", "L4", 5)   # weeks with their c
 MIN_REFINE_WEEKS = 3
 
 
+def refine_weeks(run_dir):
+    """Weeks with their changes to things they built (the trusted portable check), or None when it was not counted."""
+    try:
+        for c in json.load(open(os.path.join(run_dir, "portable-checks.json"))).get("checks") or []:
+            if (c.get("pid"), c.get("L"), c.get("i")) == REFINE_CHECK and c.get("status") == "counted":
+                return c.get("value")
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def refined_over_time(pointer, run_dir):
     """His L4 (11-05, 'like a vim nerd'): they build their own tooling AND keep refining it. A laptop L4 also needs changes
     to things they built in at least MIN_REFINE_WEEKS different weeks (a trusted portable check). Fewer weeks: L3, could
     be L4, ask on the call. The check not run or timed out: never a minus, the L4 stands and the page says so."""
     if pointer.get("level") != "L4":
         return pointer
-    weeks = None
-    try:
-        for c in json.load(open(os.path.join(run_dir, "portable-checks.json"))).get("checks") or []:
-            if (c.get("pid"), c.get("L"), c.get("i")) == REFINE_CHECK and c.get("status") == "counted":
-                weeks = c.get("value")
-    except (OSError, ValueError):
-        pass
+    weeks = refine_weeks(run_dir)
     p = dict(pointer)
     cond = {"test": f"keeps refining what they built: changes to it in at least {MIN_REFINE_WEEKS} different weeks",
             "met": weeks is None or weeks >= MIN_REFINE_WEEKS,
@@ -680,6 +688,76 @@ def refined_over_time(pointer, run_dir):
         p["reasons"] = list(p.get("reasons") or []) + [
             f"keeps refining what they built: {weeks} weeks" if weeks is not None else
             "refining over time not counted on this laptop: never a minus"]
+    return p
+
+
+SETUP_READ_PARTS = 2  # of the three parts of "their setup carries the context" (rules, corrections, memory); a guess until hand-checked on member laptops
+
+
+def setup_read(run_dir):
+    """What the setup read says, for the practice read's gate and for the read from things: a part is shown only when
+    the code's map shows its structure AND the agent read it as "shown" with a quote the code found in the file.
+    `ok` = enough parts shown; `held` = the holding signs that fired. No setup-read.json: ran False, nothing shown."""
+    try:
+        sr = json.load(open(os.path.join(run_dir, "setup-read.json")))
+    except (OSError, ValueError):
+        sr = None
+    parts = (sr or {}).get("parts") or []
+    shown = [g for g in parts if g.get("structure") and g.get("judged") == "shown" and g.get("quote_ok")]
+    return {"ran": sr is not None and sr.get("ran", True) is not False, "file": sr or {}, "parts": parts, "shown": shown,
+            "holds": (sr or {}).get("holds") or [], "held": [h for h in (sr or {}).get("holds") or [] if h.get("fired")],
+            "ok": len(shown) >= SETUP_READ_PARTS, "need": SETUP_READ_PARTS}
+
+
+def setup_read_gate(pointer, run_dir):
+    """L3 and L4 need the setup read (setup-snapshot experiments/2026-11-11-setup-read): the person's agent-facing files,
+    mapped by code and read by an agent, show a setup that carries the context. The level guide's border: "Files and
+    skills are not the line; who carries the context is. It is one picture across the Level 3 abilities, never a count
+    of them." A part counts only when the code's map shows its structure AND the agent's reading is "shown" with a quote
+    the code found in the file; either alone is "could be".
+
+    Unlike every other check, a setup read that did not run is NOT "never a minus": the level is read as L2, could be
+    L3. Why: on 11-11 a tester who is not an engineer read L3 on six practices, five of them by-hand counts of what
+    Claude Code does by default and the sixth a rule file per repo. What decides a level has to be seen; only what
+    is beside the point may go unseen.
+
+    A holding sign is the opposite habit, counted from Claude Code's own records (sessions that only ever compact
+    automatically). The level guide holds an L3 at L2 on it (v13 allocations.yaml `instead:`), and so does this."""
+    if pointer.get("level") not in ("L3", "L4"):
+        return pointer
+    r = setup_read(run_dir)
+    sr, parts, shown, held, ok = (r["file"] if r["ran"] else None), r["parts"], r["shown"], r["held"], r["ok"]
+    p = dict(pointer)
+    was = pointer["level"]
+    conds = [{"test": f"their setup carries the context: its files show it in at least {SETUP_READ_PARTS} of "
+                      f"{len(parts) or 3} parts (rules that reach the agent, corrections that stick, memory)",
+              "met": ok, "by": [g.get("name") or g.get("id") for g in shown] or
+                               (["the setup read did not run on this laptop"] if sr is None else [])},
+             {"test": "Claude Code's records show no sign of the opposite habit", "met": not held,
+              "by": [h.get("why") or h.get("id") for h in held]}]
+    p["trail"] = [({**t, "conditions": t["conditions"] + conds} if t.get("level") in ("L3", "L4") else t)
+                  for t in p.get("trail") or []]
+    p["setup_read"] = {"ran": sr is not None, "parts": parts, "holds": (sr or {}).get("holds") or [],
+                       "shown": [g.get("id") for g in shown]}
+    reasons = list(p.get("reasons") or [])
+    if ok and not held:
+        reasons.append(f"their files show a setup that carries the context: {', '.join(g.get('name') or g['id'] for g in shown)}")
+    else:
+        # the list was met, so L2 stands; what the files did not show is what a call, or the next run, settles
+        p.update(level="L2", decided_by=LEVEL_RULE["L2"], could_be=None if held else was,
+                 missing_for_next={"level": "L3", "practices": []})
+        if sr is None:
+            reasons.append(f"the practices on the {was} list are met, but the setup read did not run, so the laptop "
+                           f"can't say the setup carries the context: could be {was}")
+        elif not ok:
+            miss = [g for g in parts if g not in shown]
+            reasons.append(f"the practices on the {was} list are met, but the files show a setup that carries the "
+                           f"context in {len(shown)} of {len(parts)} parts ({was} asks for {SETUP_READ_PARTS}): "
+                           + "; ".join(f"{g.get('name') or g.get('id')}: {g.get('why') or g.get('judged') or 'not read'}"
+                                       for g in miss))
+        for h in held:
+            reasons.append(f"held at L2: {h.get('why') or h.get('id')}")
+    p["reasons"] = reasons
     return p
 
 
@@ -811,9 +889,16 @@ def run(run_dir, call_level=None):
         board = {"rows": [], "built_kinds": [], "uses_kinds": [], "error": type(e).__name__}
     pointer = level_pointer(S, rung, {pid: e.get("state") for (k, pid), e in state.items() if k == "practice"},
                             board_areas(board))
-    pointer = refined_over_time(pointer, run_dir)
+    # the read from things (things.py, a trial): the same builds, evals and refining this file decided, never its own
+    weeks = refine_weeks(run_dir)
+    builds = {**pointer["builds"], "weeks": weeks, "weeks_ok": weeks is None or weeks >= MIN_REFINE_WEEKS}
+    bars = {x["id"]: x.get("enough") or {} for x in (S.get("signals") or {}).get("signals") or [] if x.get("id")}
+    pointer_things = level_things.pointer(run_dir, board, setup_read(run_dir), builds, bars)
+    pointer = setup_read_gate(refined_over_time(pointer, run_dir), run_dir)
+    in_use = pointer_things if level_things.model() == "things" else pointer
     result = {"substrate": S["version"], "evidence": ev, "disciplines": disciplines, "pointer": pointer,
-              "calibration": {**calibration(pointer, call_level), "certainty": certainty(run_dir, ev, S)},
+              "pointer_things": pointer_things, "level_model": level_things.model(),
+              "calibration": {**calibration(in_use, call_level), "certainty": certainty(run_dir, ev, S)},
               "recommendations": recs, "more_recommendations": more, "content_gaps": gaps, "detectors": trail}
     result["verdicts"] = verdicts(result, S)
     # the capability board (board.py): its L4 build rows (BOARD_BUILD_AREAS) also count toward "built in 3 areas"

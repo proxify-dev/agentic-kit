@@ -24,7 +24,9 @@ they built, with authorship and whether it ran in the 30 days, and what they do 
 
 For EACH practice listed there, one row:
 - rung: the highest rung whose ladder text the digest's evidence matches. L2 = they do it by hand (the "by hand" counts
-  at the end of the digest); L3 = a setup of theirs does it (their files, skills, agents, standing rules); L4 = they built
+  at the end of the digest: only the list "What they do by hand" can show an L2, and a number under "What Claude Code or
+  the model did unasked" is never the person's habit, however large); L3 = a setup of theirs does it (their files,
+  skills, agents, standing rules); L4 = they built
   something that does it and changes how the agent runs (their hook, program, plugin, gateway), with whatever that
   practice's own L4 text asks for (often a test or eval: the digest's eval folders say which ran and how the runner
   keeps the agent out). Use only artifacts marked as theirs; installed things others wrote are L1 use.

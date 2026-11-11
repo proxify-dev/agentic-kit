@@ -114,7 +114,7 @@ _ICON = {
     "dark": '<path d="M13.5 10A6 6 0 0 1 6 2.5a6 6 0 1 0 7.5 7.5z"/>',
 }
 SWITCH = ('<div class="theme-switch" role="group" aria-label="Colour theme">' + "".join(
-    f'<button type="button" data-p="{p}" onclick="__setTheme(\'{p}\')"><svg viewBox="0 0 16 16" fill="none" '
+    f'<button type="button" data-p="{p}" title="{p.capitalize()} theme" onclick="__setTheme(\'{p}\')"><svg viewBox="0 0 16 16" fill="none" '
     f'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
     f'{_ICON[p]}</svg>{p.capitalize()}</button>' for p in ("auto", "light", "dark")) + "</div>")
 

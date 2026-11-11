@@ -292,27 +292,31 @@ def main(run):
         + (f" (theirs {g.get('theirs')}/{g.get('commits')} commits)" if g.get("commits") else "")
         for g in I["git_hooks"] for h in g["hooks"][:6]) or "none"))
 
-    # ---- behaviour by hand
+    # ---- behaviour: two lists the AI pass must not mix (11-11). One "by hand" list used to hold the person's own acts
+    # beside what Claude Code and the model do by default (the model's own sub-agents, automatic compactions, built-in
+    # memory, plan files), with no minimum, and a tester read "sends side work to sub-agents by hand" from 126 calls the
+    # model chose. The split follows the scan's own who-did-it groups (inventory.py who_did_it): "you" = only a person
+    # can produce the record; "claude" and "cant" = a default, the model's judgement, or nothing records who asked.
+    who = {g["id"]: g.get("items") or [] for g in (I.get("who_did_it") or {}).get("groups") or []}
+
+    def counted(i):
+        return (f"- {i['label']}: {i['n']}" + (f" in {i['chats']} sessions" if i.get("chats") is not None else "")
+                + (f" (of {i['of']})" if i.get("of") else ""))
+
+    pd, cp = I["plan_dialogs"], I["compactions"]
     w("\n## What they do by hand (counts over 30 days)")
+    w("Only the person can produce these records: Claude Code writes them when the person acts. Only this list can show a habit done by hand.")
     sc = {c["command"]: c for c in I["slash_commands"].get("by_command", [])}
     # the person's own most-typed commands, whatever they are called (not a list picked on one laptop)
     w(f"slash commands typed, as N times in M of your {I['slash_commands'].get('typed_sessions')} typed sessions (session logs; history.jsonl only for a command the logs never record): "
       + ", ".join(f"{k} {c['times']} times in {c['chats']}" for k, c in list(sc.items())[:15]))
-    pd, cp = I["plan_dialogs"], I["compactions"]
-    w(f"plan approvals {pd['calls']}, rejected {pd['refused']} in {pd['chats_with_a_refusal']} sessions; plan files written {I['plans']['written_in_window']}, "
-      f"read by another session {I['plans']['chats_reading_plan_files']}")
-    w(f"compactions {cp['total']} ({cp['by_trigger']}), {cp['with_focus_text']} of {cp['typed_compact_commands']} typed /compact said what to keep, "
-      f"median {cp['median_tokens_before']} tokens; {cp['chats_compacted_more_than_once']} sessions compacted more than once")
-    h = I["helpers"]
-    tools = {r["what"]: r for r in I["tools"]["typed_chats"]["by_tool"]}
-    w(f"sub-agents: {h['calls']} calls in {h['chats']} sessions, {h['calls_that_set_a_model']} set a model, {h['background_calls']} of those {h['calls']} calls ran in the background; "
-      f"Workflow runs {I['workflows']['runs']} in {I['workflows']['chats']} sessions; EnterWorktree {tools.get('EnterWorktree', {}).get('calls', 0)}, "
-      f"`git worktree add` {I['chats_logged']['worktree_adds_by_shell']}; Monitor {tools.get('Monitor', {}).get('calls', 0)}, "
-      f"ScheduleWakeup {tools.get('ScheduleWakeup', {}).get('calls', 0)}; AskUserQuestion {tools.get('AskUserQuestion', {}).get('calls', 0)}")
-    pw = I["past_work_reach"]
-    w(f"past work was in Claude's context early in {pw['either']} of {pw['new_chats']} new sessions (loaded automatically {pw['loaded_automatically']}, looked up {pw['looked_it_up_early']}, put in by a hook {pw['notes_put_in_by_a_hook']})")
-    pm = I["chats_logged"]["permission_modes_of_typed_messages"]
-    w(f"permission modes of typed messages: {pm}")
+    for i in who.get("you", []):
+        w(counted(i))
+    w(f"- plan dialogs the person answered: approved {pd['calls'] - pd['refused']}; rejected {pd['refused']}, in {pd['chats_with_a_refusal']} sessions")
+    w(f"- typed /compact commands that said what to keep: {cp['with_focus_text']} of {cp['typed_compact_commands']}")
+    # typed asks close the person's list: they typed them, but a word match can point to a habit, never prove one
+    # (laptop_evidence.py WORD_LIST_LINE keys on "N messages in M sessions")
+    w("typed asks found by fixed English patterns (a word match: it can point to a habit, not prove one):")
     asks = {
         "asks the agent to disagree or critique": r"prove me wrong|critique|devil'?s advocate|what am i missing|poke holes|find (the )?flaws|be (brutally )?honest|push back|change your mind",
         "says they are lost / asks for a walkthrough": r"i'?m lost|walk me through|explain (it )?like|recontextuali[sz]e|eli5",
@@ -324,6 +328,32 @@ def main(run):
     for label, pat in asks.items():
         n, ch, ex = typed(C, re.compile(pat, re.I))
         w(f"- {label}: {n} messages in {ch} sessions" + (f" (e.g. {ex})" if ex else ""))
+
+    h = I["helpers"]
+    tools = {r["what"]: r for r in I["tools"]["typed_chats"]["by_tool"]}
+    pw = I["past_work_reach"]
+    pm = I["chats_logged"]["permission_modes_of_typed_messages"]
+    auto = (cp.get("by_trigger") or {}).get("auto", 0)
+    w("\n## What Claude Code or the model did unasked (counts over 30 days)")
+    w("Claude Code's defaults and the model's own choices, or calls where nothing records who asked. Never the person's habit, however large the number.")
+    w(f"- sub-agent calls the model made: {h['calls']} in {h['chats']} sessions, {h['calls_that_set_a_model']} set a model, "
+      f"{h['background_calls']} of those {h['calls']} ran in the background (the ones the person started are in the list above: forks, @-mentions; "
+      f"the ones an agent file, hook or rule of theirs caused show with that artifact)")
+    w(f"- automatic compactions: {auto} of {cp['total']} compactions ({cp['by_trigger']}); median {cp['median_tokens_before']} tokens before a compaction and "
+      f"{cp['chats_compacted_more_than_once']} sessions compacted more than once (automatic and typed together)")
+    w(f"- plan dialogs the model opened: {pd['calls']}; plan files written in plan mode {I['plans']['written_in_window']}, "
+      f"read by another session {I['plans']['chats_reading_plan_files']}")
+    w(f"- past work was in Claude's context early in {pw['either']} of {pw['new_chats']} new sessions: loaded automatically {pw['loaded_automatically']}, "
+      f"looked up by the model {pw['looked_it_up_early']}, put in by a hook {pw['notes_put_in_by_a_hook']} (whose hook: the hooks above)")
+    w(f"- tool calls the model made: Workflow runs {I['workflows']['runs']} in {I['workflows']['chats']} sessions; EnterWorktree {tools.get('EnterWorktree', {}).get('calls', 0)}, "
+      f"`git worktree add` {I['chats_logged']['worktree_adds_by_shell']}; Monitor {tools.get('Monitor', {}).get('calls', 0)}, "
+      f"ScheduleWakeup {tools.get('ScheduleWakeup', {}).get('calls', 0)}; AskUserQuestion {tools.get('AskUserQuestion', {}).get('calls', 0)}")
+    w(f"- permission modes of typed messages (a mode comes from the person or from a settings default; the record doesn't say which): {pm}")
+    said = {"claude.auto_compactions", "claude.background_helpers", "cant.helper_calls_with_model"}  # already in the lines above
+    for i in who.get("claude", []) + who.get("cant", []):
+        if i.get("id") not in said:
+            w(counted(i))
+
     out = "\n".join(L)
     open(os.path.join(run, "cheap-digest.md"), "w").write(out)
     json.dump(arts, open(os.path.join(run, "cheap-artifacts.json"), "w"), indent=1, ensure_ascii=False)
