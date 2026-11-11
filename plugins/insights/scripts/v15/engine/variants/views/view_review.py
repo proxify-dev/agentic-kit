@@ -31,7 +31,7 @@ PROXIFY_ONLY = False
 HIDE_HEADER = True  # frame: the title stays for screen readers and the window title; the level opens the tab instead
 
 SHOW = 3        # receipts and extra changes on the first screen; the rest opens on click
-MORE_SHOWN = 3  # lines under "N more to change" before "Show more"
+MORE_SHOWN = 3  # lines under the first change; a project's other changes stay in its row under "Each project"
 RECORDS_TAG = "From Claude Code's records"   # a change the code counted, not one the reader judged
 HABIT_TAG = "A habit seen in Claude Code's records"
 TREE_FILES = 40  # files drawn in one project's tree; the rest is a count
@@ -243,6 +243,7 @@ CSS = """
 .v-review .cm-rest>summary{display:inline-flex;align-items:center;gap:6px;margin-top:10px;color:#3C3ED4;font-size:13px;font-weight:500}
 .v-review .cm-rest>summary .rv-chev{color:#3C3ED4;width:14px;height:14px}
 .v-review .cm-rest ul{margin-top:8px}
+.v-review .cm-left{font-size:13px;color:#667085;margin-top:10px !important}
 
 /* what works */
 .v-review .wk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
@@ -781,13 +782,19 @@ def _change(ctx, sr, projects):
     if not items:
         return ('<section class="rv-sec"><h3>Change this first</h3><p class="none-yet">Nothing stood out to change. '
                 'What you\'ve built lists each part of your setup.</p></section>')
-    rest = items[1:]
-    more = ""
-    if rest:
-        lines = [_line(ctx, i + 2, c) for i, c in enumerate(rest)]
-        more = (f'<div class="cm"><h4>{len(rest)} more to change</h4><ul>{"".join(lines[:MORE_SHOWN])}</ul>'
-                + (f'<details class="cm-rest"><summary>{_chev()}Show {len(lines) - MORE_SHOWN} more</summary>'
-                   f'<ul>{"".join(lines[MORE_SHOWN:])}</ul></details>' if len(lines) > MORE_SHOWN else "") + "</div>")
+    # the main card and at most MORE_SHOWN lines (11-11: ten lines here repeated what each project's section lists). A
+    # project's other changes stay in its row under "Each project"; anything that belongs to no project opens here.
+    rest, more = items[1:], ""
+    shown, left = rest[:MORE_SHOWN], rest[MORE_SHOWN:]
+    if shown:
+        loose = [c for c in left if not c.get("project")]
+        in_projects = len(left) - len(loose)
+        more = (f'<div class="cm"><h4>{len(shown)} more to change</h4>'
+                f'<ul>{"".join(_line(ctx, i + 2, c) for i, c in enumerate(shown))}</ul>'
+                + (f'<details class="cm-rest"><summary>{_chev()}Show {len(loose)} more from Claude Code\'s records</summary>'
+                   f'<ul>{"".join(_line(ctx, i + 2 + len(shown), c) for i, c in enumerate(loose))}</ul></details>' if loose else "")
+                + (f'<p class="cm-left">{in_projects} more, each under its project in <a href="#review-projects">Each project</a>.</p>'
+                   if in_projects else "") + "</div>")
     return ('<section class="rv-sec"><h3>Change this first</h3>'
             '<p class="rv-sub">Where a small change pays back most. The rest are in order below it.</p>'
             + _first(ctx, items[0]) + more + "</section>")
@@ -1013,7 +1020,7 @@ def _project(ctx, p):
 def _projects(ctx, projects):
     if not projects:
         return ""
-    return ('<section class="rv-sec"><h3>Each project</h3>'
+    return ('<section class="rv-sec" id="review-projects"><h3>Each project</h3>'
             '<p class="rv-sub">The review of each one, and how its files are laid out.</p>'
             f'<div class="pj-list">{"".join(_project(ctx, p) for p in projects)}</div></section>')
 

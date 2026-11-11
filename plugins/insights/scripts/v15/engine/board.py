@@ -19,6 +19,12 @@ and "can't tell" where it would not.
 A row: id, name, kind ("build" | "use"), state, items (count of their own things), calls (runs / calls in the window),
 unit (what `calls` counts), examples (up to 3 names: the Proxify copy only; the member copy shows counts, never names of
 the client's things), source (file: field), why (one plain sentence). Standard library only.
+
+A row of a kind they build also carries `list`: one entry per thing it counted, from the same set the count comes from,
+so the page's list and its number never disagree: {name, about (their own description, cut), uses (in the window; None
+when it can't be told apart)}, plus `step` for a skill (1 reads one file · 2 opens more files when needed · 3 runs code ·
+4 tested automatically: skill_depth), `events`, `runs_at` (runs per event) and `plugin` for a hook, `on` for a plugin or an output style. The page
+reads it ("What you've built"); the share summary never does (share_payload.py takes kind ids only).
 """
 import hashlib
 import json
@@ -360,13 +366,45 @@ def r_skills_own(f):
     typed = f.who.get("you.own_commands_typed", 0)
     # a typed /name also shows as a Skill call: take the larger of the two, never their sum
     calls = max(calls, typed)
-    r = row("cap-skills-own", build_state(len(mine), calls), len(mine), calls, "calls",
+    # one per name: the same skill in a plugin's source and its release copy, or in two copies of a repo, is one skill (11-11:
+    # 135 files were 116 skills and commands)
+    r = row("cap-skills-own", build_state(len(names), calls), len(names), calls, "calls",
             _first(hit, sorted(names)),
-            "anatomy.json: artifacts (kind skill/command, origin own); inventory.json: skills_used, skill_depth, who_did_it you.own_commands_typed",
-            f"{len(mine)} skills and commands of yours; {calls} calls in the window" if mine else "no skill or command of yours found")
+            "anatomy.json: artifacts (kind skill/command, origin own, one per name); inventory.json: skills_used, skill_depth, who_did_it you.own_commands_typed",
+            f"{len(names)} skills and commands of yours; {calls} calls in the window" if mine else "no skill or command of yours found")
     # depth per skill: display only (see skill_depth); the state above is not touched by it
     r["skills"], r["skills_summary"] = skill_depths(f)
+    depth = {sk["name"]: sk for sk in r["skills"]}
+    loads = {str(_d(s).get("name")): _n(_d(s).get("loads")) for s in _l(f.i.get("skill_depth"))}
+    typed = {str(c.get("command", "")).lstrip("/"): _n(c.get("times"))
+             for c in _l(_d(f.i.get("slash_commands")).get("by_command")) if isinstance(c, dict)}
+    r["list"] = []
+    for name, xs in _by_name(mine):
+        sk = depth.get(name) or {}
+        uses = max(loads.get(name, 0), typed.get(name, 0), 0 if name in shared else _skill_calls(f, {name}, f.own_plugins)[0])
+        # used or not is skill_depth's call where it read the skill (the Review's card counts the same way); a name an
+        # installed skill also has can't be told apart (None)
+        used = sk.get("used") if sk else (None if name in shared else bool(uses))
+        kind = "skill" if any(x.get("kind") == "skill" for x in xs) else "command"
+        r["list"].append({"name": name, "kind": kind, "about": next((_about(x) for x in xs if _about(x)), ""),
+                          "uses": None if used is None else uses, "used": used,
+                          "step": sk.get("depth"), "why": sk.get("why", ""), "copies": len(xs)})
     return r
+
+
+def _by_name(xs, key=lambda x: str(x.get("name") or "")):
+    """[(name, [the files of that name])], by name: copies of one thing in other repos or release folders are one thing."""
+    out = {}
+    for x in xs:
+        out.setdefault(key(x), []).append(x)
+    return sorted((k, v) for k, v in out.items() if k)
+
+
+def _about(x):
+    """A thing's own description, one line: its first sentence, cut at 140 characters."""
+    d = re.sub(r"\s+", " ", str(_d(x).get("description") or "")).strip()
+    d = re.split(r"(?<=[.!?])\s", d)[0]
+    return d if len(d) <= 140 else d[:139].rsplit(" ", 1)[0] + "…"
 
 
 def r_skills_installed(f):
@@ -451,12 +489,39 @@ def r_hooks(f):
     if gone and not n_own:
         return cant("cap-hooks", "inventory.json is missing, so hook runs can't be read", "inventory.json")
     calls = sum(mine.values())
-    return row("cap-hooks", build_state(n_own, calls, len(others)), n_own, calls, "runs",
+    events, plugin, at = {}, {}, {}
+    for h in runs:
+        if h.get("yours") is True and _n(h.get("runs")):
+            events.setdefault(h.get("script"), set()).add(h.get("event"))
+            moments = at.setdefault(h.get("script"), {})
+            moments[h.get("event")] = moments.get(h.get("event"), 0) + _n(h.get("runs"))
+            by = str(h.get("set_up_by") or "")
+            plugin[h.get("script")] = by.partition("@")[0] if "@" in by else ""
+    for c in _l(f.i.get("hooks_configured")):
+        c = _d(c)
+        events.setdefault(_path(c.get("script")), set()).add(c.get("event"))
+    keys = list(dict.fromkeys(list(mine) + [_path(x.get("path")) for x in wired]))
+    # one per script name within its plugin: the same script in two copies of a repo, or reached as ~/x and /home/.../x,
+    # is one hook (11-11: 30 scripts were 22 hooks, a Stop check copied into six copies of one repo among them)
+    named = {}
+    for k in keys:
+        nm = (re.sub(r"\.(py|sh|mjs|js|ts|cjs|rb)$", "", os.path.basename(str(k))), plugin.get(k, ""))
+        h = named.setdefault(nm, {"name": nm[0], "plugin": nm[1], "events": set(), "uses": 0, "about": "", "copies": 0, "runs_at": {}})
+        h["events"] |= {e for e in events.get(k, set()) | events.get(_path(k), set()) if e}
+        for e, n in at.get(k, {}).items():
+            h["runs_at"][e] = h["runs_at"].get(e, 0) + n
+        h["uses"] += mine.get(k, 0)
+        h["copies"] += 1
+    hook_list = [{**h, "events": sorted(h["events"])} for h in named.values()]
+    n_own = len(named)
+    out = row("cap-hooks", build_state(n_own, calls, len(others)), n_own, calls, "runs",
                _first([os.path.basename(str(s)) for s in sorted(mine, key=mine.get, reverse=True)],
                       [x.get("name") for x in wired]),
                "inventory.json: hook_runs (yours, runs); anatomy.json: artifacts (hook_script, own, wired)",
                f"{n_own} hook scripts of yours; {calls} runs in the window" if n_own else
                ("only hooks from others ran" if others else "no hook of yours found"))
+    out["list"] = hook_list
+    return out
 
 
 def r_mcp(f):
@@ -472,16 +537,21 @@ def r_mcp(f):
 
 def r_subagents(f):
     mine = [x for x in f.own("agent") if x.get("name") not in BUILT_IN_AGENTS]
-    names = {x.get("name") for x in mine}
+    names = {x.get("name") for x in mine if x.get("name")}
     types = {t.get("type"): _n(t.get("calls")) for t in _l(_d(f.i.get("helpers")).get("by_type")) if isinstance(t, dict)}
     calls = sum(c for t, c in types.items() if t in names)
     others = [x for x in f.others("agent") if x.get("name") not in BUILT_IN_AGENTS]
     ran = [t for t in sorted(names, key=lambda t: -types.get(t, 0)) if types.get(t)]
     built_in = sum(c for t, c in types.items() if t in BUILT_IN_AGENTS)
-    return row("cap-subagents", build_state(len(mine), calls, len(others)), len(mine), calls, "calls", _first(ran, sorted(names)),
+    agent_list = [{"name": n, "about": next((_about(x) for x in xs if _about(x)), ""), "uses": types.get(n, 0),
+                   "model": next((x.get("model") for x in xs if x.get("model")), ""), "copies": len(xs)} for n, xs in _by_name(mine)]
+    # one per name, as skills: an agent file copied into a second repo is the same sub-agent
+    out = row("cap-subagents", build_state(len(names), calls, len(others)), len(names), calls, "calls", _first(ran, sorted(names)),
                "anatomy.json: artifacts (kind agent, origin own); inventory.json: helpers.by_type (calls per sub-agent type)",
-               f"{len(mine)} sub-agents of yours; {calls} launches in the window" if mine else
+               f"{len(names)} sub-agents of yours; {calls} launches in the window" if mine else
                f"no sub-agent of yours; Claude Code's built-in sub-agents ran {built_in} times")
+    out["list"] = agent_list
+    return out
 
 
 def r_teams(f):
@@ -499,11 +569,15 @@ def r_workflows(f):
     if not calls and not mine:
         return cant("cap-workflows", "a Claude Code version without the Workflow tool reads the same as never using it; "
                     "ask on the call", "inventory.json: tools.typed_chats.by_tool Workflow; anatomy.json: artifacts (workflow)")
-    return row("cap-workflows", build_state(len(mine), calls, 1 if calls else 0), len(mine), calls, "calls",
+    out = row("cap-workflows", build_state(len(mine), calls, 1 if calls else 0), len({x.get("name") for x in mine}), calls, "calls",
                [x.get("name") for x in mine],
                "inventory.json: tools.typed_chats.by_tool Workflow; anatomy.json: artifacts (kind workflow, origin own)",
-               f"{len(mine)} workflow scripts of yours; Workflow tool called {calls} times" if mine else
+               f"{len({x.get('name') for x in mine})} workflow scripts of yours; Workflow tool called {calls} times" if mine else
                f"Workflow tool called {calls} times, none of your own saved workflow files")
+    # calls are not per workflow; one entry per name, a copy in a release folder is the same workflow
+    out["list"] = [{"name": n, "about": next((_about(x) for x in xs if _about(x)), ""), "uses": None, "copies": len(xs)}
+                   for n, xs in _by_name(mine)]
+    return out
 
 
 def r_parallel(f):
@@ -525,10 +599,12 @@ def r_memory(f):
         return cant("cap-memory", "inventory.json is missing", "inventory.json")
     calls = reads or early
     st = build_state(len(built), calls, len(auto))
-    return row("cap-memory", st, len(built), calls, "reads", [os.path.basename(str(s.get("path", "")).rstrip("/")) for s in built],
+    out = row("cap-memory", st, len(built), calls, "reads", [os.path.basename(str(s.get("path", "")).rstrip("/")) for s in built],
                "inventory.json: memory_stores (kind, agent_reads), past_work_reach.looked_it_up_early",
                f"{len(built)} memory stores kept; the agent read them {calls} times" if built else
                ("only Claude Code's automatic memory exists" if auto else "no memory store found"))
+    out["list"] = [{"name": str(s.get("path", "")).rstrip("/"), "about": "", "uses": _n(s.get("agent_reads"))} for s in built]
+    return out
 
 
 def r_model_routing(f):
@@ -600,10 +676,18 @@ def r_evals(f):
     changed = sum(1 for e in mine if e.get("changed_in_window"))
     calls = ran or changed
     unit = "recorded runs" if ran else "folders changed"
-    return row("cap-evals", build_state(len(mine), calls), len(mine), calls, unit,
+    out = row("cap-evals", build_state(len(mine), calls), len(mine), calls, unit,
                [os.path.basename(os.path.dirname(str(e.get("path", "")).rstrip("/"))) for e in mine],
                "inventory.json: evals (owner theirs; ledger_lines_in_window = runs recorded in the window; changed_in_window)",
                f"{len(mine)} eval folders of yours; {ran} runs recorded in the window, {changed} folders changed" if mine else "no eval folder of yours found")
+    def where(e):
+        root, path = _path(e.get("repo")), _path(e.get("path"))
+        inside = os.path.dirname(os.path.relpath(path, root)) if e.get("repo") and path.startswith(root + os.sep) else os.path.dirname(path)
+        return inside or os.path.basename(root), repo_name(root) if e.get("repo") else ""
+    out["list"] = [{"name": where(e)[0], "about": " · ".join(x for x in (where(e)[1], "changed in the last 30 days"
+                                                                         if e.get("changed_in_window") else "") if x),
+                    "uses": _n(e.get("ledger_lines_in_window")), "changed": bool(e.get("changed_in_window"))} for e in mine]
+    return out
 
 
 def _own_scripts(f, kinds):
@@ -629,10 +713,23 @@ def r_own_rig(f):
                 if _path(repo) in projects)
     total = _n(runs.get("runs"))
     if mine:
-        return row("cap-own-rig", build_state(len(mine), calls), len(mine), calls, "headless runs",
+        by_repo = {}
+        for repo, n in (x for x in _l(runs.get("by_repo")) if isinstance(x, list) and len(x) == 2):
+            by_repo[_path(repo)] = by_repo.get(_path(repo), 0) + _n(n)
+        per = {}
+        for s in mine:
+            k = repo_name(s.get("project"))
+            per.setdefault(k, {"name": k, "about": "", "scripts": 0, "uses": 0, "_roots": set()})
+            per[k]["scripts"] += 1
+            per[k]["_roots"].add(_path(s.get("project")))
+        for v in per.values():
+            v["uses"] = sum(by_repo.get(r, 0) for r in v.pop("_roots"))
+        out = row("cap-own-rig", build_state(len(mine), calls), len(mine), calls, "headless runs",
                    [os.path.basename(str(s.get("path"))) for s in mine],
                    "anatomy.json: launchers.scripts (starts claude -p / SDK, in a repo with their commits); inventory.json: headless.by_repo",
                    f"{len(mine)} scripts of yours start an agent; {calls} headless runs in those repos", repos=_repos_of(mine))
+        out["list"] = sorted(per.values(), key=lambda v: -v["uses"])
+        return out
     if total:
         return cant("cap-own-rig", f"{total} headless runs, but a run is recorded the same whether you typed `claude -p`, a script of yours "
                     "or a plugin started it, and no script of yours that starts an agent was found",
@@ -657,9 +754,26 @@ def r_plugins_own(f):
             skills[ns] = skills.get(ns, 0) + _n(u.get("calls"))
     calls = sum(hooks.values()) + sum(skills.values())
     ran = sorted(set(hooks) | set(skills), key=lambda k: -(hooks.get(k, 0) + skills.get(k, 0)))
-    return row("cap-plugins-own", build_state(len(names), calls), len(names), calls, "hook runs and skill calls", _first(ran, names),
+    info, on = {}, set()
+    for p in _l(f.i.get("plugins")):
+        k = str(_d(p).get("key", "")).partition("@")[0]
+        info.setdefault(k, _d(p))
+        if _d(p).get("on"):
+            on.add(k)   # the same plugin from two marketplaces: on when either copy is
+
+    def adds(k):
+        a = _d(info.get(k, {}).get("adds"))
+        bits = [f'{_n(a.get("skills"))} skill{"s" if _n(a.get("skills")) != 1 else ""}' if _n(a.get("skills")) else "",
+                f'{_n(a.get("agents"))} agent{"s" if _n(a.get("agents")) != 1 else ""}' if _n(a.get("agents")) else "",
+                f'hooks at {_n(a.get("hooks_events"))} moment{"s" if _n(a.get("hooks_events")) != 1 else ""}' if _n(a.get("hooks_events")) else ""]
+        bits = [b for b in bits if b]
+        return ("Adds " + ", ".join(bits)) if bits else ""
+    out = row("cap-plugins-own", build_state(len(names), calls), len(names), calls, "hook runs and skill calls", _first(ran, names),
                "anatomy.json: artifacts (plugin_manifest, own); inventory.json: plugins (owner theirs), hook_runs set_up_by, skills_used `plugin:skill`",
                f"{len(names)} plugins of yours; their hooks and skills ran {calls} times" if names else "no plugin of yours found")
+    out["list"] = [{"name": k, "about": adds(k), "uses": hooks.get(k, 0) + skills.get(k, 0),
+                    "on": k in on} for k in names]
+    return out
 
 
 def r_sdk(f):
@@ -706,10 +820,12 @@ def r_mcp_write(f):
         return sum(c for what, c in f.mcp_calls.items() if what == name or what.endswith("_" + name))
     calls = sum(calls_of(n) for n in mine)
     if mine:
-        return row("cap-mcp-write", build_state(len(mine), calls), len(mine), calls, "calls",
+        out = row("cap-mcp-write", build_state(len(mine), calls), len(mine), calls, "calls",
                    sorted(mine, key=lambda n: -calls_of(n)),
                    "anatomy.json: plugins.dir_loaded (origin own, contents.mcp_servers), mcp_servers entry inside such a folder; inventory.json: tools.by_mcp_server",
                    f"{len(mine)} MCP servers inside plugins of yours; {calls} calls in the window")
+        out["list"] = [{"name": n, "about": "", "uses": calls_of(n)} for n in sorted(mine)]
+        return out
     if unplaced:
         return cant("cap-mcp-write", f"{unplaced} MCP servers run a script from a folder the scan didn't place as yours or installed; "
                     "none sits inside a plugin of yours", "anatomy.json: mcp_servers entry")
@@ -726,11 +842,14 @@ def r_output_styles(f):
         if isinstance(v, str) and v:
             chosen = v
     on = chosen in names
-    return row("cap-output-styles", build_state(len(mine), f.typed if on else 0), len(mine), f.typed if on else 0, "sessions",
+    out = row("cap-output-styles", build_state(len(mine), f.typed if on else 0), len(mine), f.typed if on else 0, "sessions",
                ([chosen] if on else []) + sorted(names),
                "anatomy.json: artifacts (output_style, own); inventory.json: settings notable.outputStyle (the style in force; every session uses it)",
                (f"{len(mine)} output styles of yours; one is switched on" if on else f"{len(mine)} output styles of yours; none switched on") if mine
                else "no output style of yours found")
+    out["list"] = [{"name": x.get("name"), "about": _about(x), "uses": f.typed if x.get("name") == chosen else 0,
+                    "on": x.get("name") == chosen} for x in mine]
+    return out
 
 
 def r_telemetry(f):
