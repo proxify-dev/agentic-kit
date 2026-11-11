@@ -11,7 +11,7 @@ A view is a module `view_<name>.py` next to this file with:
 A badge that shows a practice's level carries `lvl_tip.attrs(practice_id, level)`; lvl_tip.py holds the one tooltip.
 ctx = load(run_dir): every JSON the run wrote, plus ctx["vm"] = common.load(...) (the member wording) and helpers.
 
-Build: uv run --no-project --with pyyaml python frame.py [RUN_DIR] [OUT.html] [--member]  (pyyaml: the substrate tab reads coverage/tooling.yaml)   (defaults: the 11-02 cheap run -> RUN_DIR/variants/views.html)
+Build: uv run --no-project --with pyyaml python frame.py [RUN_DIR] [OUT.html] [--member] [--no-level]  (pyyaml: the substrate tab reads coverage/tooling.yaml)   (defaults: the 11-02 cheap run -> RUN_DIR/variants/views.html)
 """
 import glob
 import html
@@ -67,7 +67,8 @@ def views():
 
 # The report's navigation: five groups as top tabs, a second row only where a group holds more than one view.
 # A view module not listed here still shows, in a "More" group, so a new view never disappears.
-GROUPS = [("setup", "My setup", ["anatomy", "areas", "built", "who", "overview", "systems", "numbers"]),
+GROUPS = [("mylevel", "Your level", ["mylevel"]),
+          ("setup", "My setup", ["anatomy", "areas", "built", "who", "overview", "systems", "numbers"]),
           ("practices", "Practices", ["board", "found", "practices", "layers"]),
           ("problems", "Problems", ["problems"]),
           ("next", "Next steps", ["next"]),
@@ -76,7 +77,7 @@ GROUPS = [("setup", "My setup", ["anatomy", "areas", "built", "who", "overview",
                                       "vocabulary", "playbook", "crosswalk", "questions"]),
           ("calls", "Calls", ["callsheet"]),
           ("internal", "Internal", ["capabilities", "checks", "level", "trust"])]
-TAB = {"anatomy": "Part by part", "board": "Board", "areas": "By discipline", "who": "Who did it", "overview": "At a glance", "systems": "Your systems", "built": "What you've built", "numbers": "Numbers", "found": "What you have",
+TAB = {"mylevel": "Your level", "anatomy": "Part by part", "board": "Board", "areas": "By discipline", "who": "Who did it", "overview": "At a glance", "systems": "Your systems", "built": "What you've built", "numbers": "Numbers", "found": "What you have",
        "practices": "Precisely", "layers": "Where it lives", "problems": "Problems", "next": "Next steps",
        "sub_board": "Overview", "sub_levels": "Levels", "sub_context": "Context", "sub_prompt": "Prompt", "sub_verification": "Verification",
        "sub_harness": "Harness", "sub_orchestration": "Orchestration", "level": "Level read", "trust": "Trust vs lab", "checks": "Checks",
@@ -203,12 +204,14 @@ def built_from():
     return line
 
 
-def build(run, out, member=False):
+def build(run, out, member=False, level=True):
     """member=True renders the member's copy: no view marked PROXIFY_ONLY, no level key, and the views that read ctx["member"] show
-    who carries a practice in words instead of a level (his 10-26 ruling)."""
+    who carries a practice in words instead of a level (his 10-26 ruling). The member's copy still opens on "Your level"
+    (view_mylevel, his 11-11 ask: the level on the member's page, without the internal views); level=False drops every view
+    marked LEVEL_VIEW, for the copy with no level at all."""
     ctx = load(run, member)
     card_kit.set_logs(ctx)  # how much log the run stands on, shown next to every "not seen"
-    vs = [v for v in views() if not (member and getattr(v, "PROXIFY_ONLY", False))]
+    vs = [v for v in views() if not (member and getattr(v, "PROXIFY_ONLY", False)) and (level or not getattr(v, "LEVEL_VIEW", False))]
     by_name = {v.NAME: v for v in vs}
     groups = [(g, t, [n for n in names if n in by_name]) for g, t, names in GROUPS]
     listed = {n for _, _, names in groups for n in names}
@@ -269,7 +272,7 @@ def build(run, out, member=False):
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if a != "--member"]
+    args = [a for a in sys.argv[1:] if a not in ("--member", "--no-level")]
     run = args[0] if args else os.path.expanduser("~/.cache/setup-snapshot/cheap-2026-11-02")
     out = args[1] if len(args) > 1 else os.path.join(run, "variants", "views.html")
-    build(run, out, member="--member" in sys.argv)
+    build(run, out, member="--member" in sys.argv, level="--no-level" not in sys.argv)

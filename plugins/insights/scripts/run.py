@@ -8,8 +8,10 @@ frame.py keeps the page it replaces in archive/ there).
     python3 run.py share RUN_DIR  share-with-proxify.json beside RUN_DIR: the summary the page's Share tab sends, as a file
                                   (which practices were seen and at which step, as ids and levels; no file names, no text)
 
-The page shows the levels (the full page, Level tab included; his ruling 11-11, reversing 10-26's no-level copy).
---member or AGENTIC_SETUP_MEMBER=1 builds the older copy with no level and no Proxify-only views.
+The page is the member's copy, opening on "Your level": the level the laptop reads, said to the member, with none of
+Proxify's internal views (his 11-11 ask; the 11-11 morning default shipped the full page, internal tabs and all).
+--proxify or AGENTIC_SETUP_PROXIFY=1 builds the full page (substrate, call sheet, internal level read) for Proxify staff.
+--no-level or AGENTIC_SETUP_NO_LEVEL=1 (old names: --member, AGENTIC_SETUP_MEMBER=1) builds the member's copy with no level.
 
 The AI pass sits between them (SKILL.md): a subagent reads RUN_DIR/cheap-practices.md and RUN_DIR/cheap-digest.md and writes
 RUN_DIR/ai-result.json = {"rows": [...]}. The page lands in RUN_DIR's parent as my-setup.html (--out to change).
@@ -124,7 +126,7 @@ def check_rows(path):
     print(f"{len(data['rows'])} rows from the AI pass")
 
 
-def post(run, out, open_page, proxify=False):
+def post(run, out, open_page, proxify=False, level=True):
     ai = os.path.join(run, AI_RESULT)
     check_rows(ai)
     # always recount (under a second, code only): the scan or the signal map may be newer than the last signal-rows.json
@@ -135,7 +137,7 @@ def post(run, out, open_page, proxify=False):
     if briefs:
         print(f"anatomy: {len(answers)} of {len(briefs)} project reads answered"
               + ("" if len(answers) >= len(briefs) else " (the rest show as couldn't check)"))
-    step(f"page -> {out}", ["-I", FRAME, run, out] + ([] if proxify else ["--member"]))
+    step(f"page -> {out}", ["-I", FRAME, run, out] + ([] if proxify else ["--member"] + ([] if level else ["--no-level"])))
     print(f"\nyour page: {out}")
     if open_page:
         try:
@@ -163,8 +165,9 @@ def main():
     ap.add_argument("run_dir")
     ap.add_argument("--out", help="the page (default: my-setup.html beside RUN_DIR)")
     ap.add_argument("--no-open", action="store_true", help="post: do not open the page in the browser")
-    ap.add_argument("--member", action="store_true", help="post: the copy with no level and no Proxify-only views")
-    ap.add_argument("--proxify", action="store_true", help="post: the full page with levels (the default since 11-11; kept for old commands)")
+    ap.add_argument("--proxify", action="store_true", help="post: the full page for Proxify staff (internal views included)")
+    ap.add_argument("--no-level", action="store_true", help="post: the member's copy without the Your level tab")
+    ap.add_argument("--member", action="store_true", help=argparse.SUPPRESS)  # old name of --no-level
     a = ap.parse_args()
     run = os.path.abspath(os.path.expanduser(a.run_dir))
     with_pyyaml()
@@ -174,7 +177,8 @@ def main():
         share(run, os.path.abspath(os.path.expanduser(a.out)) if a.out else os.path.join(os.path.dirname(run), "share-with-proxify.json"))
     else:
         post(run, os.path.abspath(os.path.expanduser(a.out)) if a.out else os.path.join(os.path.dirname(run), "my-setup.html"),
-             not a.no_open, not (a.member or os.environ.get("AGENTIC_SETUP_MEMBER") == "1"))
+             not a.no_open, proxify=a.proxify or os.environ.get("AGENTIC_SETUP_PROXIFY") == "1",
+             level=not (a.no_level or a.member or "1" in (os.environ.get("AGENTIC_SETUP_NO_LEVEL"), os.environ.get("AGENTIC_SETUP_MEMBER"))))
 
 
 if __name__ == "__main__":
