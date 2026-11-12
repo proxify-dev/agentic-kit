@@ -43,7 +43,8 @@ import table_kit  # noqa: E402  the one list: a table whose rows open the side p
 FILES = ["v15-result.json", "anatomy.json", "inventory.json", "cheap-artifacts.json", "cheap-problems.json",
          "evidence.json", "comprehension-debt.json", "cheap-vs-lab.json", "portable-checks.json", "portable-rows.json",
          "setup-read.json",  # the agent's read of their files (view_review, the first tab)
-         "setup-map.json"]   # the code's map of those files: each memory store's shape (view_review's grid)
+         "setup-map.json",   # the code's map of those files: each memory store's shape (view_review's grid)
+         "craft-read.json"]  # how well what they use most is made (view_built); advice only, nothing in the engine opens it
 
 
 def esc(s):

@@ -418,11 +418,17 @@ def _from_counts(t, counts, bars, have_inv):
     return NOT_SEEN, "Nothing in your session records shows it."
 
 
+def best_row(rows):
+    """The row whose state ranks first (STATE_RANK): the one a thing of several rows reads as. A tile that stands for such a thing
+    carries its state, so a test can compare it with the level read's."""
+    return min(rows, key=lambda r: STATE_RANK.index(BOARD_STATE.get(r.get("state"), CANT_CHECK)))
+
+
 def _from_board(t, rows):
     got = [rows[r] for r in t["rows"] if r in rows]
     if not got:
         return CANT_CHECK, "This was not read on this run."
-    best = min(got, key=lambda r: STATE_RANK.index(BOARD_STATE.get(r.get("state"), CANT_CHECK)))
+    best = best_row(got)
     state = BOARD_STATE.get(best.get("state"), CANT_CHECK)
     if state == USES_OTHERS and t.get("others_is"):
         state = t["others_is"]

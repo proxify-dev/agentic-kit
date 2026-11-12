@@ -38,6 +38,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import setup_map  # noqa: E402  the outline drawn as a text tree
 import setup_instruction  # noqa: E402  what code alone reads in one instruction file (no AI): pointers, commands, restated lines
+import setup_craft  # noqa: E402  the craft read: the person's most used crafts placed on a step, advice only (craft-read.json)
 ENGINE = os.path.normpath(os.path.join(HERE, "..", "..", "..", "v15", "engine"))   # scripts/ keeps labs' layout
 if ENGINE not in sys.path:
     sys.path.insert(0, ENGINE)
@@ -517,10 +518,16 @@ def brief(run, home=None, proxify=None):
         if side:
             with open(os.path.join(run, f"instruction-lines-{s}.json"), "w", encoding="utf-8") as f:
                 json.dump(side, f)
+        crafts = ""
+        if k == 0:    # the craft read: one batched job, in the first (busiest) project's brief only
+            try:
+                crafts = setup_craft.job_section(run, home)
+            except Exception:  # noqa: BLE001  a third job: without it the review and the lines are asked as before
+                crafts = ""
         section = READER.format(mark=MARK, out=out, tree=drawn, intro=SECOND_JOB if second else "", scoped=OPEN_SCOPED,
                                 docs=OPEN_DOCS, notes=OPEN_NOTES, skills=OPEN_SKILLS, logs=OPEN_GIT_LOGS,
                                 always="the always-loaded files", lines_open=LINES_OPEN if listing else "",
-                                lines_shape=LINES_SHAPE if listing else "", lines=listing or "")
+                                lines_shape=LINES_SHAPE if listing else "", lines=(listing or "") + crafts)
         with open(path, "w", encoding="utf-8") as f:
             f.write(text + section)
         kept.add(os.path.normpath(path))
@@ -1267,7 +1274,7 @@ def merge(run, home=None):
     user = m.get("user") or {}
     reads = {os.path.normpath(s["path"]): s.get("chats_reading") for s in inv.get("memory_stores") or []
              if s.get("path") and s.get("chats_reading") is not None}
-    per, projects, ran, checked = {pid: [] for pid, _ in PARTS}, [], False, {}
+    per, projects, ran, checked, craft_answer = {pid: [] for pid, _ in PARTS}, [], False, {}, None
     for s, root, p in projects_of(run, m, home):
         doc = load(run, f"anatomy-ai-{s}.json") or {}
         if not doc:   # a reader may have named its file by the folder, not the slug
@@ -1280,6 +1287,8 @@ def merge(run, home=None):
         side = load(run, f"instruction-lines-{s}.json")
         if side:
             checked[s] = check_lines(side, sr.get("lines"))
+        if craft_answer is None:      # the craft job was in the first project's brief
+            craft_answer = sr.get("crafts") if isinstance(sr.get("crafts"), list) else []
         answers = {a.get("id"): a for a in sr.get("parts") or [] if isinstance(a, dict)}
         ran = ran or bool(answers)
         where = allowed(p, user, root, home)
@@ -1332,6 +1341,10 @@ def merge(run, home=None):
     out["opening"] = opening(projects, first_change(out)) if ran else []
     with open(os.path.join(run, "setup-read.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)
+    try:   # advice only, in its own file: nothing in the engine opens craft-read.json
+        setup_craft.merge(run, craft_answer, home)
+    except Exception as e:  # noqa: BLE001  the craft read never stops the setup read
+        print(f"craft read: not written ({type(e).__name__})")
     shown = [x["id"] for x in parts if level_things.part_state(x)[0] == "shown"]
     print(f"setup read: {plural(len(projects), 'project')}"
           + ("" if ran else ", no reader answered (the level reads 'could be')")

@@ -272,5 +272,57 @@ class StartedOutsideAProject(unittest.TestCase):
         self.assertNotIn("note start", page(self.ROWS))
 
 
+class TileMarks(unittest.TestCase):
+    """Every tile carries the marks a test reads: the thing it is about (none for a kind that is no thing, and then no attribute at
+    all), its count, and the board's state for it. A program tile stands for three rows: it carries the state the level read goes by."""
+    ROWS = [row("cap-own-rig", "built, not used lately", items=1, calls=0, unit="runs", phrase=""),
+            row("cap-sdk", "built and used", items=2, calls=9, unit="runs"),
+            row("cap-event-runs", "not seen"),
+            row("cap-workflows", "built and used", items=2, calls=3, lst=[{"name": "audit-sweep", "uses": 3, "used": True}])]
+
+    def tile(self, kind):
+        out = page(self.ROWS)
+        m = re.search(rf'<a class="tile" href="#built-{kind}"([^>]*)>', out)
+        self.assertIsNotNone(m, kind)
+        return m.group(1)
+
+    def test_the_programs_tile_carries_the_state_of_its_best_row(self):
+        attrs = self.tile("programs")
+        self.assertIn('data-thing="agent-programs"', attrs)
+        self.assertIn('data-state="built and used"', attrs)
+
+    def test_the_workflows_tile_has_no_thing_and_so_no_empty_attribute(self):
+        attrs = self.tile("workflows")
+        self.assertNotIn("data-thing", attrs)
+        self.assertIn('data-state="built and used"', attrs)
+        self.assertIn('data-kind="workflows"', attrs)
+
+    def test_no_tile_or_section_carries_an_empty_thing(self):
+        self.assertNotIn('data-thing=""', page(self.ROWS + FULL))
+
+
+class HowWellItIsMade(unittest.TestCase):
+    """The craft read's rows (craft-read.json, setup_craft.py): words only, as the file holds them; the copy that leaves the
+    laptop leaves the section out."""
+    CR = {"reader": {"state": "read"}, "crafts": [
+        {"kind": "skill", "name": "tone-guide", "kind_words": "Skill", "step": 2, "step_words": "A procedure (step 2 of 6); next: with its own reference files",
+         "did_words": "Loaded 12 times.", "change": "Move the client glossary into references/glossary.md and link it from step 2."},
+        {"kind": "plugin", "name": "release", "kind_words": "Plugin: 2 skills, 1 hook", "step": 4,
+         "step_words": "Runs its own code (step 4 of 6); next: checks its own result", "did_words": "Its parts: 3 skill loads, 40 hook runs.",
+         "change": "Make one part check its own result (a Stop hook, or a last step that runs a test)."}]}
+
+    def test_each_craft_shows_its_step_in_words_what_it_did_and_the_change(self):
+        out = text(page(FULL, craft_read=self.CR))
+        self.assertIn("How well what you use most is made", out)
+        self.assertIn("tone-guide Skill A procedure (step 2 of 6); next: with its own reference files Loaded 12 times. Move the client glossary", out)
+        self.assertIn("Plugin: 2 skills, 1 hook", out)
+        self.assertIn("Advice only: no level reads this.", out)
+        self.assertIn("code checked every yes it gave against the file", out)
+
+    def test_the_masked_copy_and_a_run_without_the_read_leave_it_out(self):
+        self.assertNotIn("How well what you use most is made", text(page(FULL, masked=True, craft_read=self.CR)))
+        self.assertNotIn("How well what you use most is made", text(page(FULL)))
+
+
 if __name__ == "__main__":
     unittest.main()
