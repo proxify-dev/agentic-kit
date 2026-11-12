@@ -14,6 +14,17 @@ export const ASK: ModeSpec = {
   label: 'Ask mode',
   chip: 'ask mode',
   description: 'Answer only, change nothing, for this session: on, off or status; nothing toggles',
+  about: {
+    on: {
+      short: 'answers only, changes nothing',
+      now: 'Claude reads and answers; it describes a change instead of making it',
+      see: 'Edit and Write refused, even in subagents; shell writes rely on the rules alone',
+    },
+    off: {
+      short: 'changes allowed',
+      now: 'Claude may change files again, only when you ask (a change it described included)',
+    },
+  },
 }
 
 const EDITS = new Set(['Edit', 'Write', 'NotebookEdit'])

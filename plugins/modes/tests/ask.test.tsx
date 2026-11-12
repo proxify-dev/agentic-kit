@@ -8,6 +8,9 @@ const RULES = 'ASK MODE: ON. The rules, cut down.'
 const REFUSED = 'Refused: ask mode is ON for this session.'
 
 // No disk in a test: prompts/ cut down to the words the assertions read, frontmatter and {{rules}} kept.
+/** The first line of a command's answer: the state; the lines under it explain it. */
+const head = (text: string | undefined) => text?.split('\n')[0]
+
 const PROMPTS: Record<string, string> = {
   '_rules.ask.md': `---\nwhy: shared\n---\n${RULES}\n`,
   'switch-on.ask.md': '---\nwhy: x\n---\nAsk mode switched ON for this session. The rules:\n\n{{rules}}\n',
@@ -52,7 +55,7 @@ describe('ask', () => {
     const carried = world(on)
     await start($)
     const ran = await run($, 'ask', 'on')
-    expect(ran.text).toBe('Ask mode ON for this session.')
+    expect(head(ran.text)).toBe('Ask mode ON for this session.')
     expect(ran.context?.[0]).toContain(RULES)
     expect(ran.context?.[0]).not.toMatch(/why:|---|\{\{rules\}\}/)
     await submit($, 'how does this work?')
@@ -75,7 +78,9 @@ describe('ask', () => {
     await start($)
     await run($, 'ask', 'on')
     const ran = await run($, 'ask', 'off')
-    expect(ran.text).toBe('Ask mode OFF for this session.')
+    expect(head(ran.text)).toBe('Ask mode OFF for this session.')
+    expect(ran.text).toContain('\n  Now:     Claude may change files again, only when you ask')
+    expect(ran.text).toContain('\n  Switch:  /ask on — answers only, changes nothing')
     expect(ran.context?.[0]).toContain('no longer apply')
     expect((await edit($)).result).toBe('ran')
     await submit($, 'after')

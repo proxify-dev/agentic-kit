@@ -1,5 +1,8 @@
-/** One session mode's state: whether it is on, and whether its rules are owed again after a compaction. */
-export type ModeState = { sessionId: string; isOn: boolean; needsRules: boolean }
+/**
+ * One session mode's state: whether it is on, at which level (none for plain `on`; `lead` for
+ * `/orchestrate lead`), and whether its rules are owed again after a compaction.
+ */
+export type ModeState = { sessionId: string; isOn: boolean; level?: string; needsRules: boolean }
 
 declare module 'claude-code' {
   interface PluginState {
