@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The most-active-project pick: a person's sessions count whatever app they typed in (the terminal, the desktop app,
-VS Code, JetBrains); a headless run (entrypoint sdk-*) carries a program's prompt and counts for no project. On the
-owner's laptop (11-12) the pick took a folder with 3 terminal sessions over the repo with 169 desktop-app sessions,
-and the review and level read the wrong project. Run: python3 -m unittest test_anatomy_projects   (from this folder;
+VS Code, JetBrains); a headless run (entrypoint sdk-*) carries a program's prompt and counts for no project. On 11-12
+the pick took a folder with 3 terminal sessions over a repo with 169 desktop-app sessions, and the review and level
+read the wrong project. Run: python3 -m unittest test_anatomy_projects   (from this folder;
 standard library only)"""
 import json
 import os
