@@ -31,7 +31,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from base import check, epoch, CHECK_ROLE, NOT_A_CHECK
-from fixture import Session, fixture
+from fixture import NOW, Session, fixture
 
 DAY = 86400
 
@@ -1355,10 +1355,10 @@ def _own_runs_world(fx):
 def _(fx):
     _own_runs_world(fx)
     for i in range(3):
-        h = fx.session("~/work/shop", entrypoint="sdk-cli", start=time.time() - 3 * DAY + i * 7200)
+        h = fx.session("~/work/shop", entrypoint="sdk-cli", start=NOW - 3 * DAY + i * 7200)
         h.typed("Triage the open issues in the tracker and write a summary file")                  # counts x3: their script's prompt
     for i in range(3):                                                                              # trap: an installed plugin's runs (the same prompt each time)
-        p = fx.session("~/work/shop", entrypoint="sdk-cli", start=time.time() - 2 * DAY + i * 600)
+        p = fx.session("~/work/shop", entrypoint="sdk-cli", start=NOW - 2 * DAY + i * 600)
         p.typed("Summarise this session for the memory store"); p.attachment("budget_usd", used=0, total=2, remaining=2)
     one = fx.session("~/work/shop", entrypoint="sdk-cli")                                           # trap: their prompt, but only once
     one.typed("Rename the foo module")
@@ -1397,16 +1397,16 @@ def _(fx):
     other = fx.p("~/work/shop/reports/oneoff.md")
     plug = fx.p("~/work/shop/reports/plugin.md")
     for i in range(2):
-        h = fx.session("~/work/shop", entrypoint="sdk-cli", start=time.time() - 3 * DAY + i * 3600)
+        h = fx.session("~/work/shop", entrypoint="sdk-cli", start=NOW - 3 * DAY + i * 3600)
         h.typed("Triage the open issues in the tracker and write a summary file"); h.call("Write", {"file_path": out, "content": "x"})
     for i in range(2):                                                                               # trap: a plugin's repeated runs that wrote a file
-        h = fx.session("~/work/shop", entrypoint="sdk-cli", start=time.time() - 3 * DAY + i * 3600 + 60)
+        h = fx.session("~/work/shop", entrypoint="sdk-cli", start=NOW - 3 * DAY + i * 3600 + 60)
         h.typed("Summarise this session for the memory store"); h.call("Write", {"file_path": plug, "content": "x"})
-    one = fx.session("~/work/shop", entrypoint="sdk-cli", start=time.time() - 3 * DAY)               # a one-off prompt that writes a file
+    one = fx.session("~/work/shop", entrypoint="sdk-cli", start=NOW - 3 * DAY)               # a one-off prompt that writes a file
     one.typed("Rename the foo module"); one.call("Write", {"file_path": other, "content": "x"})
-    early = fx.session("~/work/shop", entrypoint="claude-vscode", start=time.time() - 4 * DAY)       # trap: read before it was written
+    early = fx.session("~/work/shop", entrypoint="claude-vscode", start=NOW - 4 * DAY)       # trap: read before it was written
     early.typed("look"); early.call("Read", {"file_path": out})
-    s = fx.session("~/work/shop", entrypoint="claude-desktop", start=time.time() - 1 * DAY)
+    s = fx.session("~/work/shop", entrypoint="claude-desktop", start=NOW - 1 * DAY)
     s.typed("what did the nightly find?")
     s.call("Read", {"file_path": out})                                                                 # counts
     s.call("Read", {"file_path": other})                                                               # trap: not a saved prompt
@@ -2153,16 +2153,16 @@ def plan_file_reused(lt):
 @_fixture("settle-the-approach-first", "L3", 1)
 def _(fx):
     P = lambda n: fx.p(f"~/.claude/plans/{n}.md")
-    a = fx.session("~/work/shop", entrypoint="claude-vscode", start=time.time() - 5 * DAY); a.typed("plan")
+    a = fx.session("~/work/shop", entrypoint="claude-vscode", start=NOW - 5 * DAY); a.typed("plan")
     for n in ("p1", "p2", "p3", "p5"):
         a.call("Write", {"file_path": P(n), "content": "x"})
     a.call("Edit", {"file_path": P("p3"), "old_string": "x", "new_string": "y"})                         # trap: edited by its own session
     e = fx.session("~/work/shop", entrypoint="claude-vscode", start=a.t - 60); e.typed("same time")      # trap: runs alongside the writer
     e.call("Read", {"file_path": P("p5")})
     a.call("Read", {"file_path": P("p3")})                                                                 # keeps the writer's span open past e's start
-    b = fx.session("~/work/shop", entrypoint="claude-desktop", start=time.time() - 4 * DAY); b.typed("continue"); b.call("Read", {"file_path": P("p1")})   # counts
-    c = fx.session("~/work/shop", entrypoint="cli", start=time.time() - 3 * DAY); c.typed("continue"); c.call("Edit", {"file_path": P("p2"), "old_string": "x", "new_string": "z"})   # counts
-    h = fx.session("~/work/shop", entrypoint="sdk-cli", start=time.time() - 2 * DAY); h.typed("go"); h.call("Read", {"file_path": P("p3")})   # trap: headless
+    b = fx.session("~/work/shop", entrypoint="claude-desktop", start=NOW - 4 * DAY); b.typed("continue"); b.call("Read", {"file_path": P("p1")})   # counts
+    c = fx.session("~/work/shop", entrypoint="cli", start=NOW - 3 * DAY); c.typed("continue"); c.call("Edit", {"file_path": P("p2"), "old_string": "x", "new_string": "z"})   # counts
+    h = fx.session("~/work/shop", entrypoint="sdk-cli", start=NOW - 2 * DAY); h.typed("go"); h.call("Read", {"file_path": P("p3")})   # trap: headless
     return {"value": 2}
 
 
@@ -2679,9 +2679,9 @@ def starts_from_progress_file(lt):
 @_fixture("fresh-run-per-task", "L2", 1)
 def _(fx):
     pf = fx.p("~/work/shop/src/space.yaml")
-    a = fx.session("~/work/shop", entrypoint="claude-vscode", start=time.time() - 6 * DAY); a.typed("start the work")
+    a = fx.session("~/work/shop", entrypoint="claude-vscode", start=NOW - 6 * DAY); a.typed("start the work")
     a.call("Write", {"file_path": pf, "content": "x: 1"})
-    s = fx.session("~/work/shop", entrypoint="claude-desktop", start=time.time() - 5 * DAY)
+    s = fx.session("~/work/shop", entrypoint="claude-desktop", start=NOW - 5 * DAY)
     s.typed("continue"); s.call("Read", {"file_path": pf}); s.call("Edit", {"file_path": pf, "old_string": "1", "new_string": "2"})   # a config file, not a progress file
     return {"value": None}
 

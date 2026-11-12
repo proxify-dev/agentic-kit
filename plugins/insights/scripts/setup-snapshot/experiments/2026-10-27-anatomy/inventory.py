@@ -96,6 +96,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
+import importlib.util  # noqa: E402
+_spec = importlib.util.spec_from_file_location("clock", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "2026-11-02-evidence", "clock.py"))
+clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read
+_spec.loader.exec_module(clock)
+
 SCHEMA = "inventory/1"
 HOME = Path.home()
 T0 = time.monotonic()
@@ -2790,7 +2795,7 @@ def main(argv=None):
     identity = {"emails": sorted(Identity.emails), "names": sorted(Identity.names),
                 "sources": {e: sorted(s) for e, s in sorted(Identity.sources.items())}}
     out = {
-        "meta": {"schema": SCHEMA, "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "platform": sys.platform,
+        "meta": {"schema": SCHEMA, "generated_at": iso(clock.now()), "platform": sys.platform,
                  "python": sys.version.split()[0], "git": (git_out(["--version"], HOME, 5) or "none").strip(), "home": str(HOME),
                  "targets": [str(t) for t in targets], "total_seconds": None},
         "summary": summary, "identity": identity,

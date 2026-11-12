@@ -20,6 +20,7 @@ The stranger is nothing like the laptop the checks were written on:
 """
 from __future__ import annotations
 
+import calendar
 import json
 import os
 import re
@@ -30,6 +31,13 @@ import time
 import uuid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# The one moment every made-up laptop lives at: sessions, commits and file times are all derived from it, and the scan of the
+# laptop is told it through AGENTIC_SETUP_NOW (clock.py). Never the real clock: a laptop dated from the real clock read a
+# different count on a different day (11-12: 20 days of sessions became 21 when the hour moved one session across midnight).
+# Noon UTC, so no hour offset a fixture adds (up to 12 h) crosses a day boundary.
+NOW = calendar.timegm((2026, 11, 10, 12, 0, 0))
+NOW_ISO = "2026-11-10T12:00:00Z"
+DAY = 86400
 PERSON = ("Dana Stranger", "dana@home.example", "dana@work.example")
 TEAMMATE = ("Lee Teammate", "lee@work.example")
 VERSION = "2.1.318"
@@ -47,7 +55,7 @@ class Session:
     def __init__(self, fx, cwd, entrypoint, sid=None, start=None, version=VERSION, permission_mode="default"):
         self.fx, self.cwd, self.ep = fx, cwd, entrypoint
         self.sid = sid or str(uuid.uuid4())
-        self.t = start or (time.time() - 3 * 86400)
+        self.t = start or (NOW - 3 * DAY)
         self.version, self.pm = version, permission_mode
         self.parent = None
         d = os.path.join(fx.home, ".claude", "projects", slug(cwd))
@@ -215,6 +223,10 @@ class FixtureHome:
 
     def _git(self, repo, *args, who=None):
         env = {**os.environ, "HOME": self.home, "GIT_CONFIG_NOSYSTEM": "1"}
+        # a commit is dated by the laptop's moment, one second later than the one before it, unless the caller dated it
+        self._commits = getattr(self, "_commits", 0) + 1
+        env.setdefault("GIT_AUTHOR_DATE", f"{NOW + self._commits} +0000")
+        env.setdefault("GIT_COMMITTER_DATE", f"{NOW + self._commits} +0000")
         if who:
             env.update({"GIT_AUTHOR_NAME": who[0], "GIT_AUTHOR_EMAIL": who[1], "GIT_COMMITTER_NAME": who[0], "GIT_COMMITTER_EMAIL": who[1]})
         subprocess.run(["git", *args], cwd=repo, check=True, env=env, capture_output=True)
@@ -248,13 +260,32 @@ class FixtureHome:
             p = os.path.join(self.home, "_system", "Library/Application Support/ClaudeCode/managed-settings.json")
         return self.file(p, json.dumps(data, indent=1))
 
+    def settle(self):
+        """Give every file of this laptop a modification time derived from NOW, in the order they had (a millisecond apart): files
+        written while the fixture was built carry the real clock, and anything comparing a file's age with the scan's moment
+        would read a different age every day."""
+        files = []
+        for dp, dns, fns in os.walk(self.home):
+            for fn in fns:
+                p = os.path.join(dp, fn)
+                try:
+                    files.append((os.lstat(p).st_mtime, p))
+                except OSError:
+                    pass
+        for rank, (_, p) in enumerate(sorted(files)):
+            try:
+                os.utime(p, (NOW + rank / 1000, NOW + rank / 1000), follow_symlinks=False)
+            except OSError:
+                pass
+
     def laptop(self, days=30):
         # the same base module the checks import (not a second copy), so what the checks ask of it is seen by evaluate.py
         import sys
         if HERE not in sys.path:
             sys.path.insert(0, HERE)
         import base as b
-        return b.Laptop(self.home, days=days, cache=False, system_root=os.path.join(self.home, "_system"))
+        self.settle()
+        return b.Laptop(self.home, days=days, now=NOW, cache=False, system_root=os.path.join(self.home, "_system"))
 
     def close(self):
         if not self.keep:

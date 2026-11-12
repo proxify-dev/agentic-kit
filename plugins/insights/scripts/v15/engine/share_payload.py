@@ -24,6 +24,10 @@ import time
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+import importlib.util  # noqa: E402
+_spec = importlib.util.spec_from_file_location("clock", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "setup-snapshot", "experiments", "2026-11-02-evidence", "clock.py"))
+clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read
+_spec.loader.exec_module(clock)
 sys.path.insert(0, HERE)
 import things as level_things  # noqa: E402  which level read is in use: from things (default) or from practices
 SUBSTRATE = os.path.join(HERE, "substrate.json")
@@ -108,7 +112,7 @@ def payload(run, today=None):
     out = {
         "what": WHAT,
         "substrate": res.get("substrate"),
-        "made": today or time.strftime("%Y-%m-%d"),
+        "made": today or time.strftime("%Y-%m-%d", time.localtime(clock.now())),
         # the level follows the read in use (things.py): a word, never the reasons or the proofs behind it
         "laptop_level": lv.get("level") if lv.get("level") in LEVELS else None,
         "could_be": lv.get("could_be") if lv.get("could_be") in LEVELS else None,

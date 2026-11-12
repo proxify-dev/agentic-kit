@@ -16,7 +16,7 @@ import re
 import time
 
 from base import check, epoch
-from fixture import fixture
+from fixture import NOW, fixture
 
 EDITS = ("Edit", "Write", "MultiEdit", "NotebookEdit")
 DAY = 86400
@@ -680,7 +680,7 @@ def first_message_names_file(lt):
 
 @fixture(PID_N, "L2", 0)
 def _(fx):
-    now = time.time()
+    now = NOW
     shop = "~/work/shop"
     old = fx.session(shop, entrypoint="claude-vscode", start=now - 6 * DAY)          # the chat that left the notes
     old.call("Write", {"file_path": fx.p(shop + "/docs/plan.md"), "content": "next: tests"})
@@ -740,7 +740,7 @@ def fresh_session_reads_earlier_file(lt):
 
 @fixture(PID_N, "L3", 0)
 def _(fx):
-    now = time.time()
+    now = NOW
     shop = "~/work/shop"
     note = fx.p(shop + "/notes/handoff.md")
     a = fx.session(shop, entrypoint="claude-vscode", start=now - 3 * DAY)
@@ -780,7 +780,7 @@ def notes_edited_in_small_edits(lt):
 
 @fixture(PID_N, "L3", 2)
 def _(fx):
-    now = time.time()
+    now = NOW
     shop = "~/work/shop"
     note, mem = fx.p(shop + "/notes/progress.md"), fx.p("~/.claude/projects/-home-dana-work-shop/memory/feedback.md")
     a = fx.session(shop, entrypoint="claude-vscode", start=now - 4 * DAY)
@@ -835,7 +835,7 @@ def _(fx):
     body = lambda n: (f"{n} " + "".join(chr(97 + (i * 7 + ord(n[0])) % 26) for i in range(300)))   # unlike each other: git sees a delete, not a rename
     files = {f"{d}/{n}.md": body(n) for d, names in (("notes", "abcd"), ("handoff", "efij"), ("archive", "gh"), ("team", "t")) for n in names}
     fx.repo(r, files | {"src/x.ts": "export const x = 1"}, by="teammate")
-    s = fx.session(r, entrypoint="claude-vscode", start=time.time() - 5 * DAY)
+    s = fx.session(r, entrypoint="claude-vscode", start=NOW - 5 * DAY)
     for rel in files:
         s.call("Write", {"file_path": fx.p(r + "/" + rel), "content": "note"})
     for n in "ab":
@@ -1083,7 +1083,7 @@ def prompts_rewritten(lt):
 
 @fixture(PID_R, "L3", 1)
 def _(fx):
-    r, now = "~/work/shop", time.time()
+    r, now = "~/work/shop", NOW
     day = lambda k: now - k * DAY
     body = lambda tag, n=6: "".join(f"{tag}{i} rule\n" for i in range(n))
     sweep = [f"skills/v{i}/SKILL.md" for i in range(6)]
@@ -1502,7 +1502,7 @@ def setup_refined_over_time(lt):
 @fixture(PID_B, "L4", 5)
 def _(fx):
     from fixture import FixtureHome
-    now = time.time()
+    now = NOW
     ago = lambda days: now - days * DAY        # commits are made oldest first: git stops reading a log at commits older than the window
     sk = lambda v: f"---\nname: s\n---\nv{v}\n"
     r = "~/work/shop"
@@ -2218,7 +2218,7 @@ def own_server_in_use(lt):
 @fixture(PID_T, "L4", 0)
 def _(fx):
     w = _world(fx)
-    day = lambda k: time.time() - k * DAY
+    day = lambda k: NOW - k * DAY
     for k in (2, 5):                                                     # kit-db: two days as the project's server ...
         fx.session(w["kit"], entrypoint="claude-vscode", start=day(k)).call("mcp__kit-db__query", {"sql": "select 1"}, "1")
     s = fx.session(w["kit"], entrypoint="claude-desktop", start=day(11))
@@ -2410,7 +2410,7 @@ def _(fx):
     fx.commit(r, {"src/b.spec.ts": "t2"}, by="work")                       # a second untouched change to a test
     fx.commit(r, {"src/c.test.ts": "t"}, by="teammate")                    # trap: a teammate's test
     a = "~/work/agentic"                                                   # trap: the person's commit made while a session ran in the repo
-    live = fx.session(a, entrypoint="claude-vscode", start=time.time() - 30)
+    live = fx.session(a, entrypoint="claude-vscode", start=NOW - 30)
     for _ in range(12):
         live.typed("keep going")
     fx.repo(a, {"src/z.test.ts": "t"})
@@ -2832,7 +2832,7 @@ def started_clean(lt):
 
 @fixture(PID_H, "L2", 0)
 def _(fx):
-    now = time.time()
+    now = NOW
     fx.session("~/work/shop", entrypoint="claude-desktop").command("/clear")
     fx.session("~/work/shop", entrypoint="cli").command("/clear")                       # terminal: transcript + history, once
     v = fx.session("~/work/shop", entrypoint="claude-vscode", start=now - 2 * DAY)       # a clear only a SessionStart hook saw
@@ -2864,7 +2864,7 @@ def rewind_or_branch(lt):
 
 @fixture(PID_H, "L2", 3)
 def _(fx):
-    now = time.time()
+    now = NOW
     fx.session("~/work/shop", entrypoint="claude-desktop").command("/rewind")
     fx.session("~/work/shop", entrypoint="claude-vscode").command("/branch", "x")
     t = fx.session("~/work/shop", entrypoint="cli", start=now - 3 * DAY); t.command("/fork")
@@ -2930,7 +2930,7 @@ def session_start_hook_brings_text(lt):
 
 @fixture(PID_H, "L3", 1)
 def _(fx):
-    now = time.time()
+    now = NOW
     own = fx.p("~/code/dotfiles/hooks/handoff.sh")
     fx.repo("~/code/dotfiles", {"hooks/handoff.sh": "#!/bin/sh\ncat HANDOFF.md\n"}, by="home")
     fx.settings("user", {"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": own}]}]}})

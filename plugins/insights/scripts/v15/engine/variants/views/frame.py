@@ -25,6 +25,10 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+import importlib.util  # noqa: E402
+_spec = importlib.util.spec_from_file_location("clock", os.path.join(HERE, "..", "..", "..", "..", "setup-snapshot", "experiments", "2026-11-02-evidence", "clock.py"))
+clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read
+_spec.loader.exec_module(clock)
 sys.path.insert(0, os.path.dirname(HERE))
 import common  # noqa: E402  the member wording: clean(), you(), RUNG_WORD
 import theme   # noqa: E402  dark mode + Dark Reader handover
@@ -195,7 +199,7 @@ def built_from():
     """One line for the page header: when it was built, from which branch and commit, and how many commits the
     installed copy (INSTALL_BRANCH) doesn't have yet. The 11-05 ask "struggling to determine did we make any change or what's
     pending": the page says what it is. Only the time when the code isn't in a git checkout."""
-    when = time.strftime("built %m-%d %H:%M")
+    when = time.strftime("built %m-%d %H:%M", time.localtime(clock.now()))
     def git(*a):
         return subprocess.run(["git", "-C", HERE, *a], capture_output=True, text=True, timeout=5).stdout.strip()
     try:

@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 
 from base import builtin_agent_types, check, epoch
-from fixture import fixture
+from fixture import NOW, fixture
 
 AGENT_TOOLS = ("Agent", "Task")   # Claude Code's built-in tool that starts a sub-agent (Task is its older name)
 
@@ -2362,8 +2362,7 @@ def step_l2_1(lt):
 
 @fixture(STEP, "L2", 1)
 def _(fx):
-    import time as _t
-    T0 = _t.time() - 2 * 86400
+    T0 = NOW - 2 * 86400
     def end(s, mid):   # the agent's last message of a turn: it finished, or asked in words
         _a(s, mid, stop="end_turn")
     a = fx.session("~/work/shop", entrypoint="claude-vscode")                      # counts: long run, typed elsewhere, back within 2 min
