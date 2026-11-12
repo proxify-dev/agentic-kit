@@ -33,7 +33,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from wording import plural  # noqa: E402  the one place a count meets its noun; imports nothing from the engine
+from wording import number, plural  # noqa: E402  the one place a count meets its noun; imports nothing from the engine
 
 BUILT_USED, BUILT_IDLE, USES_OTHERS, NOT_SEEN, CANT_TELL = (
     "built and used", "built, not used lately", "uses others'", "not seen", "can't tell")
@@ -116,7 +116,8 @@ def _d(x):
 
 
 def _n(x):
-    return x if isinstance(x, (int, float)) and not isinstance(x, bool) else 0
+    """A count out of the scan's data: a number, or a number written as text ("1,204"); anything else (a list, "n/a") reads 0, never an error."""
+    return x if isinstance(x, (int, float)) and not isinstance(x, bool) else (number(x) or 0)
 
 
 def _path(p):

@@ -212,7 +212,7 @@ def _n(x):
 
 def _rows(ctx):
     b = (ctx.get("v15_result") or {}).get("board") or {}
-    return {r.get("id"): r for r in b.get("rows") or [] if isinstance(r, dict) and r.get("id")}
+    return level_things.checked_rows(b.get("rows"))   # a count that is not a number makes its own row "couldn't check"
 
 
 def _items(row, kind):
@@ -271,7 +271,7 @@ def _kinds(ctx):
         items = _items(row, kind)
         if kind == "commands" and not items:
             continue
-        n = len(items) if row.get("list") is not None or items else (row.get("items") or 0)
+        n = len(items) if row.get("list") is not None or items else wording.count_or_zero(row.get("items"))
         if not n:
             continue
         used = sum(1 for x in items if level_things.in_use(x))
@@ -382,7 +382,7 @@ def _hooks(ctx, items):
         for x in items:
             hit = [e for e in x.get("events") or [] if e in events]
             if hit:
-                runs = sum(int((x.get("runs_at") or {}).get(e) or 0) for e in hit)
+                runs = sum(wording.count_or_zero((x.get("runs_at") or {}).get(e)) for e in hit)
                 here.append((runs, x))
         if not here and not always:
             continue
@@ -420,7 +420,7 @@ def _rules(ctx, c):
                  f'{mine["scoped"]} load in their folder' if mine["scoped"] else ""]
         about = (" · ".join(x for x in where if x) + (f' · {_plural(p["docs"], "doc")} opened when needed' if p["docs"] else "")
                  ) or "no AGENTS.md of yours"
-        how = (f'<span class="u"><b>{_n(p["sessions"] or 0)}</b> {wording.noun(int(p["sessions"] or 0), "session")}</span>' if p["ranked"]
+        how = (f'<span class="u"><b>{_n(wording.count_or_zero(p["sessions"]))}</b> {wording.noun(wording.count_or_zero(p["sessions"]), "session")}</span>' if p["ranked"]
                else f'<span class="u zero">{esc(level_things.project_how(p))}</span>')
         rows.append(f'<li class="it"><span class="nm">{esc(name)}</span><span class="ab">{esc(about)}</span>{how}</li>')
     sessions = f"{_plural(c['sessions'], 'session')} ran where they load." if c["sessions"] else "No session in the last 30 days ran where they load."
@@ -523,7 +523,7 @@ def _start_note(wf):
     work happened; when none could be, a zero on this page is "couldn't see", not "didn't build" (11-11: sessions that start in the home folder
     and work across 6 repos read "built 0"). "" when most sessions start in a project or the run did not say."""
     wf = wf if isinstance(wf, dict) else {}
-    total, outside, repos = (int(wf.get(k) or 0) for k in ("typed_sessions", "start_outside_repo", "repos_worked_in"))
+    total, outside, repos = (wording.count_or_zero(wf.get(k)) for k in ("typed_sessions", "start_outside_repo", "repos_worked_in"))
     if not total or outside * 2 <= total:
         return ""
     why = f"most of your sessions start in a folder that isn't a project ({outside} of {total})"

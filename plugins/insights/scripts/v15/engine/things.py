@@ -120,6 +120,26 @@ STATE_RANK = [YOURS_USED, YOURS_IDLE, USES_OTHERS, CLAUDE_DID, NOT_SEEN, CANT_CH
 
 
 _n = wording.count   # a count with its thousands, as every sentence here prints it
+COUNT_KEYS = ("items", "calls", "projects", "in_read", "read_projects", "ran", "changed")   # what a board row counts
+
+
+def checked_rows(rows):
+    """{id: board row} where every count is a number. A row whose count is there but is not one (a list, "12k", "n/a") becomes
+    a row that reads "couldn't check", with nothing counted, so the one thing says so and the rest of the tab shows (11-12: such a
+    value made the whole "What you've built" tab read "This view failed to build"). A readable count in a text ("1,204") is read.
+    The one entry the Built tab and the level read both take board rows through."""
+    out = {}
+    for r in rows or []:
+        if not isinstance(r, dict) or not r.get("id"):
+            continue
+        bad = [k for k in COUNT_KEYS if wording.is_not_a_number(r.get(k))]
+        if bad:
+            r = {**r, **{k: 0 for k in COUNT_KEYS if k not in bad and k in r}, **{k: 0 for k in bad}, "state": "can't tell",
+                 "unreadable": bad, "why": f"Couldn't check: the run's file holds no number for its {' or '.join(bad)}."}
+        else:
+            r = {**r, **{k: wording.number(r[k]) for k in COUNT_KEYS if r.get(k) is not None}}
+        out[r["id"]] = r
+    return out
 
 
 def things_met(pt):
@@ -181,7 +201,7 @@ def others_tools(rows):
     Never summed: a person with 2,094 MCP calls and no skill calls has "0 times" for the one and "2,094 times" for the
     other, and the Review's card and the level's sentence both say exactly that (11-12: one read the first row, the other the sum)."""
     s, m = (rows or {}).get("cap-skills-installed") or {}, (rows or {}).get("cap-mcp") or {}
-    n = lambda r, k: int(r.get(k) or 0)  # noqa: E731
+    n = lambda r, k: wording.count_or_zero(r.get(k))  # noqa: E731
     return {"skills": n(s, "items"), "skill_calls": n(s, "calls"), "mcp": n(m, "items"), "mcp_calls": n(m, "calls")}
 
 
@@ -217,7 +237,7 @@ def programs_rows(rows):
         r = (rows or {}).get(rid)
         if not r:
             continue
-        n, calls = int(r.get("items") or 0), int(r.get("calls") or 0)
+        n, calls = wording.count_or_zero(r.get("items")), wording.count_or_zero(r.get("calls"))
         run = plural(calls, run1, runs) + (f" {tail}" if tail else "")
         out.append({"id": rid, "title": title, "n": n, "calls": calls, "state": r.get("state"),
                     "phrase": f"{plural(n, one, many)} ({run})" if n else f"no {many}"})
@@ -233,7 +253,7 @@ def evals_counts(row):
     unit = row.get("unit")
     ran = row["ran"] if "ran" in row else (row.get("calls") or 0) if unit == "recorded runs" else 0
     changed = row["changed"] if "changed" in row else (row.get("calls") or 0) if unit == "folders changed" else 0
-    return int(ran or 0), int(changed or 0)
+    return wording.count_or_zero(ran), wording.count_or_zero(changed)
 
 
 def evals_said(row, days=30):
@@ -268,9 +288,10 @@ def rule_files(rows):
     they load (one figure, the row's); `by_project` is the table of the read projects: [{root, always, scoped}].
     (11-12: Built counted the 3 busiest projects, 32 files, the Your level tab every project, 1,632.)"""
     r = (rows or {}).get("cap-instructions") or {}
-    return {"total": int(r.get("items") or 0), "projects": int(r.get("projects") or 0), "sessions": int(r.get("calls") or 0),
-            "in_read": int(r["in_read"]) if r.get("in_read") is not None else None,
-            "read_projects": int(r.get("read_projects") or 0), "by_project": list(r.get("read") or [])}
+    return {"total": wording.count_or_zero(r.get("items")), "projects": wording.count_or_zero(r.get("projects")),
+            "sessions": wording.count_or_zero(r.get("calls")),
+            "in_read": wording.number(r.get("in_read")),
+            "read_projects": wording.count_or_zero(r.get("read_projects")), "by_project": list(r.get("read") or [])}
 
 
 def rule_files_said(c):
@@ -303,8 +324,8 @@ def mapped_projects(setup_map, setup_read=None):
             continue
         t = p.get("totals") if isinstance(p.get("totals"), dict) else {}
         label = os.path.basename(str(p.get("root") or "").rstrip("/")) or "project"
-        out.append({"label": label, "root": p.get("root"), "always": int(t.get("always_files") or 0),
-                    "scoped": int(t.get("scoped_files") or 0), "docs": int(t.get("on_demand_files") or 0),
+        out.append({"label": label, "root": p.get("root"), "always": wording.count_or_zero(t.get("always_files")),
+                    "scoped": wording.count_or_zero(t.get("scoped_files")), "docs": wording.count_or_zero(t.get("on_demand_files")),
                     "sessions": p.get("typed_sessions"), "ranked": p.get("typed_sessions") is not None,
                     "found_under": p.get("found_under"), "picked_by": p.get("picked_by"), "read": reads.pop(label, None)})
     for label, r in reads.items():
@@ -324,7 +345,7 @@ def projects_noun(projects):
 def project_how(p):
     """Why a project is on the list, in words, where the sessions column would print a bare "0 sessions"."""
     if p["ranked"]:
-        return plural(int(p["sessions"] or 0), "session")
+        return plural(wording.count_or_zero(p["sessions"]), "session")
     if p.get("picked_by") == "rule-files":
         return "added for its recently edited AGENTS.md"
     return "found from your work" if not p.get("found_under") else f"found under {p['found_under']}"
@@ -406,8 +427,8 @@ def _from_board(t, rows):
     if state == USES_OTHERS and t.get("others_is"):
         state = t["others_is"]
     mine = [r for r in got if r.get("state") == best.get("state") or BOARD_STATE.get(r.get("state")) in PRESENT]
-    items = sum(r.get("items") or 0 for r in mine)
-    calls = sum(r.get("calls") or 0 for r in mine)
+    items = sum(wording.count_or_zero(r.get("items")) for r in mine)
+    calls = sum(wording.count_or_zero(r.get("calls")) for r in mine)
     # projects: the repos the items sit in, joined across rows by the board's opaque ids (a script that both starts
     # `claude -p` and imports the SDK sits in one project). An older run's rows carry none: the sentence counts items.
     ids = {i for r in mine for i in r.get("project_ids") or []}
@@ -424,6 +445,8 @@ def _from_board(t, rows):
         c = rule_files(rows)
         proof = (f"{rule_files_said(c)}; {plural(c['sessions'], 'session')} ran where they load." if c["sessions"]
                  else f"{rule_files_said(c)}; no session in the last 30 days ran where they load.")
+    elif state == CANT_CHECK and best.get("unreadable"):
+        proof = best["why"]
     elif state == YOURS_USED:
         proof = say(t["used_p"] if ids and t.get("used_p") else t.get("used") or "You have {n} of your own; used {calls:time} in the last 30 days.", **f)
     elif state == YOURS_IDLE:
@@ -461,7 +484,7 @@ def things(run_dir, board, bars):
     """Every thing with its state and a one-line proof (counts, never a name)."""
     inv = _load(run_dir, "inventory.json")
     counts = _counts(inv)
-    rows = {r["id"]: r for r in (board or {}).get("rows") or [] if r.get("id")}
+    rows = checked_rows((board or {}).get("rows"))
     days = _days(run_dir)
     out = []
     for t in THINGS:
