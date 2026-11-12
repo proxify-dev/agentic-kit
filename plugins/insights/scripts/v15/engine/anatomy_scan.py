@@ -38,16 +38,16 @@ LOOK_TOOLS = re.compile(r"screenshot|browser|playwright|chrome", re.I)
 SESSIONS_DIR = re.compile(r"\.claude/projects\b")
 WORKED_REPOS = 40   # distinct repos sessions worked in that are asked of git; the busiest ones
 SCRIPT = re.compile(r"(/[^\s\"']+\.(?:mjs|cjs|js|ts|py|sh))")  # an absolute script path inside a hook's command
-# Where a person types: the terminal, or an app that drives Claude Code through the Agent SDK (VS Code, the desktop app,
-# JetBrains; the same list as the evidence inventory's PERSON_APPS). A headless run (entrypoint sdk-*) carries a
-# program's prompt, so it counts for no project (11-12: the pick took a folder with 3 terminal sessions over the repo
-# with 169 desktop-app sessions, and the review and level read the wrong project).
-PERSON_ENTRIES = ("cli", "claude-vscode", "claude-desktop", "claude-jetbrains")
 
 
 def person_session(entry):
-    """True when the session's "user" messages are the person's (see PERSON_ENTRIES)."""
-    return entry in PERSON_ENTRIES
+    """True when the session's "user" messages are the person's: every entrypoint but a headless run's (sdk-*), so the
+    terminal, an app that drives Claude Code through the Agent SDK (VS Code, the desktop app, JetBrains), a new app and
+    a session from a Claude Code too old to name one all count. The same rule as the portable checks'
+    `Laptop.interactive` and logs.py, which writes chats.jsonl. A headless run carries a program's prompt, so it counts
+    for no project (11-12: the pick took a folder with 3 terminal sessions over a repo with 169 desktop-app sessions,
+    and the review and level read the wrong project)."""
+    return not (entry or "").startswith("sdk")
 
 
 INJECTED = ("<task-notification", "<cross-session-message", "<local-command", "<command-name", "<command-message",
@@ -174,12 +174,13 @@ def most_active(per, n, worked=None, top_worked=()):
     by_repo = defaultdict(Counter)
     for r in per:
         repo = repo_of(r["cwd"])
+        typed = person_session(r["entry"]) and r["counts"].get("typed")
         also = {repo_of(w) for w in (worked or {}).get(os.path.basename(r["path"])[:-6], {}) if w in top_worked} - {repo}
         for rp in also:
             by_repo[rp]["worked_sessions"] += 1
-            if r["entry"] == "cli" and r["counts"].get("typed"):
+            if typed:
                 by_repo[rp]["typed_sessions"] += 1
-        if person_session(r["entry"]) and r["counts"].get("typed"):
+        if typed:
             by_repo[repo]["typed_sessions"] += 1
         by_repo[repo]["sessions"] += 1
     return by_repo, busiest(by_repo, n)
@@ -400,7 +401,7 @@ def main(argv):
     goal_sessions = goal_wake = rounds = 0
     for r in per:
         c = dict(r["counts"])
-        if r["entry"] != "cli":  # a headless run's "user" messages are a program's prompt, not the person typing
+        if not person_session(r["entry"]):  # a headless run's "user" messages are a program's prompt, not the person typing
             for k in ("session_refs", "user_images"):
                 c.pop(k, None)
         total.update(c)

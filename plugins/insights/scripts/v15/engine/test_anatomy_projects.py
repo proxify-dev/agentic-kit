@@ -61,9 +61,9 @@ class MostActiveProjectCase(unittest.TestCase):
         self.assertNotEqual(active[0], self.repos["bot"])
 
     def test_person_session_rule(self):
-        for entry in ("cli", "claude-desktop", "claude-vscode", "claude-jetbrains"):
+        for entry in ("cli", "claude-desktop", "claude-vscode", "claude-jetbrains", None):   # None: too old to name one
             self.assertTrue(anatomy_scan.person_session(entry), entry)
-        for entry in ("sdk-cli", "sdk-ts", "sdk-py", None):
+        for entry in ("sdk-cli", "sdk-ts", "sdk-py"):
             self.assertFalse(anatomy_scan.person_session(entry), entry)
 
 

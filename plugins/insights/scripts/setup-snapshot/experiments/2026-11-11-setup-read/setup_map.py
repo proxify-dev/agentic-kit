@@ -24,9 +24,6 @@ import re
 import sys
 from collections import Counter
 
-# Where a person types (the same list as anatomy_scan.PERSON_ENTRIES and the evidence inventory's PERSON_APPS): the
-# terminal, or an app that drives Claude Code through the Agent SDK. A headless run (ep sdk-*) counts for no project.
-PERSON_ENTRIES = ("cli", "claude-vscode", "claude-desktop", "claude-jetbrains")
 MAX_BYTES = 300_000
 DOC_EXT = (".md", ".txt", ".mdc")
 OUTLINE_DEPTH, OUTLINE_MAX = 3, 40
@@ -661,12 +658,15 @@ def pick_projects(run, ctx, n, inv, anat, scan):
                     if cwd and os.path.normpath(cwd) == ctx.home:
                         home_start = True
                     r = ctx.repo_root(cwd) if cwd and os.path.isdir(cwd) else None
-                    if r and c.get("ep") in PERSON_ENTRIES:
+                    # every session but a headless run (sdk-*) counts, from any app: anatomy_scan.person_session's rule
+                    # (logs.py already leaves headless runs out of chats.jsonl)
+                    if (c.get("ep") or "").startswith("sdk"):
+                        continue
+                    if r:
                         counts[r] += 1
-                    if c.get("ep") == "cli":
-                        for w in worked.get(c.get("chat"), {}):
-                            if w != r and os.path.isdir(w) and ctx.repo_root(w) == w:
-                                counts[w] += 1
+                    for w in worked.get(c.get("chat"), {}):
+                        if w != r and os.path.isdir(w) and ctx.repo_root(w) == w:
+                            counts[w] += 1
         except OSError:
             pass
         picked = [(r, {"typed_sessions": k}) for r, k in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]   # a tie ends by path, not by read order
