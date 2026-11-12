@@ -172,6 +172,25 @@ class McpBuiltCase(unittest.TestCase):
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]["origin"], "third_party", out[0]["origin_evidence"])
 
+    def test_a_server_whose_file_sits_in_another_repo_too_is_read_after_the_budget_is_spent(self):
+        # one codebase in two checkouts: ownership.py's copy rule asks git about the other repo, whose history the spent
+        # budget no longer reads; the answer about the server must stay its own (that mix-up stopped the scan)
+        server = 'import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";\nconst server = new McpServer({name: "notes"});\n'
+        first, second = self.repo("notes"), self.repo("notes-copy")
+        for r in (first, second):
+            commit(r, {"package.json": PACKAGE, "tools/mcp/server.ts": server})
+        inventory.RECEIPTS = inventory.OWNERSHIP.load_receipts(roots=[first, second], use_claude=False)
+        left = inventory.GIT_BUDGET["left"]
+        inventory.GIT_BUDGET["left"] = 0
+        try:
+            out = self.built(second)
+        finally:
+            inventory.GIT_BUDGET["left"] = left
+            inventory.RECEIPTS = None
+        self.assertEqual(len(out), 1, out)
+        self.assertEqual(out[0]["origin"], "own", out[0]["origin_evidence"])
+        self.assertEqual(out[0]["git"]["commits"], 1)
+
     def test_a_copy_of_someone_elses_server_committed_into_their_repo_is_installed(self):
         # ownership.py's rule 4: they committed a byte copy of a version of a file from another repo on this laptop whose
         # commits are someone else's (a clone of the upstream project): installed, not theirs

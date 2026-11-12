@@ -1133,7 +1133,9 @@ def classify_origin(path: Path, name: str, kind: str, files: list | None = None)
 
     def auth(p):
         gi = files_info(files) if files and os.path.realpath(p) == str(real) else git_info(Path(p))
-        gi_box["gi"] = gi
+        # the first call asks about this file; later ones ask about other repos (ownership.py's copy rule), whose
+        # answers must not stand in for it (one with no history read stopped the scan: no "commits")
+        gi_box.setdefault("gi", gi)
         if gi.get("in_git") and gi.get("commits"):
             return {"commits": gi["commits"], "theirs": gi.get("user_commits") or 0}
         return None
@@ -2635,9 +2637,13 @@ def main(argv=None):
                     S.lists["mcp_servers"].append(rec)
         # MCP servers built into their own repos: a product's endpoint no Claude Code config names (a
         # JSON-RPC endpoint an external assistant calls read "none of yours")
+        # nothing reads this list yet, so a failure in it never costs the rest of the scan
         for t, w in walks.items():
-            for rec in collect_mcp_built(t, w):
-                S.add("mcp_built", rec, key=rec["repo"])
+            try:
+                for rec in collect_mcp_built(t, w):
+                    S.add("mcp_built", rec, key=rec["repo"])
+            except Exception as e:  # noqa: BLE001
+                cnr(t, f"MCP servers built into the repo: not read ({type(e).__name__}: {e})"[:200])
 
     # 9. memory stores
     with section("memory"):
