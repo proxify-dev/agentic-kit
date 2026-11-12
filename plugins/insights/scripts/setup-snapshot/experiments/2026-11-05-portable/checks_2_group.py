@@ -106,7 +106,12 @@ def _calls(lt, names, sidechain=False, interactive=True):
 
 
 def _att(lt, typ, interactive=True):
-    return [a for a in lt.attachments if a["type"] == typ and (not interactive or lt.interactive(a["s"]))]
+    """The attachments of one type (kept: several checks ask for the same type)."""
+    memo = _cache(lt).setdefault("att", {})
+    key = (typ, interactive)
+    if key not in memo:
+        memo[key] = [a for a in lt.attachments if a["type"] == typ and (not interactive or lt.interactive(a["s"]))]
+    return memo[key]
 
 
 def _field(data, key):
@@ -1451,22 +1456,30 @@ def _own_setup_files(lt):
     byp = {a["path"]: a["own"] for a in arts if a["kind"] in REFINED_KINDS}
     skill_dirs = {os.path.dirname(a["path"]): a["own"] for a in arts if a["kind"] == "skill"}
     out = {}
+    skill_of = {}      # (folder, repo) -> the nearest folder at or above it, inside the repo, that is a skill's: asked once per folder, not once per file
+    def nearest_skill(d, r):
+        key = (d, r)
+        if key not in skill_of:
+            hit, cur = None, d
+            while cur.startswith(r) and len(cur) > len(r):       # a file in a skill's folder belongs to the skill
+                if cur in skill_dirs:
+                    hit = cur
+                    break
+                if os.path.dirname(cur) == cur:                  # a root is its own parent
+                    break
+                cur = os.path.dirname(cur)
+            skill_of[key] = hit
+        return skill_of[key]
     for r in lt.repos:
         for rel in _tracked(lt, r):
-            rp = os.path.realpath(os.path.join(r, rel))
+            rp = _real(lt, os.path.join(r, rel))                 # os.path.realpath, each folder resolved once
             if rp in byp:
                 if byp[rp]:
                     out[rp] = True
                 continue
-            d = os.path.dirname(rp)
-            while d.startswith(r) and len(d) > len(r):       # a file in a skill's folder belongs to the skill
-                if d in skill_dirs:
-                    if skill_dirs[d] and os.path.isfile(rp):
-                        out[rp] = True
-                    break
-                if os.path.dirname(d) == d:                  # a root is its own parent
-                    break
-                d = os.path.dirname(d)
+            d = nearest_skill(os.path.dirname(rp), r)
+            if d is not None and skill_dirs[d] and os.path.isfile(rp):
+                out[rp] = True
     c["setup_files"] = out
     return out
 
@@ -1484,7 +1497,7 @@ def setup_refined_over_time(lt):
         for cm in _git_commits(lt, r):
             if not cm["mine"]:
                 continue
-            hit = [os.path.realpath(os.path.join(r, p)) for st, p, _ in cm["files"] if st == "M"]
+            hit = [_real(lt, os.path.join(r, p)) for st, p, _ in cm["files"] if st == "M"]       # os.path.realpath, each folder resolved once
             hit = [x for x in hit if x in own]
             if hit:
                 commits += 1
@@ -1882,8 +1895,15 @@ def _yours_of(lt, files):
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(8) as ex:   # git runs in its own process: threads overlap the waiting
             list(ex.map(read, by_top.items()))
-    for f, (top, n, m) in counts.items():
-        memo[f] = lt.owner(f, top, n, m) == "theirs"      # the rule, once the commits are in
+    def decide(item):
+        f, (top, n, m) = item
+        return f, lt.owner(f, top, n, m) == "theirs"      # the rule, once the commits are in
+    if len(counts) > 50:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(8) as ex:   # a file that is a copy asks git who added that version: each is its own process, so threads overlap them
+            memo.update(ex.map(decide, counts.items()))
+    else:
+        memo.update(map(decide, counts.items()))
     return memo
 
 
@@ -2269,7 +2289,8 @@ def _tool_tests(lt, repo, tools):
     if repo not in memo:
         stems = sorted({os.path.splitext(os.path.basename(p))[0] for p in tools if len(os.path.splitext(os.path.basename(p))[0]) > 1})
         hits = lt.git("-c", "core.quotepath=false", "grep", "-l", "-I", "-w", "-F", *sum((["-e", s] for s in stems), []), cwd=repo).splitlines() if stems else []
-        tests = [os.path.join(repo, h) for h in hits if _is_test(repo, h) and os.path.realpath(os.path.join(repo, h)) not in {os.path.realpath(t) for t in tools}]
+        tool_reals = {os.path.realpath(t) for t in tools}      # once, not once per hit
+        tests = [os.path.join(repo, h) for h in hits if _is_test(repo, h) and os.path.realpath(os.path.join(repo, h)) not in tool_reals]
         yours = _yours_of(lt, tests) if tests else {}
         memo[repo] = any(yours.get(t) for t in tests)
     return memo[repo]
@@ -2976,6 +2997,15 @@ def dependency_commits(lt):
     """The person's commits in the window that change a lock file, go.mod, requirements*.txt, or the dependency lines of a manifest
     (package.json, pyproject, Cargo.toml, Gemfile...). Counted from git, whichever package manager ran."""
     n, per = 0, {}
+    from concurrent.futures import ThreadPoolExecutor
+    lt.repos, lt.identity     # read before any thread starts
+    diffs = []      # the `git show` of each commit of theirs that changes a manifest, asked side by side (git runs in its own process); the loop below finds them in lt's memo
+    for r in lt.repos:
+        for cm in _git_commits(lt, r):
+            if cm["mine"] and not any(os.path.basename(p) in DIRECT or re.match(r"requirements[\w.-]*\.txt$", os.path.basename(p)) for _, p, _ in cm["files"]):
+                diffs += [(cm["h"], p, r) for _, p, _ in cm["files"] if os.path.basename(p) in DIFFED]
+    with ThreadPoolExecutor(8) as ex:
+        list(ex.map(lambda d: lt.git("show", "-U0", "--format=", "--no-renames", d[0], "--", d[1], cwd=d[2]), diffs))
     for r in lt.repos:
         for cm in _git_commits(lt, r):
             if not cm["mine"]:
@@ -3221,4 +3251,19 @@ def _own_checks_shared(lt):
     _edits_by_name(lt); _bash_by_repo(lt); _repo_activity(lt)
 
 
+def _warm_calls(lt):
+    """The tool-call lists and attachment lists that several checks ask for (`_calls`, `_att`), read once before the checks start: each
+    worker would otherwise scan the whole call list for them again (1-2 s a check, on a laptop whose checks have 5 s)."""
+    for names, sidechain, interactive in (
+            (("Agent", "Task"), True, True), (("Bash",), True, True), (("Edit", "MultiEdit"), True, True), (("Edit", "MultiEdit", "Write"), True, True),
+            (("Edit", "MultiEdit", "NotebookEdit", "Write"), True, True), (("Read",), False, True), (("Skill",), True, True), (("Write",), True, True),
+            (("Agent", "Task"), True, False), (("Bash",), True, False), (("Read",), True, False), (("Skill",), True, False), (("Write",), True, False)):
+        _calls(lt, names, sidechain=sidechain, interactive=interactive)
+    _calls(lt, [x["name"] for x in lt.calls if (x["name"] or "").startswith("mcp__")], sidechain=True)     # built_and_used's own question
+    for typ, interactive in (("file", True), ("hook_success", True), ("skill_mention", False)):
+        _att(lt, typ, interactive)
+
+
 PREWARM = [_commits_all, _prompt_numstat, _own_setup_files, _own_checks_shared, _bash_commands_all, _artifacts, _typed_by_session, _eval_folders, _rc_path_dirs, _home_prefix, _path_stems, _path_index]
+# What the checks ask for that is not a builder of the speed map (PREWARM): also done once, before the workers fork.
+WARM = [_warm_calls, _first_reads, _first_creates, _notes]

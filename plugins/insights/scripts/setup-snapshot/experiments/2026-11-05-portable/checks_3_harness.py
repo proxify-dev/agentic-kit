@@ -2170,6 +2170,16 @@ def _shared_files(lt, repo):
     return [t for t in _names_matching(_SHARED, _tracked(lt, repo), _SHARED_HINTS) if _owned(lt, os.path.join(repo, t))]
 
 
+def _shared_files_warm(lt):
+    """Ask whose each shared setup file of every repo is, on threads, before the checks start: the three share checks each read them all
+    (3,400 files on one laptop, each answer a few git questions), and each worker did it alone, 33 s. The answers are kept in lt's
+    owner memo, so the checks' own calls find them."""
+    from concurrent.futures import ThreadPoolExecutor
+    lt.repos, lt.identity, lt._ownership()   # read before any thread starts (identity swaps HOME while it reads)
+    with ThreadPoolExecutor(8) as ex:   # git runs in its own process: threads overlap the waiting
+        list(ex.map(lambda r: _shared_files(lt, r), lt.repos))
+
+
 def _names_matching(rx, names, hints):
     """The names `rx` matches, in order. `hints` are strings every match must hold (a name that holds none cannot match): they are found
     in the names joined by newlines with plain substring searches (a repo lists tens of thousands of files, the repos a million), and rx
@@ -2566,9 +2576,10 @@ def _team_sessions(lt):
                 skills.setdefault(c["s"], []).append(c["t"])
         for v in marks.values():
             v.sort()
+        mark_times = {sid: [t for t, _ in v] for sid, v in marks.items()}     # once per session, not once per launch
         for c in mine:
             ms = marks.get(c["s"]) or []
-            i = bisect.bisect_right([t for t, _ in ms], c["t"]) - 1
+            i = bisect.bisect_right(mark_times.get(c["s"]) or [], c["t"]) - 1
             if i < 0:
                 continue
             start, command = ms[i]
@@ -2730,3 +2741,5 @@ def _hook_paths_all(lt):
 
 # Built once before the checks split into workers (evaluate.py / run_portable.py run_prewarm_hooks).
 PREWARM = [_case_files, _hook_paths_all, _team_sessions]
+# Also done once, before the workers fork; not builders of the speed map.
+WARM = [_hook_entries, _shared_files_warm, _scan]

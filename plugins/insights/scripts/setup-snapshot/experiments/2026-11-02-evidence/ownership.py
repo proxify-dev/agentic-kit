@@ -118,6 +118,7 @@ class Receipts:
         self._heads = {}           # clone root → {blob name: a path holding it} at its head commit (git ls-tree), built when a copy is looked for
         self._has_blob = {}        # (repo, sha) → whether the repo holds that blob (git cat-file)
         self._mostly_others = {}   # repo → whether most of its commits are someone else's
+        self._objects = {}         # repo → frozenset of the object names it holds (only for repos that are mostly someone else's), or None
 
 
 def _plugins_from_claude():
@@ -330,15 +331,79 @@ def _same_as_installed(path, rc):
     return next((c for c in cands if _sha(c) == h), None)
 
 
+MAX_OBJECT_SET = 3_000_000   # a repo with more objects than this is asked sha by sha, not listed whole (a huge clone would cost more memory than it saves)
+
+
+def _ask_blobs(repo, shas, rc):
+    """Fill rc._has_blob for every sha not asked of this repo yet, with ONE git process: `git cat-file --batch-check` prints one
+    line per name it is given, "<sha> missing" or "<sha> <type> <size>". The same answer as `git cat-file -e <sha>` (the repo holds
+    the object, whatever its type). A git that fails or answers with a different number of lines than it was asked is asked again one
+    sha at a time, so a surprise costs time, never an answer."""
+    todo = [s for s in dict.fromkeys(shas) if (repo, s) not in rc._has_blob]
+    if not todo:
+        return
+    try:
+        r = subprocess.run(["git", "-C", repo, "cat-file", "--batch-check"], input="".join(s + "\n" for s in todo),
+                           capture_output=True, text=True, timeout=60)
+        lines = r.stdout.splitlines()
+        if r.returncode == 0 and len(lines) == len(todo):
+            for s, line in zip(todo, lines):
+                rc._has_blob[(repo, s)] = not line.endswith(" missing")
+            return
+        if r.returncode == 128 and "not a git repository" in r.stderr:     # a folder with a stray .git: `cat-file -e` says no to every name
+            for s in todo:
+                rc._has_blob[(repo, s)] = False
+            return
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for s in todo:
+        try:
+            r = subprocess.run(["git", "-C", repo, "cat-file", "-e", s], capture_output=True, timeout=20,
+                               stdin=subprocess.DEVNULL)
+            rc._has_blob[(repo, s)] = r.returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            rc._has_blob[(repo, s)] = False
+
+
+def _repo_objects(repo, rc):
+    """The names of every object the repo holds (and its alternates), as a set, read with one git process; None when the repo is too big
+    to list (MAX_OBJECT_SET) or git cannot say. Kept in rc._objects. Used only for a repo that is mostly someone else's (see
+    _git_has_blob): in a scan that asks about hundreds of files, one listing of a few repos replaces a git process per file and repo
+    (11-12: 21,192 `git cat-file -e` calls, 392 s of one 491 s step)."""
+    if repo not in rc._objects:
+        got = None
+        try:
+            c = subprocess.run(["git", "-C", repo, "count-objects", "-v"], capture_output=True, text=True, timeout=20,
+                               stdin=subprocess.DEVNULL)
+            n = sum(int(v) for k, _, v in (ln.partition(": ") for ln in c.stdout.splitlines()) if k in ("count", "in-pack") and v.strip().isdigit())
+            if c.returncode == 0 and n <= MAX_OBJECT_SET:
+                r = subprocess.run(["git", "-C", repo, "cat-file", "--batch-all-objects", "--batch-check=%(objectname)"],
+                                   capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+                if r.returncode == 0:
+                    got = frozenset(r.stdout.split())
+        except (OSError, subprocess.SubprocessError, ValueError):
+            got = None
+        rc._objects[repo] = got
+    return rc._objects[repo]
+
+
+def warm_objects(rc):
+    """Read the object names of every repo known to be mostly someone else's, once, so callers that fork afterwards share them."""
+    for repo in rc.repo_roots:
+        if rc._mostly_others.get(repo):
+            _repo_objects(repo, rc)
+    for repo in rc.clone_roots:      # the nested clones: one ls-tree each, so no worker asks git about a clone again
+        _head_blobs(repo, rc)
+
+
 def _git_has_blob(repo, sha, rc):
     key = (repo, sha)
     if key not in rc._has_blob:
-        try:
-            r = subprocess.run(["git", "-C", repo, "cat-file", "-e", sha], capture_output=True, timeout=20,
-                               stdin=subprocess.DEVNULL)
-            rc._has_blob[key] = r.returncode == 0
-        except (OSError, subprocess.SubprocessError):
-            rc._has_blob[key] = False
+        objs = _repo_objects(repo, rc) if rc._mostly_others.get(repo) else None    # the repos rule 4 can match are few; a set for each repo would cost memory
+        if objs is not None:
+            rc._has_blob[key] = sha in objs
+        else:
+            _ask_blobs(repo, [sha], rc)
     return rc._has_blob[key]
 
 
@@ -433,9 +498,12 @@ def _committed_copy(path, rc, authorship, blob_authorship, tracked=True):
     except OSError:
         return None
     sha = hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()   # git's own name for these bytes
-    clones = [r for r in rc.clone_roots if sha in _head_blobs(r, rc)]
+    clones = [r for r in rc.clone_roots if sha in _head_blobs(r, rc)]     # one ls-tree per clone, kept in rc._heads (warmed before the workers fork)
+    real_dir = _real(os.path.dirname(os.path.abspath(f)))   # once, not once per repo (realpath of the same file in 90 repos: 18 s on one laptop)
     for root in rc.repo_roots + clones:
-        if _under(_real(os.path.dirname(os.path.abspath(f))), root) or (root in rc.repo_roots and not _git_has_blob(root, sha, rc)):
+        if _under(real_dir, root) or rc._mostly_others.get(root) is False:   # known not to be someone else's: it holds no source of a copy
+            continue
+        if root in rc.repo_roots and not _git_has_blob(root, sha, rc):    # a clone was listed by its head just above: it holds the blob
             continue
         if root not in rc._mostly_others:
             rc._mostly_others[root] = False      # authorship(root) may ask who owns a file of root: not this question again
