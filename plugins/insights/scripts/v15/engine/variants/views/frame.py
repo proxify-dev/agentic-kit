@@ -53,6 +53,8 @@ def esc(s):
 # The owner's ruling (11-12): the instruction file is called AGENTS.md, CLAUDE.md is its known synonym, and a reader is told so once per
 # tab. A tab whose text names AGENTS.md carries this line under its title, so the first thing a reader meets is its meaning.
 # (.claude/rules/ files are a separate, extra mechanism: a view that mentions them names them itself.)
+ALL_BUTTON = ('<button type="button" class="rp-all" id="rp-all" aria-pressed="false" title="Lay every tab and panel out on one page, '
+              'so the browser\'s find (Cmd/Ctrl+F) searches all of it">Show everything</button>')
 AGENTS_MD_NOTE = '<p class="rp-note">AGENTS.md (or CLAUDE.md) is the file the agent reads at the start of every session.</p>'
 
 
@@ -143,7 +145,8 @@ main.rp-wrap{padding-top:32px;padding-bottom:96px}
 .rp-sub a{flex:none;padding:6px 12px;border-radius:6px;color:#475467;text-decoration:none;font-size:14px;font-weight:500}
 .rp-sub a:hover{color:#15172F}
 .rp-sub a[aria-current=page]{background:#FFFFFF;color:#15172F;box-shadow:0 1px 2px rgba(16,24,40,.08)}
-.view{display:none}.view.on{display:block}
+.rp-all{flex:none;font:inherit;font-size:12px;font-weight:500;line-height:1;color:#475467;background:#F9FAFB;border:1px solid #EAECF0;border-radius:8px;padding:8px 10px;cursor:pointer}
+.rp-all:hover{color:#15172F}.rp-all[aria-pressed=true]{background:#F5F5FF;color:#3C3ED4;border-color:#C7C9FD}
 .view,.view [id]{scroll-margin-top:136px}
 .view>header{margin:0 0 32px;max-width:72ch}
 .view>header.rp-sr{position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -156,7 +159,11 @@ main.rp-wrap{padding-top:32px;padding-bottom:96px}
 
 JS = """
 (function(){
-  var views=[].slice.call(document.querySelectorAll('.view')), first=views[0].id.slice(2), cur=first, PANEL=/^[pctm][/]/;
+  // A tab that is not showing is `hidden="until-found"`, never display:none: the browser's find-in-page (Cmd/Ctrl+F) searches it, and a
+  // match there fires `beforematch`, which switches to that tab. Browsers without until-found (Safari, Firefox) hide it plainly:
+  // for them "Show everything" lays every tab and panel out on one page. Nothing here listens for a key: find is the browser's.
+  var views=[].slice.call(document.querySelectorAll('.view')), first=views[0].id.slice(2), cur=first, PANEL=/^[pctm][/]/, everything=false,
+      UF='until-found', btn=document.getElementById('rp-all'), reopened=[];
   window.kpView=function(){return cur};
   function showView(raw){
     // #<view> opens a view; #<any id inside a view> opens that view and scrolls to the element (e.g. #what-you-built)
@@ -164,7 +171,7 @@ JS = """
     if(!el){var t=document.getElementById(name), v=t&&t.closest('.view');
       if(v){target=t;el=v;name=v.id.slice(2)}else{name=first;el=document.getElementById('v-'+name)}}
     cur=name;var g=el.dataset.group;
-    views.forEach(function(v){v.classList.toggle('on',v===el)});
+    views.forEach(function(v){v.classList.toggle('on',v===el);if(v===el||everything)v.removeAttribute('hidden');else v.setAttribute('hidden',UF)});
     document.querySelectorAll('.rp-tabs a').forEach(function(a){a.toggleAttribute('aria-current',a.dataset.group===g);if(a.dataset.group===g)a.setAttribute('aria-current','page')});
     document.querySelectorAll('.rp-sub').forEach(function(s){s.hidden=s.dataset.group!==g});
     document.querySelectorAll('.rp-sub a').forEach(function(a){a.removeAttribute('aria-current');if(a.hash==='#'+name)a.setAttribute('aria-current','page')});
@@ -180,8 +187,17 @@ JS = """
     window.kpClose&&window.kpClose();
     return showView(raw);
   }
-  function go(){var t=show();if(t==='keep')return;if(t)t.scrollIntoView();else scrollTo(0,0)}
+  function go(){var t=show();if(t==='keep')return;if(everything&&!t)t=document.getElementById('v-'+cur);if(t)t.scrollIntoView();else scrollTo(0,0)}
   addEventListener('hashchange',go);go();
+  document.addEventListener('beforematch',function(e){var v=e.target.closest&&e.target.closest('.view');
+    if(!v||everything||v.id.slice(2)===cur)return;showView(v.id.slice(2));if(history.replaceState)history.replaceState(null,'','#'+v.id.slice(2))});
+  function setEverything(on){
+    everything=on;btn.setAttribute('aria-pressed',on);btn.textContent=on?'Back to tabs':'Show everything';
+    if(on){views.forEach(function(v){v.removeAttribute('hidden')});
+      reopened=[].filter.call(document.querySelectorAll('details'),function(d){return !d.open});reopened.forEach(function(d){d.open=true})}
+    else{reopened.forEach(function(d){d.open=false});reopened=[];showView(cur)}
+    if(window.kpFlat)window.kpFlat(on)}
+  btn.addEventListener('click',function(){setEverything(!everything)});
 })();
 """
 
@@ -295,7 +311,7 @@ def build(run, out, member=False, level=True, masked=False, page=None):
             gloss = "" if page else agents_md_note(body)
             # HIDE_HEADER: a view that opens on its own picture keeps its title for screen readers and the window title
             head = ' class="rp-sr"' if getattr(v, "HIDE_HEADER", False) else ""
-            sections.append(f'<section class="view v-{n}" id="v-{n}" data-group="{gid}"><header{head}><h2>{esc(v.TITLE)}</h2>'
+            sections.append(f'<section class="view v-{n}" id="v-{n}" data-group="{gid}" hidden="until-found"><header{head}><h2>{esc(v.TITLE)}</h2>'
                             f'<p class="q">{esc(getattr(v, "QUESTION_MEMBER", v.QUESTION) if member else v.QUESTION)}</p>{note}</header>{gloss}{body}</section>')
     finder_views = [(n, TAB.get(n, by_name[n].TITLE), gtitle) for _, gtitle, names in groups for n in names]
     # no level key above the tabs (11-11): its practice words ("L4 runs without you") sat above the Review's level, named
@@ -303,8 +319,8 @@ def build(run, out, member=False, level=True, masked=False, page=None):
     # in common.RUNG_WORD for the tabs that show a practice's level.
     # the side panel (a practice's card) and the ⌘K finder (practices, problems, terms): Proxify's copy only, where the
     # substrate, call sheet and internal tabs open practice and problem cards
-    lab = (f"{panel_kit.ASIDE}{panel_kit.panels_script(page['panels'])}{panel_kit.JS}" if page else
-           "" if member else (f"{panel_kit.ASIDE}{panel_kit.data_script(ctx)}{panel_kit.JS}\n"
+    lab = (f"{panel_kit.panels_html(page['panels'])}{panel_kit.JS}" if page else
+           "" if member else (f"{panel_kit.data_html(ctx)}{panel_kit.JS}\n"
                              f"{finder_kit.DIALOG}{finder_kit.data_script(ctx, finder_views)}{finder_kit.JS}"))
     mark = ('<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
             'stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h10M3 8h7M3 11.5h4"/></svg>')
@@ -314,7 +330,7 @@ def build(run, out, member=False, level=True, masked=False, page=None):
 <style>{"".join(css)}</style></head><body>
 <header class="rp-top"><div class="rp-wrap"><div class="rp-bar"><span class="rp-mark">{mark}</span>
 <div class="rp-id"><b>{esc(page["title"]) if page else "Your agentic setup"}</b><span>{esc(page["line"] if page else window_line(meta))}</span></div>
-{getattr(by_name.get("share"), "BUTTON", "")}{"" if member or page else finder_kit.BUTTON}{theme.SWITCH}</div>
+{getattr(by_name.get("share"), "BUTTON", "")}{"" if member or page else finder_kit.BUTTON}{ALL_BUTTON}{theme.SWITCH}</div>
 <nav class="rp-tabs" aria-label="Report sections">{"".join(tabs)}</nav></div></header>
 {lab}
 <main class="rp-wrap">{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member or page else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""

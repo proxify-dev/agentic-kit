@@ -455,22 +455,42 @@ def panel(spec):
     return _head(esc(spec.get("kicker")), spec["title"], badges) + body
 
 
-def panels_script(panels):
-    """The page's panel data when it has no substrate behind it: {"m": {key: panel html}}."""
-    return ('<script type="application/json" id="kp-data">'
-            + json.dumps({"m": {k: panel(v) for k, v in panels.items()}}, ensure_ascii=False).replace("</", "<\\/") + "</script>")
+def _store(panels):
+    """Every panel's text as HTML in the page, each `hidden="until-found"`: a browser's find-in-page (Cmd/Ctrl+F) reaches text that
+    is not showing, and the page's `beforematch` handler opens the panel that holds the match. `panels` = {kind: {id: html}}.
+    (11-12: panels were JSON built into a panel only when clicked, so find never saw their text.)"""
+    out = []
+    for kind, items in panels.items():
+        for id_, body in items.items():
+            i = body.find(SPLIT)
+            head, rest = (body[:i], body[i + len(SPLIT):]) if i >= 0 else ("", body)
+            out.append(f'<div class="kp-p" data-panel="{esc(kind)}/{esc(id_)}" hidden="until-found"><div class="kp-top">'
+                       f'<div class="kp-headc">{head}</div></div><div class="kp-body">{rest}</div></div><!--/kp-p-->')
+    return "".join(out)
 
 
-def data_script(ctx):
-    return ('<script type="application/json" id="kp-data">' + json.dumps(payload(ctx), ensure_ascii=False).replace("</", "<\\/") + "</script>")
+def aside(panels):
+    """The side panel with every panel in it (closed: the whole aside is hidden until found), its scrim and its tooltip.
+    `.kp-dyn` is the one panel filled at run time (`kpOpenHtml`: the substrate board's story)."""
+    return ('<div class="kp-scrim" id="kp-scrim" hidden></div>'
+            '<aside class="kp" id="kp" hidden="until-found" role="dialog" aria-label="Details">'
+            f'<button class="kp-x" type="button" aria-label="Close (Esc)">{CLOSE}</button>'
+            '<div class="kp-p kp-dyn" hidden><div class="kp-top"><div class="kp-headc"></div></div><div class="kp-body"></div></div>'
+            f'{_store(panels)}</aside><div class="kp-tip" id="kp-tip" role="tooltip" hidden></div>')
+
+
+def panels_html(panels):
+    """The side panel for a page whose items are not in the substrate (the system map): {"m": {key: panel html}}."""
+    return aside({"m": {k: panel(v) for k, v in panels.items()}})
+
+
+def data_html(ctx):
+    """The side panel for the substrate's practices, problems and terms."""
+    return aside(payload(ctx))
 
 
 CLOSE = ('<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
          'aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>')
-ASIDE = ('<div class="kp-scrim" id="kp-scrim" hidden></div>'
-         '<aside class="kp" id="kp" hidden role="dialog" aria-label="Details"><div class="kp-top"><div class="kp-headc"></div>'
-         f'<button class="kp-x" type="button" aria-label="Close (Esc)">{CLOSE}</button></div><div class="kp-body"></div></aside>'
-         '<div class="kp-tip" id="kp-tip" role="tooltip" hidden></div>')
 
 CSS = """
 .kp-scrim{position:fixed;inset:0;z-index:49;background:rgba(16,24,40,.16);opacity:1;transition:opacity .2s ease-out}
@@ -478,10 +498,11 @@ CSS = """
 .kp{position:fixed;top:0;right:0;bottom:0;z-index:50;width:min(560px,100vw);display:flex;flex-direction:column;background:#FFFFFF;
   box-shadow:-1px 0 0 #EAECF0,-8px 0 24px -4px rgba(16,24,40,.12),-24px 0 56px -8px rgba(16,24,40,.2);
   transition:transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s}
-.kp[hidden]{display:flex!important;transform:translateX(104%);visibility:hidden;transition:transform .2s ease-out,visibility 0s .2s}
+.kp[hidden],.kp.kp-out{display:flex!important;transform:translateX(104%);transition:transform .2s ease-out}
+.kp-p:not([hidden]){display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
 .kp-top{position:relative;flex:none;padding:24px 72px 16px 32px;background:#FFFFFF;border-bottom:1px solid transparent;transition:border-color .15s}
 .kp-top.scrolled{border-bottom-color:#EAECF0}
-.kp-x{position:absolute;top:16px;right:20px;width:40px;height:40px;display:grid;place-items:center;border-radius:10px;border:0;background:transparent;
+.kp-x{position:absolute;z-index:2;top:16px;right:20px;width:40px;height:40px;display:grid;place-items:center;border-radius:10px;border:0;background:transparent;
   color:#667085;cursor:pointer;transition:background-color .12s,color .12s}
 .kp-x:hover{background:#F2F4F7;color:#15172F}
 .kp-x:active{transform:scale(.96)}
@@ -556,27 +577,53 @@ a.kp-chip:hover,a.kp-chip:focus-visible{color:#272594;background:#F5F5FF;box-sha
 .kp-tip{position:fixed;z-index:70;max-width:280px;padding:8px 12px;border-radius:8px;background:#15172F;color:#FFFFFF;font:400 12px/1.5 Inter,system-ui,sans-serif;
   box-shadow:0 8px 24px rgba(16,24,40,.28);pointer-events:none;opacity:1;transition:opacity .12s}
 .kp-tip[hidden]{display:block!important;opacity:0;visibility:hidden}
+.kp.kp-flat{position:static;display:block;width:auto;transform:none;box-shadow:none;background:none;margin:48px 0 0;padding-top:24px;border-top:1px solid #EAECF0}
+.kp-flat .kp-x{display:none}
+.kp-flat .kp-p:not([hidden]){display:block;margin:0 0 24px;border:1px solid #EAECF0;border-radius:12px;background:#FFFFFF}
+.kp-flat .kp-top{padding:20px 24px 0}.kp-flat .kp-body{overflow:visible;padding:8px 24px 24px}
 @media (max-width:560px){.kp-top{padding:20px 64px 12px 20px}.kp-body{padding:8px 20px 48px}.kp-lad li{grid-template-columns:1fr;gap:4px}}
 @media (prefers-reduced-motion:reduce){.kp,.kp[hidden],.kp-scrim,.kp-scrim[hidden]{transition:none}}
 """ + receipt_kit.css(".kp-m")
 
 JS = """<script>(function(){
-var D={};try{D=JSON.parse(document.getElementById('kp-data').textContent)}catch(e){}
-var el=document.getElementById('kp'),scrim=document.getElementById('kp-scrim'),head=el.querySelector('.kp-headc'),top=el.querySelector('.kp-top'),
- body=el.querySelector('.kp-body'),tip=document.getElementById('kp-tip'),from=null,SPLIT='<!--kp-->';
-function show(html){var i=html.indexOf(SPLIT);head.innerHTML=i>=0?html.slice(0,i):'';body.innerHTML=i>=0?html.slice(i+SPLIT.length):html;
-  body.scrollTop=0;top.classList.remove('scrolled');el.hidden=false;scrim.hidden=false}
+// Every panel is already in the page (see _store), hidden until found. Opening one shows it in the side panel; a find-in-page match in a
+// hidden one fires `beforematch`, which opens it, so the browser lands on the match. "Show everything" (frame.py) lays them all out.
+var el=document.getElementById('kp'),scrim=document.getElementById('kp-scrim'),tip=document.getElementById('kp-tip'),from=null,
+ SPLIT='<!--kp-->',UF='until-found',dyn=el.querySelector('.kp-dyn'),panels={},flat=false,home=null,timer=0;
+[].forEach.call(el.querySelectorAll('.kp-p[data-panel]'),function(p){panels[p.dataset.panel]=p});
+function every(){return el.querySelectorAll('.kp-p')}
+function isOpen(){return flat||(!el.hasAttribute('hidden')&&!el.classList.contains('kp-out'))}
+function hideAll(keep){[].forEach.call(every(),function(q){if(q!==keep)q.setAttribute('hidden',q===dyn?'':UF)})}
+function show(p){
+  if(flat){p.scrollIntoView();return}
+  clearTimeout(timer);hideAll(p);p.removeAttribute('hidden');
+  var b=p.querySelector('.kp-body');b.scrollTop=0;p.querySelector('.kp-top').classList.remove('scrolled');
+  el.classList.remove('kp-out');el.removeAttribute('hidden');scrim.hidden=false}
+function fillDyn(html){var i=html.indexOf(SPLIT);dyn.querySelector('.kp-headc').innerHTML=i>=0?html.slice(0,i):'';
+  dyn.querySelector('.kp-body').innerHTML=i>=0?html.slice(i+SPLIT.length):html}
 function remember(){var a=document.activeElement;if(a&&a!==document.body&&!el.contains(a))from=a}
-window.kpOpen=function(kind,id){var h=(D[kind]||{})[id];
-  show(h||'<p class="kp-k">Not in this run</p><h3>Nothing to show</h3>'+'<!--kp--><p>There is nothing to show for '+kind+'/'+id.replace(/[<>&]/g,'')+'.</p>');remember()};
-window.kpOpenHtml=function(html){show(html);remember()};
-window.kpClose=function(){if(el.hidden)return;el.hidden=true;scrim.hidden=true;hideTip();document.dispatchEvent(new Event('kp-close'));
+window.kpOpen=function(kind,id){var p=panels[kind+'/'+id];
+  if(!p){fillDyn('<p class="kp-k">Not in this run</p><h3>Nothing to show</h3>'+SPLIT+'<p>There is nothing to show for '+kind+'/'+id.replace(/[<>&]/g,'')+'.</p>');p=dyn}
+  show(p);remember()};
+window.kpOpenHtml=function(html){fillDyn(html);show(dyn);remember()};
+window.kpClose=function(){if(!isOpen()||flat)return;el.classList.add('kp-out');scrim.hidden=true;hideTip();document.dispatchEvent(new Event('kp-close'));
+  timer=setTimeout(function(){el.setAttribute('hidden',UF);hideAll(null)},220);   // after the slide: closed, the text is findable again
   if(from&&document.contains(from)){try{from.focus({preventScroll:true})}catch(e){}}from=null};
 function closeToView(){window.kpClose();var v=window.kpView&&window.kpView();if(v&&/^#?[pctm][/]/.test(location.hash)&&history.replaceState)history.replaceState(null,'','#'+v)}
+// a find-in-page match inside a hidden panel: open that panel (the browser then scrolls to the match in it)
+document.addEventListener('beforematch',function(e){var p=e.target.closest&&e.target.closest('.kp-p[data-panel]');
+  if(!p||flat)return;show(p);var k=p.dataset.panel,i=k.indexOf('/');
+  if(history.replaceState)history.replaceState(null,'','#'+k.slice(0,i)+'/'+encodeURIComponent(k.slice(i+1)))});
+// "Show everything": the side panel becomes a list at the end of the page, every panel open, so find works in browsers without `until-found`
+window.kpFlat=function(on){if(on===flat)return;
+  if(on){clearTimeout(timer);flat=true;home=document.createComment('kp');el.parentNode.insertBefore(home,el);
+    document.querySelector('main').appendChild(el);el.classList.add('kp-flat');el.classList.remove('kp-out');el.removeAttribute('hidden');scrim.hidden=true;
+    [].forEach.call(every(),function(q){if(q!==dyn||dyn.querySelector('.kp-body').childNodes.length)q.removeAttribute('hidden')})}
+  else{flat=false;el.classList.remove('kp-flat');home.parentNode.insertBefore(el,home);home.remove();el.setAttribute('hidden',UF);hideAll(null)}};
 el.querySelector('.kp-x').addEventListener('click',closeToView);
 scrim.addEventListener('click',closeToView);
-body.addEventListener('scroll',function(){top.classList.toggle('scrolled',body.scrollTop>4)},{passive:true});
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!el.hidden)closeToView()});
+el.addEventListener('scroll',function(e){var b=e.target;if(b.classList&&b.classList.contains('kp-body'))b.previousElementSibling.classList.toggle('scrolled',b.scrollTop>4)},true);
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen()&&!flat)closeToView()});
 // a card or row marked data-pk="p:<id>" opens its panel; an anchor #p/<id> does the same through the hash
 function go(c){var k=c.dataset.pk.split(':');location.hash='#'+k[0]+'/'+k.slice(1).join(':')}
 document.addEventListener('click',function(e){
