@@ -929,7 +929,7 @@ def render(m, cap):
 
     L.append("# Setup map\n")
     L.append("Structure of one person's agent-facing files, drawn by code with no judgment. `w` = words. Always loaded = "
-             "read at the start of every session; Scoped = a rule file below the project root or with `paths:`; On demand = "
+             "read at the start of every session; Scoped = an `AGENTS.md` below the project root, or a `.claude/rules/` file with `paths:`; On demand = "
              "a doc reached by a pointer. Pointers are `→ target (words) line N: \"sentence\"`.\n")
     for p in [*m["projects"], m["user"]]:
         label = "User level" if p["root"] == "~/.claude" else "Project"

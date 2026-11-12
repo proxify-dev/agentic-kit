@@ -124,17 +124,18 @@ def _summary(conds):
 
 # The three parts of "their setup carries the context" (the Level 3 map's deciding rows), by the ids the setup read
 # may use. The name and the next step here are fallbacks: the run's own `name` and `next` win when it wrote them.
-PART_NAMES = {"rules": "Rules that reach the agent", "instructions": "Rules that reach the agent",
+PART_NAMES = {"rules": "Instructions the agent starts with", "instructions": "Instructions the agent starts with",
               "corrections": "Corrections that stick", "memory": "Memory the next session reads"}
 DEFAULT_PARTS = ("rules", "corrections", "memory")
 STATE = {"shown": ("✓", "Shown"), "partly": ("◐", "Partly"), "notshown": ("○", "Not shown yet"), "unread": ("?", "Couldn't read")}
 NEXT = {
-    ("rules", "open"): "Keep the file every session loads to what every task needs. Move the rest to rule files in the "
-                       "folders they apply to, or behind a pointer that says when to open the deeper doc.",
-    ("rules", "shown"): "Keep it small: when a rule stops earning its place, remove it.",
+    ("rules", "open"): "Keep the AGENTS.md every session loads to what every task needs. Move the rest into an "
+                       "AGENTS.md in the folder it applies to, or into a doc your AGENTS.md links to, with a line that "
+                       "says when to open it. Extra: a file in .claude/rules/ with a paths: line.",
+    ("rules", "shown"): "Keep it small: when a line in your AGENTS.md stops earning its place, remove it.",
     ("corrections", "open"): "The next time you correct the agent on the same thing twice, write it as one line, with "
                              "its reason, where every session reads it.",
-    ("corrections", "shown"): "When a written rule still gets ignored, look for the cause instead of louder wording.",
+    ("corrections", "shown"): "When a line you wrote in AGENTS.md still gets ignored, look for the cause instead of louder wording.",
     ("memory", "open"): "Give your notes a shape: an index that points to notes by topic, which the agent keeps "
                         "current and you prune.",
     ("memory", "shown"): "Prune notes that are settled or wrong, so the index stays worth reading.",
@@ -190,7 +191,7 @@ def _setup_read(sr, esc, labels=None):
         for h in sr.get("holds") or [] if h.get("fired"))
     counted = f" Of the {wording.plural(len(parts), 'part')}, {level_things.parts_said(parts)}." if sr.get("ran", True) and sr.get("parts") else ""
     return ('<h3>What your files show</h3><p style="color:#475467;font-size:13px;margin:0 0 8px">L3 means your setup carries the '
-            'context, so the agent knows the right thing without you telling it again. We mapped your own rule files, '
+            'context, so the agent knows the right thing without you telling it again. We mapped your own AGENTS.md files, '
             f'memory and skills, and an AI read them. A part counts when both agree.{counted}</p>'
             f'<ul class="why files">{"".join(rows)}</ul>{holds}')
 

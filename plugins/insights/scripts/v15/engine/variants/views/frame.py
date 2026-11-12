@@ -38,6 +38,7 @@ import lvl_tip  # noqa: E402  the one tooltip every level badge uses (the substr
 import card_kit  # noqa: E402  the one card, and the words on it
 import panel_kit  # noqa: E402  the one side panel for every practice, problem and term
 import finder_kit  # noqa: E402  the ⌘K finder: views, practices, problems, terms
+import table_kit  # noqa: E402  the one list: a table whose rows open the side panel, with the strip, group heading and meter around it
 
 FILES = ["v15-result.json", "anatomy.json", "inventory.json", "cheap-artifacts.json", "cheap-problems.json",
          "evidence.json", "comprehension-debt.json", "cheap-vs-lab.json", "portable-checks.json", "portable-rows.json",
@@ -47,6 +48,17 @@ FILES = ["v15-result.json", "anatomy.json", "inventory.json", "cheap-artifacts.j
 
 def esc(s):
     return html.escape("" if s is None else str(s))
+
+
+# The owner's ruling (11-12): the instruction file is called AGENTS.md, CLAUDE.md is its known synonym, and a reader is told so once per
+# tab. A tab whose text names AGENTS.md carries this line under its title, so the first thing a reader meets is its meaning.
+# (.claude/rules/ files are a separate, extra mechanism: a view that mentions them names them itself.)
+AGENTS_MD_NOTE = '<p class="rp-note">AGENTS.md (or CLAUDE.md) is the file the agent reads at the start of every session.</p>'
+
+
+def agents_md_note(body):
+    """AGENTS_MD_NOTE when the view's visible text says AGENTS.md (tags and their attributes don't count), else nothing."""
+    return AGENTS_MD_NOTE if "AGENTS.md" in re.sub(r"<[^>]+>", " ", body) else ""
 
 
 def load(run, member=False):
@@ -60,14 +72,17 @@ def load(run, member=False):
     return ctx
 
 
-def views():
+def views(page=None):
+    """The view modules of one page. A module with PAGE = "<name>" belongs to that page only (the system map's views); one
+    without it is a view of the setup report itself."""
     out = []
     for path in sorted(glob.glob(os.path.join(HERE, "view_*.py"))):
         spec = importlib.util.spec_from_file_location(os.path.basename(path)[:-3], path)
         m = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(m)
         m.NAME = os.path.basename(path)[5:-3]
-        out.append(m)
+        if getattr(m, "PAGE", None) == page:
+            out.append(m)
     return sorted(out, key=lambda m: getattr(m, "ORDER", 99))
 
 
@@ -141,7 +156,7 @@ main.rp-wrap{padding-top:32px;padding-bottom:96px}
 
 JS = """
 (function(){
-  var views=[].slice.call(document.querySelectorAll('.view')), first=views[0].id.slice(2), cur=first, PANEL=/^[pct][/]/;
+  var views=[].slice.call(document.querySelectorAll('.view')), first=views[0].id.slice(2), cur=first, PANEL=/^[pctm][/]/;
   window.kpView=function(){return cur};
   function showView(raw){
     // #<view> opens a view; #<any id inside a view> opens that view and scrolls to the element (e.g. #what-you-built)
@@ -153,7 +168,7 @@ JS = """
     document.querySelectorAll('.rp-tabs a').forEach(function(a){a.toggleAttribute('aria-current',a.dataset.group===g);if(a.dataset.group===g)a.setAttribute('aria-current','page')});
     document.querySelectorAll('.rp-sub').forEach(function(s){s.hidden=s.dataset.group!==g});
     document.querySelectorAll('.rp-sub a').forEach(function(a){a.removeAttribute('aria-current');if(a.hash==='#'+name)a.setAttribute('aria-current','page')});
-    document.title=el.querySelector('h2').textContent+' · Setup report';
+    document.title=el.querySelector('h2').textContent+' · '+document.title.split(' · ').pop();
     return target;
   }
   function show(){
@@ -228,12 +243,16 @@ def window_line(meta):
     return f"Last {days} days" + (f" · read {to}" if to else "")
 
 
-def build(run, out, member=False, level=True, masked=False):
+def build(run, out, member=False, level=True, masked=False, page=None):
     """member=True renders the member's copy: only the views in MEMBER_GROUPS (never one marked PROXIFY_ONLY),
     no side panel and no finder (both open practice cards, which that copy no longer has a tab for). level=False drops
     every view marked LEVEL_VIEW, for the copy with no level at all. masked=True hides the names of the person's own
-    things (a skill is own-skill-N): for a copy made to leave the laptop. The person's own page names them."""
-    ctx = load(run, member)
+    things (a skill is own-skill-N): for a copy made to leave the laptop. The person's own page names them.
+    page = a page of its own views instead of the setup report (the system map): {"name", "title", "line", "groups":
+    [(id, tab title, [view names])], "ctx": what its views read, "panels": {key: panel spec} for the side panel}. It has no
+    run, so `run` is unused, and no finder: its items are not practices, problems or terms."""
+    ctx = ({"run": run, "member": False, "esc": esc, "clean": common.clean, "RUNG_WORD": common.RUNG_WORD, **page["ctx"]}
+           if page else load(run, member))
     ctx["level"] = level  # a view may point at the level tab only when this page has one
     ctx["masked"] = masked
     card_kit.set_logs(ctx)  # how much log the run stands on, shown next to every "not seen"
@@ -245,16 +264,17 @@ def build(run, out, member=False, level=True, masked=False):
     # for, Claude Code's version and log setting, and how this copy was built sit in the Review tab's "About this report".
     ctx["about"] = {"who": (inv.get("person", {}).get("identities") or [""])[0], "days": meta.get("days", 30),
                     "to": meta.get("to", ""), "laptop": card_kit.header_note(), "stamp": stamp}
-    vs = [v for v in views() if not (member and getattr(v, "PROXIFY_ONLY", False)) and (level or not getattr(v, "LEVEL_VIEW", False))]
+    vs = [v for v in views(page["name"] if page else None) if not (member and getattr(v, "PROXIFY_ONLY", False)) and (level or not getattr(v, "LEVEL_VIEW", False))]
     by_name = {v.NAME: v for v in vs}
-    groups = [(g, t, [n for n in names if n in by_name]) for g, t, names in (MEMBER_GROUPS if member else GROUPS)]
+    groups = [(g, t, [n for n in names if n in by_name]) for g, t, names in (page["groups"] if page else MEMBER_GROUPS if member else GROUPS)]
     listed = {n for _, _, names in groups for n in names}
     extra = [v.NAME for v in vs if v.NAME not in listed]
-    if extra and not member:
+    if extra and not member and not page:
         groups.append(("more", "More", extra))
     groups = [g for g in groups if g[2]]
     vs = [by_name[n] for _, _, names in groups for n in names]  # the views this copy really shows
-    sections, css, tabs, subs = [], [CSS, check_kit.CSS, card_kit.CSS] + ([] if member else [panel_kit.CSS, finder_kit.CSS, lvl_tip.CSS]), [], []
+    sections, css, tabs, subs = [], [CSS, check_kit.CSS, card_kit.CSS] + (
+        [panel_kit.CSS, table_kit.CSS] if page else [] if member else [panel_kit.CSS, finder_kit.CSS, lvl_tip.CSS]), [], []
     for gid, gtitle, names in groups:
         if gid in ("substrate", "internal"):  # a rule in the tab bar: the four tabs of the story | substrate, calls | internal
             tabs.append('<span class="rp-sep" aria-hidden="true"></span>')
@@ -272,30 +292,32 @@ def build(run, out, member=False, level=True, masked=False):
             css.append(getattr(v, "CSS", ""))
             note = ('<p class="rp-note">Internal: never on the member\'s copy.</p>'
                     if getattr(v, "PROXIFY_ONLY", False) else "")
+            gloss = "" if page else agents_md_note(body)
             # HIDE_HEADER: a view that opens on its own picture keeps its title for screen readers and the window title
             head = ' class="rp-sr"' if getattr(v, "HIDE_HEADER", False) else ""
             sections.append(f'<section class="view v-{n}" id="v-{n}" data-group="{gid}"><header{head}><h2>{esc(v.TITLE)}</h2>'
-                            f'<p class="q">{esc(getattr(v, "QUESTION_MEMBER", v.QUESTION) if member else v.QUESTION)}</p>{note}</header>{body}</section>')
+                            f'<p class="q">{esc(getattr(v, "QUESTION_MEMBER", v.QUESTION) if member else v.QUESTION)}</p>{note}</header>{gloss}{body}</section>')
     finder_views = [(n, TAB.get(n, by_name[n].TITLE), gtitle) for _, gtitle, names in groups for n in names]
     # no level key above the tabs (11-11): its practice words ("L4 runs without you") sat above the Review's level, named
     # by things ("Builds the harness around the agent"), so the staff page showed two names for one level. The words stay
     # in common.RUNG_WORD for the tabs that show a practice's level.
     # the side panel (a practice's card) and the ⌘K finder (practices, problems, terms): Proxify's copy only, where the
     # substrate, call sheet and internal tabs open practice and problem cards
-    lab = "" if member else (f"{panel_kit.ASIDE}{panel_kit.data_script(ctx)}{panel_kit.JS}\n"
-                             f"{finder_kit.DIALOG}{finder_kit.data_script(ctx, finder_views)}{finder_kit.JS}")
+    lab = (f"{panel_kit.ASIDE}{panel_kit.panels_script(page['panels'])}{panel_kit.JS}" if page else
+           "" if member else (f"{panel_kit.ASIDE}{panel_kit.data_script(ctx)}{panel_kit.JS}\n"
+                             f"{finder_kit.DIALOG}{finder_kit.data_script(ctx, finder_views)}{finder_kit.JS}"))
     mark = ('<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
             'stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h10M3 8h7M3 11.5h4"/></svg>')
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Setup report</title><link rel=preconnect href=https://fonts.googleapis.com>
+<title>{esc(page["title"]) if page else "Setup report"}</title><link rel=preconnect href=https://fonts.googleapis.com>
 <link rel=stylesheet href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
 <style>{"".join(css)}</style></head><body>
 <header class="rp-top"><div class="rp-wrap"><div class="rp-bar"><span class="rp-mark">{mark}</span>
-<div class="rp-id"><b>Your agentic setup</b><span>{esc(window_line(meta))}</span></div>
-{getattr(by_name.get("share"), "BUTTON", "")}{"" if member else finder_kit.BUTTON}{theme.SWITCH}</div>
+<div class="rp-id"><b>{esc(page["title"]) if page else "Your agentic setup"}</b><span>{esc(page["line"] if page else window_line(meta))}</span></div>
+{getattr(by_name.get("share"), "BUTTON", "")}{"" if member or page else finder_kit.BUTTON}{theme.SWITCH}</div>
 <nav class="rp-tabs" aria-label="Report sections">{"".join(tabs)}</nav></div></header>
 {lab}
-<main class="rp-wrap">{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""
+<main class="rp-wrap">{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member or page else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""
     if member:  # a check's text can point at another check by its level code ("see L4#2"); the member's copy never names a level
         page = re.sub(r"\bL[1-4]#\d+\b", "another check", page)
     page = theme.apply(page, switch=False)

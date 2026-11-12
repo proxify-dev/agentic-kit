@@ -718,7 +718,7 @@ def setup_read_gate(pointer, run_dir):
 
     Unlike every other check, a setup read that did not run is NOT "never a minus": the level is read as L2, could be
     L3. Why: on 11-11 a person who is not an engineer read L3 on six practices, five of them by-hand counts of what
-    Claude Code does by default and the sixth a rule file per repo. What decides a level has to be seen; only what
+    Claude Code does by default and the sixth an AGENTS.md per repo. What decides a level has to be seen; only what
     is beside the point may go unseen.
 
     A holding sign is the opposite habit, counted from Claude Code's own records (sessions that only ever compact
@@ -730,7 +730,7 @@ def setup_read_gate(pointer, run_dir):
     p = dict(pointer)
     was = pointer["level"]
     conds = [{"test": f"their setup carries the context: its files show it in at least {SETUP_READ_PARTS} of "
-                      f"{len(parts) or 3} parts (rules that reach the agent, corrections that stick, memory)",
+                      f"{len(parts) or 3} parts (instructions the agent starts with, corrections that stick, memory)",
               "met": ok, "by": [g.get("name") or g.get("id") for g in shown] or
                                (["the setup read did not run on this laptop"] if sr is None else [])},
              {"test": "Claude Code's records show no sign of the opposite habit", "met": not held,

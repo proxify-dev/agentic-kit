@@ -112,11 +112,11 @@ CSS = """
 
 # The new read's lines (share_payload NEW_KEYS), in the page's words. They are printed only when Send carries them:
 # the tab shows what is sent, never more (share_payload.RECEIVER_TAKES_NEW_KEYS).
-PART_NAME = {"rules": "Rules that reach the agent", "instructions": "Rules that reach the agent",
+PART_NAME = {"rules": "Instructions the agent starts with", "instructions": "Instructions the agent starts with",
              "corrections": "Corrections that stick", "memory": "Memory a new session reads"}
 SIGN_NAME = {"endless-sessions": "Sessions that only compact automatically", "session-scope": "How long sessions stay open",
              "starting-context": "How full a session starts", "unused-setup": "Setup that isn't used",
-             "rules-only-grow": "Rule files that only grow"}
+             "rules-only-grow": "An AGENTS.md that only grows"}
 
 
 # the five lines of the summary that still come from the practice read (share_payload: practices, built_areas,

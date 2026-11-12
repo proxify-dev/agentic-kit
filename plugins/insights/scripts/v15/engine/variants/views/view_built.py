@@ -42,12 +42,12 @@ KINDS = [
      "Instructions you wrote for a task you repeat. Claude loads one only when the task comes up.", "uses"),
     ("commands", "cap-skills-own", ("command you wrote", "commands you wrote"), "Commands",
      "Prompts you saved to start with /name.", "uses"),
-    ("rules", "cap-instructions", ("rule files", "rule files"), "Rule files",
-     "Files such as CLAUDE.md that Claude reads before you type, in the project or the folder they sit in.", "sessions"),
+    ("rules", "cap-instructions", ("AGENTS.md file", "AGENTS.md files"), "AGENTS.md files",
+     "Files the agent reads at the start of every session, in the project or in the folder they sit in.", "sessions"),
     ("agents", "cap-subagents", ("sub-agent you defined", "sub-agents you defined"), "Sub-agents",
      "Agent roles you defined, each with its own instructions, tools and model.", "launches"),
     ("hooks", "cap-hooks", ("hook you set up", "hooks you set up"), "Hooks",
-     "Scripts that run by themselves at set moments of a session. A hook makes a rule hold every time; an instruction only asks.", "runs"),
+     "Scripts that run by themselves at set moments of a session. A hook makes a requirement hold every time; a line in AGENTS.md only asks.", "runs"),
     ("plugins", "cap-plugins-own", ("plugin you wrote", "plugins you wrote"), "Plugins",
      "Your skills, hooks and sub-agents packaged so they install together.", "uses"),
     ("tools", "cap-mcp-write", ("tool you built for the agent", "tools you built for the agent"), "Tools you built for the agent",
@@ -84,7 +84,7 @@ STATE_WORD = {"built and used": "Yours, in use", "built, not used lately": "Your
               "not seen": "Not seen", "can't tell": "Couldn't tell"}
 # what each kind would give, for the parts not seen on this laptop (one sentence each, to the person)
 GIVES = {"cap-skills-own": "Know-how you would otherwise paste in stays out of every session until it is needed.",
-         "cap-hooks": "A hook makes a rule hold every time. An instruction only asks.",
+         "cap-hooks": "A hook makes a requirement hold every time. A line in AGENTS.md only asks.",
          "cap-subagents": "Searching and reading long output happen in the sub-agent's context, so the main session stays clean.",
          "cap-teams": "Several agents on one job, messaging each other. It costs more than sub-agents.",
          "cap-workflows": "A big sweep, such as an audit or a migration, gets done without filling one session's context.",
@@ -255,7 +255,7 @@ def _kinds(ctx):
                 continue
             out.append((kind, row, c, c["total"], None,
                         f"<b>{_n(c['sessions'])}</b> {wording.noun(c['sessions'], 'session')} ran with them" if c["sessions"] else "",
-                        f"rule {wording.noun(c['total'], 'file')} of yours"))
+                        f"{wording.noun(c['total'], 'AGENTS.md file')} of yours"))
             continue
         if kind == "programs":
             progs = level_things.programs_rows(rows)
@@ -419,7 +419,7 @@ def _rules(ctx, c):
         where = [f'{mine["always"]} load in every session' if mine["always"] else "",
                  f'{mine["scoped"]} load in their folder' if mine["scoped"] else ""]
         about = (" · ".join(x for x in where if x) + (f' · {_plural(p["docs"], "doc")} opened when needed' if p["docs"] else "")
-                 ) or "no rule file of yours"
+                 ) or "no AGENTS.md of yours"
         how = (f'<span class="u"><b>{_n(p["sessions"] or 0)}</b> {wording.noun(int(p["sessions"] or 0), "session")}</span>' if p["ranked"]
                else f'<span class="u zero">{esc(level_things.project_how(p))}</span>')
         rows.append(f'<li class="it"><span class="nm">{esc(name)}</span><span class="ab">{esc(about)}</span>{how}</li>')

@@ -81,11 +81,11 @@ THINGS = [
      "say": "You typed /model {n:time} in the last 30 days.",
      "say_claude": ("sub-agent call where the model was named", "sub-agent calls where the model was named")},
 
-    {"id": "rule-files", "name": "Rule files (CLAUDE.md, AGENTS.md)", "level": "L3", "from": "board", "rows": ["cap-instructions"],
-     "used_p": "You wrote rule files in {p:project}; {calls:session} ran where they load.",
-     "used": "You wrote {n:rule file}; {calls:session} ran where they load.",
-     "idle": "You wrote {n:rule file}; no session in the last 30 days ran where they load."},
-    {"id": "scoped-rules", "name": "Rules scoped to a folder or a path", "level": "L3", "from": "scoped"},
+    {"id": "rule-files", "name": "AGENTS.md files", "level": "L3", "from": "board", "rows": ["cap-instructions"],
+     "used_p": "You wrote AGENTS.md files in {p:project}; {calls:session} ran where they load.",
+     "used": "You wrote {n:AGENTS.md file}; {calls:session} ran where they load.",
+     "idle": "You wrote {n:AGENTS.md file}; no session in the last 30 days ran where they load."},
+    {"id": "scoped-rules", "name": "Instructions for part of the project", "level": "L3", "from": "scoped"},
     {"id": "skills-commands", "name": "Skills and commands you wrote", "level": "L3", "from": "board", "rows": ["cap-skills-own"],
      "used": "You wrote {n:skill or command|skills and commands}; they were called {calls:time} in the last 30 days.",
      "idle": "You wrote {n:skill or command|skills and commands}; none was called in the last 30 days."},
@@ -276,7 +276,7 @@ def rule_files(rows):
 def rule_files_said(c):
     """"4 rule files of yours in 3 projects; 4 of them in the 2 projects we read": one sentence on every tab. A side with
     nothing to say is left out (no project count on an older run, no read on a run without the map)."""
-    out = plural(c["total"], "rule file") + " of yours"
+    out = plural(c["total"], "AGENTS.md file") + " of yours"
     if c["projects"]:
         out += f" in {plural(c['projects'], 'project')}"
     if c["in_read"] is not None and c["read_projects"]:
@@ -326,7 +326,7 @@ def project_how(p):
     if p["ranked"]:
         return plural(int(p["sessions"] or 0), "session")
     if p.get("picked_by") == "rule-files":
-        return "added for its recently edited rule file"
+        return "added for its recently edited AGENTS.md"
     return "found from your work" if not p.get("found_under") else f"found under {p['found_under']}"
 
 
@@ -437,16 +437,17 @@ def _from_board(t, rows):
 
 
 def _scoped(run_dir, counts):
-    """Rule files below a project's root, or a path-scoped rule: the code's map of their files (setup_map.py), and
+    """AGENTS.md files below a project's root, or a .claude/rules/ file with paths: (a separate extra mechanism): the code's map of their files (setup_map.py), and
     whether one reached the agent in a session."""
     m = _load(run_dir, "setup-map.json")
     if not m:
         return CANT_CHECK, "The map of your files was not drawn on this run."
     n = sum(((p.get("totals") or {}).get("scoped_files") or 0) for p in (m.get("projects") or []) + [m.get("user") or {}])
     if not n:
-        return NOT_SEEN, "Every rule file of yours sits at a project's root."
+        return NOT_SEEN, "Every AGENTS.md of yours sits at a project's root."
     reached = (counts.get("setup.subfolder_rules_reached") or {}).get("n") or 0
-    where = f"You have {plural(n, 'rule file')} in a sub-folder or with a path rule"
+    where = (f"You have {plural(n, 'file')} for part of a project (an AGENTS.md in a subfolder or, as a separate extra "
+             "mechanism, a file in .claude/rules/ with a paths: line)")
     return (YOURS_USED, f"{where}; they loaded in {plural(reached, 'session')}.") if reached else (
         YOURS_IDLE, f"{where}; none loaded in the last 30 days.")
 
@@ -559,7 +560,7 @@ def pointer(run_dir, board, setup, builds, bars=None):
             have = ", ".join(_lc(t["name"]) for t in (l3_things + l4_things)[:4])
             reasons.append(f"You have a setup of your own ({have}), but {why_not_deep()}.")
         else:
-            reasons.append("L3 asks for a setup of your own that carries the context: rule files, memory with a shape, "
+            reasons.append("L3 asks for a setup of your own that carries the context: an AGENTS.md, memory with a shape, "
                            "skills you wrote.")
     elif days is None or days >= MIN_DAYS_FOR_L1:
         lvl, decided = "L1", "Claude Code used on real work; fewer than two habits of your own seen"

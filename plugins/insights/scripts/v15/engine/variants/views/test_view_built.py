@@ -146,7 +146,7 @@ class Built(unittest.TestCase):
         out = page(FULL + [RULES], setup_map=MAP)
         tiles = re.findall(r'<a class="tile" href="#built-(\w+)"[^>]*><span class="bt-num">([\d,]+)</span><span class="lab">([^<]+)', out)
         self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "command you wrote"),
-                                 ("rules", "40", "rule files of yours"), ("agents", "1", "sub-agent you defined"),
+                                 ("rules", "40", "AGENTS.md files of yours"), ("agents", "1", "sub-agent you defined"),
                                  ("hooks", "4", "hooks you set up")])
         self.assertIn("<b>12</b> used this month", out)    # used, and a name an installed skill also has: not idle
         self.assertIn("<b>3</b> ran this month", out)
@@ -188,7 +188,7 @@ class Built(unittest.TestCase):
     def test_rule_files_are_told_in_the_one_sentence_with_the_projects_read_under_it(self):
         out = page(FULL + [RULES], setup_map=MAP)
         rules = out[out.index('id="built-rules"'):out.index('id="built-agents"')]
-        self.assertIn("40 rule files of yours in 3 projects; 6 of them in the 2 projects we read. 129 sessions ran where they load.", text(rules))
+        self.assertIn("40 AGENTS.md files of yours in 3 projects; 6 of them in the 2 projects we read. 129 sessions ran where they load.", text(rules))
         self.assertIn("2 load in every session · 3 load in their folder · 7 docs opened when needed", rules)
         self.assertIn("1 load in every session", rules)
         self.assertNotIn("busiest", rules)
@@ -196,7 +196,7 @@ class Built(unittest.TestCase):
 
     def test_the_rule_files_count_does_not_need_the_map(self):
         out = page(FULL + [row("cap-instructions", items=40, calls=129, unit="sessions", projects=3)])
-        self.assertIn("40 rule files of yours in 3 projects. 129 sessions ran", text(out))
+        self.assertIn("40 AGENTS.md files of yours in 3 projects. 129 sessions ran", text(out))
 
     def test_the_persons_own_page_names_their_things_the_masked_copy_does_not(self):
         own = page(FULL + [RULES], setup_map=MAP)
