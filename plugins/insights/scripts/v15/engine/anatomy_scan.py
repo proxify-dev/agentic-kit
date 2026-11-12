@@ -40,6 +40,16 @@ WORKED_REPOS = 40   # distinct repos sessions worked in that are asked of git; t
 SCRIPT = re.compile(r"(/[^\s\"']+\.(?:mjs|cjs|js|ts|py|sh))")  # an absolute script path inside a hook's command
 
 
+def person_session(entry):
+    """True when the session's "user" messages are the person's: every entrypoint but a headless run's (sdk-*), so the
+    terminal, an app that drives Claude Code through the Agent SDK (VS Code, the desktop app, JetBrains), a new app and
+    a session from a Claude Code too old to name one all count. The same rule as the portable checks'
+    `Laptop.interactive` and logs.py, which writes chats.jsonl. A headless run carries a program's prompt, so it counts
+    for no project (11-12: the pick took a folder with 3 terminal sessions over a repo with 169 desktop-app sessions,
+    and the review and level read the wrong project)."""
+    return not (entry or "").startswith("sdk")
+
+
 INJECTED = ("<task-notification", "<cross-session-message", "<local-command", "<command-name", "<command-message",
             "<system-reminder", "<bash-input", "<bash-stdout", "Caveat:", "[Request interrupted")
 
@@ -154,6 +164,26 @@ def repo_of(cwd):
     root = os.path.dirname(common) if common.endswith("/.git") else (git(cwd, "rev-parse", "--show-toplevel").strip() or cwd)
     _roots[cwd] = root
     return root
+
+
+def most_active(per, n, worked=None, top_worked=()):
+    """(by_repo, active): sessions per main checkout (a session typed in any app counts as typed, a headless run only
+    as a session), also for each repo the session worked in (`worked`: worked-in.json's sessions, kept to
+    `top_worked`), and the n busiest repos (`busiest`: most typed sessions, ties by path; a folder that is no git repo
+    is skipped)."""
+    by_repo = defaultdict(Counter)
+    for r in per:
+        repo = repo_of(r["cwd"])
+        typed = person_session(r["entry"]) and r["counts"].get("typed")
+        also = {repo_of(w) for w in (worked or {}).get(os.path.basename(r["path"])[:-6], {}) if w in top_worked} - {repo}
+        for rp in also:
+            by_repo[rp]["worked_sessions"] += 1
+            if typed:
+                by_repo[rp]["typed_sessions"] += 1
+        if typed:
+            by_repo[repo]["typed_sessions"] += 1
+        by_repo[repo]["sessions"] += 1
+    return by_repo, busiest(by_repo, n)
 
 
 def ls(root):
@@ -367,11 +397,11 @@ def main(argv):
     top_worked = {w for w, _ in sorted(Counter(w for v in worked.values() for w in v).items(), key=lambda kv: (-kv[1], kv[0]))[:WORKED_REPOS]}
 
     total, sessions = Counter(), Counter()
-    by_repo, conditions, hooks, ran = defaultdict(Counter), defaultdict(list), Counter(), set()
+    conditions, hooks, ran = defaultdict(list), Counter(), set()
     goal_sessions = goal_wake = rounds = 0
     for r in per:
         c = dict(r["counts"])
-        if r["entry"] != "cli":  # a headless run's "user" messages are a program's prompt, not the person typing
+        if not person_session(r["entry"]):  # a headless run's "user" messages are a program's prompt, not the person typing
             for k in ("session_refs", "user_images"):
                 c.pop(k, None)
         total.update(c)
@@ -379,14 +409,6 @@ def main(argv):
             if v:
                 sessions[k] += 1
         repo = repo_of(r["cwd"])
-        also = {repo_of(w) for w in worked.get(os.path.basename(r["path"])[:-6], {}) if w in top_worked} - {repo}
-        for rp in also:
-            by_repo[rp]["worked_sessions"] += 1
-            if r["entry"] == "cli" and c.get("typed"):
-                by_repo[rp]["typed_sessions"] += 1
-        if r["entry"] == "cli" and c.get("typed"):
-            by_repo[repo]["typed_sessions"] += 1
-        by_repo[repo]["sessions"] += 1
         conditions[repo] += r["conditions"]
         hooks.update(r["hooks"])
         ran.update(r.get("ran_hooks") or [])
@@ -394,7 +416,7 @@ def main(argv):
             goal_sessions += 1
             goal_wake += bool(c.get("wakeups"))
         rounds += c.get("stop_blocks", 0) >= 2
-    active = busiest(by_repo, a.projects)
+    by_repo, active = most_active(per, a.projects, worked, top_worked)
 
     t1 = time.time()
     found, gits, readers = {}, {}, {"tools": [], "hooks": []}
