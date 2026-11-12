@@ -19,8 +19,18 @@ The rule, in this order:
                 upstream project), and nobody of theirs ever committed that version there. The version may be an older one
                 of the clone's history: upstream moved on after they copied. how = "committed copy of someone else's file".
                 A file they edited after copying is not byte-identical to any version there, so it stays theirs. Needs the
-                callback blob_authorship; a caller without it gets no such rule.
-  5. installed  not in git, and byte-identical to a file in an installed copy (an installer copied it into ~/.claude).
+                callback blob_authorship; a caller without it gets no such rule. Three guards, for both 4 and 4b: the
+                copy came after the original (their file was not in their hands before that repo first held the version:
+                a teammate who copied THEIR file later does not make it a copy), their own session logs show no Write/Edit of
+                a file in that skill folder (a fork they reworked), and the repos looked in include clones below a project
+                folder that the scan passed as `clones` (not projects, so never a marketplace claim).
+  4b. installed git has nothing on it (untracked, ignored, or in no repo) and it is that same kind of copy: byte-identical to a
+                version at the head of a repo whose commits are mostly someone else's. how = "copy of someone else's file,
+                not committed here". 4's reason it did not fire for a file git has nothing on: it ran only when git said
+                "theirs", and an untracked file never reaches that answer.
+  5. installed  not in git, and byte-identical to a file in an installed copy (an installer copied it into ~/.claude): a
+                published marketplace's files, a skill the global lock installed, or a skill folder some project's
+                skills-lock.json lists (a receipt that lives in another folder than the copy).
   6. installed  a skill folder (a dir with SKILL.md) not in git, with no receipt, that was unpacked rather than written
                 (11-06: a skill copied in by hand leaves no receipt, and it read "theirs"). Either
                   a) its SKILL.md frontmatter carries publishing fields of the Agent Skills format: `license:` or
@@ -102,6 +112,10 @@ class Receipts:
         self.copy_roots = []       # folders holding installed copies, for the same-content receipt (built lazily)
         self._copies = None        # (basename, size) → [paths] in copy_roots
         self.repo_roots = []       # the repos the scan read: where a committed copy of someone else's file may come from
+        self.clone_roots = []      # repos found below a project folder (clones of someone else's code): looked in for a copy, never a project
+        self._first_seen = {}      # (repo, blob) → the earliest commit time that added the blob there
+        self._blob_by = {}         # (repo, blob) → the callback's answer about the commits that added it
+        self._heads = {}           # clone root → {blob name: a path holding it} at its head commit (git ls-tree), built when a copy is looked for
         self._has_blob = {}        # (repo, sha) → whether the repo holds that blob (git cat-file)
         self._mostly_others = {}   # repo → whether most of its commits are someone else's
 
@@ -190,10 +204,14 @@ def _directory_plugin_source(mk_dir, name):
     return None
 
 
-def load_receipts(roots=(), use_claude=True):
-    """roots: the repos and project folders the scan reads; each may hold a skills-lock.json."""
+def load_receipts(roots=(), use_claude=True, clones=()):
+    """roots: the repos and project folders the scan reads; each may hold a skills-lock.json.
+    clones: more repos on this laptop (found below a project folder, where the scan does not read them as projects):
+    only a copy of someone else's file is looked for in them. They are never roots: a marketplace published from a
+    repo in `roots` is the person's own, one published from a clone is not."""
     rc = Receipts()
     rc.repo_roots = [r for r in dict.fromkeys(_real(r) for r in roots) if os.path.exists(os.path.join(r, ".git"))]
+    rc.clone_roots = [r for r in dict.fromkeys(_real(r) for r in clones) if r not in rc.repo_roots and os.path.exists(os.path.join(r, ".git"))]
     # ask Claude Code only when something is installed (a laptop with no plugins folder has nothing to list) and not
     # in tests (AGENTIC_SETUP_NO_CLAUDE=1: a made-up HOME must never reach the real `claude`)
     use_claude = use_claude and not os.environ.get("AGENTIC_SETUP_NO_CLAUDE") and os.path.isdir(
@@ -235,6 +253,11 @@ def load_receipts(roots=(), use_claude=True):
             rc.project_locks[_real(r)] = {k: (v or {}).get("source") for k, v in (lk.get("skills") or {}).items()}
     if rc.project_locks:
         rc.how.append(f"{len(rc.project_locks)} project skills-lock.json")
+        # a lock is a receipt for the skill folders of its own project; the same skill, byte for byte, in any other folder
+        # (a user-level skills folder, another project) is a copy of what that lock installed
+        rc.copy_roots = sorted(set(rc.copy_roots) | {
+            _real(os.path.join(proj, d, "skills", name)) for proj, skills in rc.project_locks.items() for name in skills
+            for d in (".agents", ".claude", "") if os.path.isdir(os.path.join(proj, d, "skills", name))})
     return rc
 
 
@@ -319,10 +342,88 @@ def _git_has_blob(repo, sha, rc):
     return rc._has_blob[key]
 
 
-def _committed_copy(path, rc, authorship, blob_authorship):
-    """The repo whose file `path` is a copy of (rule 4), else None. path is a file, or a skill folder (compared by its
+def _git_times(repo, sha):
+    """The commit times (seconds) of the commits of `repo` that added or removed the blob <sha>; [] when none or no git."""
+    try:
+        r = subprocess.run(["git", "-C", repo, "log", "--all", f"--find-object={sha}", "--format=%ct", "-n", "50"],
+                           capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+        return [int(x) for x in r.stdout.split() if x.isdigit()] if r.returncode == 0 else []
+    except (OSError, subprocess.SubprocessError):
+        return []
+
+
+def _head_blobs(root, rc):
+    """{blob name: a path holding it} for everything at the head of `root` (one `git ls-tree`), so that many clones can be
+    asked "do you hold this file?" without one git call per clone and file."""
+    if root not in rc._heads:
+        names = {}
+        try:
+            r = subprocess.run(["git", "-C", root, "ls-tree", "-r", "HEAD"], capture_output=True, text=True, timeout=60,
+                               stdin=subprocess.DEVNULL)
+            for line in r.stdout.splitlines() if r.returncode == 0 else ():
+                meta, _, name = line.partition("\t")
+                meta = meta.split()
+                if len(meta) == 3:
+                    names.setdefault(meta[2], name)
+        except (OSError, subprocess.SubprocessError):
+            pass
+        rc._heads[root] = names
+    return rc._heads[root]
+
+
+def _held_since(f, tracked):
+    """When `f` came into their hands: the earliest commit that added its path in the repo it sits in, else (git has
+    nothing on it: untracked, ignored, in no repo) its modification time. Asked of the path only: a search of the whole
+    history for the bytes would take seconds in a big repo for every file."""
+    d, name = os.path.split(os.path.abspath(f))
+    try:
+        if tracked:
+            r = subprocess.run(["git", "-C", d, "log", "--format=%ct", "--diff-filter=A", "--", name], capture_output=True, text=True,
+                               timeout=60, stdin=subprocess.DEVNULL)
+            times = [int(x) for x in r.stdout.split() if x.isdigit()]
+            if times:
+                return min(times)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        return os.stat(f).st_mtime
+    except OSError:
+        return None
+
+
+def _first_held(repo, sha, rc, path=None):
+    """A time no earlier than the moment `repo` first held the blob: the last commit on `path` (where the head holds it) set
+    this version, so the repo held it by then; else the earliest commit that added it. Never too early, so a copy that
+    came after it came after the original."""
+    if (repo, sha) not in rc._first_seen:
+        t = None
+        if path:
+            try:
+                r = subprocess.run(["git", "-C", repo, "log", "-1", "--format=%ct", "--", path], capture_output=True, text=True,
+                                   timeout=60, stdin=subprocess.DEVNULL)
+                t = int(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip().isdigit() else None
+            except (OSError, subprocess.SubprocessError):
+                pass
+        if t is None:
+            t = min(_git_times(repo, sha) or [None], key=lambda x: (x is None, x))
+        rc._first_seen[(repo, sha)] = t
+    return rc._first_seen[(repo, sha)]
+
+
+def _copy_came_after(f, sha, repo, rc, tracked, path=None):
+    """True when the file `f` came into their hands no earlier than `repo` held that version. A copy follows its original:
+    when the other repo's copy is the later one (a teammate took their file), or no time is known, it is not a proof. A
+    path they added earlier than that stays theirs even if its bytes were replaced since: the safe side."""
+    mine = _held_since(f, tracked)
+    other = _first_held(repo, sha, rc, path)
+    return mine is not None and other is not None and mine >= other
+
+
+def _committed_copy(path, rc, authorship, blob_authorship, tracked=True):
+    """The repo whose file `path` is a copy of (rules 4 and 4b), else None. path is a file, or a skill folder (compared by its
     SKILL.md). A repo counts when it is another repo on this laptop (not the one path is in), most of its commits are someone
-    else's, it holds this exact version of the file, and none of the commits that added or removed that version is theirs."""
+    else's, it holds this exact version of the file, none of the commits that added or removed that version is theirs, and
+    the copy followed the original (_copy_came_after). `tracked`: git has commits on the file (rule 4), else it has none (4b)."""
     f = os.path.join(path, "SKILL.md") if os.path.isdir(path) else path
     try:
         if not COPY_MIN <= os.path.getsize(f) <= COPY_MAX:
@@ -332,8 +433,9 @@ def _committed_copy(path, rc, authorship, blob_authorship):
     except OSError:
         return None
     sha = hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()   # git's own name for these bytes
-    for root in rc.repo_roots:
-        if _under(_real(f), root) or not _git_has_blob(root, sha, rc):
+    clones = [r for r in rc.clone_roots if sha in _head_blobs(r, rc)]
+    for root in rc.repo_roots + clones:
+        if _under(_real(os.path.dirname(os.path.abspath(f))), root) or (root in rc.repo_roots and not _git_has_blob(root, sha, rc)):
             continue
         if root not in rc._mostly_others:
             rc._mostly_others[root] = False      # authorship(root) may ask who owns a file of root: not this question again
@@ -341,8 +443,10 @@ def _committed_copy(path, rc, authorship, blob_authorship):
             rc._mostly_others[root] = bool(a and a.get("commits") and 2 * (a.get("theirs") or 0) < a["commits"])
         if not rc._mostly_others[root]:
             continue
-        b = blob_authorship(root, sha)
-        if b and b.get("commits") and not b.get("theirs"):
+        if (root, sha) not in rc._blob_by:
+            rc._blob_by[(root, sha)] = blob_authorship(root, sha)
+        b = rc._blob_by[(root, sha)]
+        if b and b.get("commits") and not b.get("theirs") and _copy_came_after(f, sha, root, rc, tracked, _head_blobs(root, rc).get(sha) if root in rc.clone_roots else None):
             return root
     return None
 
@@ -470,9 +574,23 @@ def _unpacked_skill(path, rc, written_in_logs=None):
     return got
 
 
+def _agent_wrote_in(path, written_in_logs):
+    """True when their own logs show a Write/Edit in the skill folder `path` is, or is inside (or in `path` itself)."""
+    if not written_in_logs:
+        return False
+    folder = _skill_folder(path)
+    for p in dict.fromkeys(x for x in (folder, os.path.abspath(path if os.path.isdir(path) else os.path.dirname(path))) if x):
+        try:
+            if written_in_logs(p):
+                return True
+        except Exception:  # noqa: BLE001 - a log that can't be read must not turn a skill of theirs into an install
+            return True
+    return False
+
+
 def owner(path, rc, authorship=None, written_in_logs=None, blob_authorship=None):
     """{"owner": "installed" | "teammate" | "theirs", "how": "marketplace" | "skills-lock" | "git" |
-    "committed copy of someone else's file" | "same as an installed copy" | "published package fields" | "unpacked in one burst" | "no receipt",
+    "committed copy of someone else's file" | "copy of someone else's file, not committed here" | "same as an installed copy" | "published package fields" | "unpacked in one burst" | "no receipt",
     "source": what it was installed from or read from (for rule 6, the evidence), "commits", "theirs"}.
     authorship(path) → {"commits", "theirs"} or None when the file is in no repo.
     blob_authorship(repo, sha) → {"commits", "theirs"} for the commits of that repo that added or removed the file version
@@ -497,7 +615,7 @@ def owner(path, rc, authorship=None, written_in_logs=None, blob_authorship=None)
             return {"owner": "teammate", "how": "git", "source": look if look != path else None, **a}
         # theirs by git, yet a copy of a version of someone else's file in another repo: they committed what they took
         copy_of = _committed_copy(look, rc, authorship, blob_authorship) if authorship and blob_authorship else None
-        if copy_of:
+        if copy_of and not _agent_wrote_in(look, written_in_logs):
             return {"owner": "installed", "how": "committed copy of someone else's file", "source": copy_of, **a}
         return {"owner": "theirs", "how": "git", "source": look if look != path else None, **a}
     # nothing in git says whose it is: a byte-identical copy of an installed file is installed too (an installer copied
@@ -505,6 +623,9 @@ def owner(path, rc, authorship=None, written_in_logs=None, blob_authorship=None)
     same = _same_as_installed(look, rc)
     if same:
         return {"owner": "installed", "how": "same as an installed copy", "source": same}
+    copy_of = _committed_copy(look, rc, authorship, blob_authorship, tracked=False) if authorship and blob_authorship else None
+    if copy_of and not _agent_wrote_in(look, written_in_logs):
+        return {"owner": "installed", "how": "copy of someone else's file, not committed here", "source": copy_of}
     unpacked = _unpacked_skill(look, rc, written_in_logs)
     if unpacked:
         return {"owner": "installed", "how": unpacked[0], "source": unpacked[1]}
