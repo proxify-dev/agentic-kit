@@ -1478,7 +1478,8 @@ MCP_DOC_EXT = {".md", ".mdx", ".rst", ".txt"}
 DEP_FILES = {"package.json", "composer.json", "pyproject.toml", "requirements.txt", "requirements-dev.txt", "go.mod", "cargo.toml", "gemfile"}
 ROUTE_FILE = re.compile(r"(?i)^(?:api|web|routes?|routers?|urls)\.(?:php|py|js|mjs|cjs|ts|mts|rb|go)$")
 ROUTE_DIRS = {"routes", "router", "routers"}
-MCP_CAPS = {"mcp_code": 60, "mcp_docs": 20, "dep_files": 200, "route_files": 240}   # a Laravel app with a Routes/ per domain has 70
+# the files kept per kind and target, in walk order: a guard on time, not a threshold (a cap reached is noted)
+MCP_CAPS = {"mcp_code": 60, "mcp_docs": 20, "dep_files": 200, "route_files": 240}
 # an MCP package in a dependency manifest: the official SDKs and the common frameworks, by name
 MCP_PACKAGE = re.compile(r"(?i)modelcontextprotocol|fastmcp|(?:^|[/@_-])mcp(?:[-_/@\[]|$)")
 # a handler: it answers the protocol's tool methods (the method name as a case, a comparison or a key it dispatches on;

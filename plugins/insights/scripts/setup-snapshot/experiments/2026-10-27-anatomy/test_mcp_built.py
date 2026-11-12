@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""collect_mcp_built: MCP servers the person built into their own repos, read from the files. A tester's
-laptop read "MCP servers you wrote: none of yours" while their product held a JSON-RPC endpoint
-(a route under /mcp, a controller answering tools/list and tools/call, a runbook, tests) that an external assistant
-calls and no Claude Code config names. A server needs two kinds of signal, one of them code, and the evidence files'
-commits mostly theirs; a folder merely named mcp is nothing.
-Run: python3 -m unittest test_mcp_built   (from this folder; needs git)"""
+"""collect_mcp_built: MCP servers the person built into their own repos, read from the files. A product's MCP endpoint
+(a controller answering tools/list and tools/call, a route under /mcp, a runbook, tests) that an outside assistant calls
+and no Claude Code config names was never read. A server needs two kinds of signal and code that serves (a handler, or
+an SDK dependency with a route); whose it is, ownership.py decides; a folder merely named mcp, or a client of someone
+else's server, is nothing.
+Run: python3 -I test_mcp_built.py   (from this folder; needs git)"""
 import os
 import shutil
 import subprocess
@@ -98,7 +98,7 @@ class McpBuiltCase(unittest.TestCase):
         # the protocol written by hand: no MCP package in composer.json
         r = self.repo("shop")
         commit(r, {"composer.json": '{"require": {"laravel/framework": "^12"}}\n', "app/Mcp/NotesMcpController.php": CONTROLLER,
-                   "app/Domains/Shared/Routes/api.php": ROUTES})
+                   "modules/Orders/Routes/api.php": ROUTES})
         out = self.built(r)
         self.assertEqual(len(out), 1, out)
         self.assertEqual(sorted(out[0]["signals"]), ["handler", "route"])
@@ -140,14 +140,14 @@ class McpBuiltCase(unittest.TestCase):
         self.assertEqual(self.built(r2), [])
 
     def test_vendored_mcp_files_do_not_take_the_places_of_the_repos_own(self):
-        files = {"composer.json": '{"require": {"laravel/framework": "^12"}}\n', "app/Mcp/CatalogMcpController.php": CONTROLLER,
+        files = {"composer.json": '{"require": {"laravel/framework": "^12"}}\n', "app/Mcp/NotesMcpController.php": CONTROLLER,
                  "routes/api.php": ROUTES}
         files.update({f"vendor/acme/mcp-kit/src/Part{i:03d}.php": "<?php\nclass Part {}\n" for i in range(inventory.MCP_CAPS["mcp_code"] + 20)})
         r = self.repo("shop")
         commit(r, files)
         out = self.built(r)
         self.assertEqual(len(out), 1, out)
-        self.assertIn(os.path.join(r, "app", "Mcp", "CatalogMcpController.php"), out[0]["signals"]["handler"])
+        self.assertIn(os.path.join(r, "app", "Mcp", "NotesMcpController.php"), out[0]["signals"]["handler"])
 
     def test_a_teammates_server_is_not_theirs(self):
         r = self.repo("shop")
