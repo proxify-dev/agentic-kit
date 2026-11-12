@@ -1,0 +1,36 @@
+name: release
+
+# A release is a version bump merged to main (RELEASING.md). When a push to main changes a plugin's
+# `version` in plugins/<name>/.claude-plugin/plugin.json, this tags <name>--v<version> and makes a GitHub
+# Release from that version's section of plugins/<name>/CHANGELOG.md. The logic is .github/scripts/cut_release.py;
+# `python3 .github/scripts/cut_release.py --before <sha> --after <sha> --dry-run` shows its plan on any clone.
+#
+# Push to main only: never pull_request_target, so nothing a pull request carries runs here with a write token.
+# The token is the run's own GITHUB_TOKEN and can write contents (tags and releases), nothing else.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # full history: the script reads the plugin.json at the push's before commit and lists the earlier tags
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Tag and release every plugin whose version changed
+        run: python3 .github/scripts/cut_release.py
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
