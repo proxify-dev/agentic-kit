@@ -592,7 +592,7 @@ def walk_target(root: Path) -> Walk:
         dp = Path(d)
         names = {e.name for e in entries}
         in_skill_here = in_skill or "SKILL.md" in names
-        in_mcp_here = in_mcp or bool(MCP_TOKEN.search(_tokens(dp.name)))   # a repo named foo-mcp-server too (its files, capped)
+        in_mcp_here = in_mcp or _says_mcp(dp.name)   # a repo named foo-mcp-server too (its files, capped)
         for e in entries:
             w.entries += 1
             name = e.name
@@ -1501,6 +1501,11 @@ MCP_TEST_SAYS = re.compile(r"tools/(?:call|list)|jsonrpc")
 MCP_READ_BUDGET = {"left": 8.0}   # seconds of reading candidate files, every target together (as GIT_BUDGET)
 
 
+def _says_mcp(name: str) -> bool:
+    """The name carries "mcp" as a word. Asked of every file and folder the walk meets, so the cheap test comes first."""
+    return "mcp" in name.lower() and bool(MCP_TOKEN.search(_tokens(name)))
+
+
 def _tokens(name: str) -> str:
     """'NotesMcpController' -> 'notes_mcp_controller'; 'foo-mcp-server' stays as it is but lower."""
     return _CAMEL.sub(lambda m: (m.group(1) + "_" + m.group(2)) if m.group(1) else (m.group(3) + "_" + m.group(4)), name).lower()
@@ -1512,9 +1517,9 @@ def note_mcp_candidate(w: "Walk", p: Path, name: str, ln: str, dp: Path, in_mcp:
     ext = os.path.splitext(ln)[1]
     if ln in DEP_FILES:
         key = "dep_files"
-    elif ext in MCP_CODE_EXT and (in_mcp or MCP_TOKEN.search(_tokens(name))):
+    elif ext in MCP_CODE_EXT and (in_mcp or _says_mcp(name)):
         key = "mcp_code"
-    elif ext in MCP_DOC_EXT and (in_mcp or MCP_TOKEN.search(_tokens(name))):
+    elif ext in MCP_DOC_EXT and (in_mcp or _says_mcp(name)):
         key = "mcp_docs"
     elif ext in MCP_CODE_EXT and (ROUTE_FILE.match(name) or dp.name.lower() in ROUTE_DIRS):
         key = "route_files"
