@@ -511,6 +511,23 @@ def owner(path, rc, authorship=None, written_in_logs=None, blob_authorship=None)
     return {"owner": "theirs", "how": "no receipt", "source": look if look != path else None}
 
 
+_CLAUDE_CODE_COPY = re.compile(r"(?:^|/)\.claude[^/]*/plugins/(?:cache|marketplaces)/")
+
+
+def claude_code_copy(path):
+    """True when path sits in Claude Code's own plugin storage, `<config folder>/plugins/cache/` (a copy per installed
+    version) or `<config folder>/plugins/marketplaces/` (a clone of each marketplace). Whatever plugin it is, that file is
+    a copy Claude Code made, never a file the person wrote there: a plugin of theirs is counted where its source lives (their
+    repo), so counting the copy as well credits the same file twice, and a plugin of someone else's credits them with
+    its files. Decided by the folder alone (any home, any version, any plugin name), so it needs no receipt, git or
+    network, and it holds on a run scanned before this rule existed. For files that are counted by what they say
+    (instruction files); `owner()` still answers whose a plugin is."""
+    p = os.path.expanduser(str(path or "")).replace(os.sep, "/")
+    cfg = os.environ.get("CLAUDE_CONFIG_DIR")
+    return bool(_CLAUDE_CODE_COPY.search(p)) or bool(
+        cfg and any(p.startswith(os.path.normpath(cfg).replace(os.sep, "/") + f"/plugins/{d}/") for d in ("cache", "marketplaces")))
+
+
 def is_theirs(path, rc, authorship=None, written_in_logs=None, blob_authorship=None):
     return owner(path, rc, authorship, written_in_logs, blob_authorship)["owner"] == "theirs"
 

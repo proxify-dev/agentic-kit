@@ -329,6 +329,13 @@ Write the result with the Write tool to {out} as one JSON object:
 """
 
 
+def busiest(by_repo, n):
+    """The `n` repos with the most typed sessions that are git repos on this laptop. A tie breaks by path, never by the order
+    the logs were read: with that order the picked project flipped on about one run in three."""
+    ranked = sorted(by_repo.items(), key=lambda kv: (-kv[1].get("typed_sessions", 0), str(kv[0])))
+    return [root for root, _ in ranked if root and os.path.isdir(root) and os.path.isdir(os.path.join(root, ".git"))][:n]
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir")
@@ -357,7 +364,7 @@ def main(argv):
             worked = json.load(f)["sessions"]
     except (OSError, ValueError, KeyError):
         worked = {}
-    top_worked = {w for w, _ in Counter(w for v in worked.values() for w in v).most_common(WORKED_REPOS)}
+    top_worked = {w for w, _ in sorted(Counter(w for v in worked.values() for w in v).items(), key=lambda kv: (-kv[1], kv[0]))[:WORKED_REPOS]}
 
     total, sessions = Counter(), Counter()
     by_repo, conditions, hooks, ran = defaultdict(Counter), defaultdict(list), Counter(), set()
@@ -387,8 +394,7 @@ def main(argv):
             goal_sessions += 1
             goal_wake += bool(c.get("wakeups"))
         rounds += c.get("stop_blocks", 0) >= 2
-    active = [root for root, _ in sorted(by_repo.items(), key=lambda kv: -kv[1].get("typed_sessions", 0))
-              if root and os.path.isdir(root) and os.path.isdir(os.path.join(root, ".git"))][:a.projects]
+    active = busiest(by_repo, a.projects)
 
     t1 = time.time()
     found, gits, readers = {}, {}, {"tools": [], "hooks": []}

@@ -1088,6 +1088,8 @@ def classify_origin(path: Path, name: str, kind: str) -> tuple[str, str, dict | 
     link = f" (symlink to {real})" if path.is_symlink() else ""
     if "/skills/synced/" in path.as_posix():
         return "installed", "synced from the account (skills/synced)", None
+    if kind == "instruction" and OWNERSHIP.claude_code_copy(path):
+        return "installed", "a copy Claude Code keeps in its plugin cache or marketplaces folder", None
     # skills locks are read by ownership.py by path (the lock's own folder), not by name: a skill of theirs that shares
     # a name with an installed one stays theirs
     rc = RECEIPTS or OWNERSHIP.load_receipts(use_claude=False)

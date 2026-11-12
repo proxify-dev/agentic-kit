@@ -293,10 +293,30 @@ def repos_below(folder, budget_s=BELOW_SECONDS, depth=BELOW_DEPTH):
             except OSError:
                 pass
         return 0
-    return sorted(found, key=latest, reverse=True)
+    return sorted(found, key=lambda r: (-latest(r), r))   # a tie (equal times, or none readable) breaks by path, never by the order the folder lists
 
 
 WORKED_CAP = 15   # repos kept for the work sessions did; git is read for each of them
+
+
+def repos_from_work(worked_chats, roots, cap=None):
+    """The repos found only from the work (no session started in them): most sessions first, the first `cap` kept. A tie
+    breaks by path, never by the order sessions were read, so the cap keeps the same repos on every run."""
+    ranked = sorted(((r, n) for r, n in worked_chats.items() if r not in roots and os.path.isdir(r)), key=lambda kv: (-kv[1], kv[0]))
+    return Counter(dict(ranked[:cap or WORKED_CAP]))
+
+
+def rank_folders(all_folders, roots, from_work, head_folders, last, cap=15):
+    """The folders the file scan reads, most sessions typed in first; among equals the ones with headless runs, then a repo
+    before a plain folder, then the newest session, and last the path: a full key, so no tie falls to the order folders
+    were listed in (the picked project flipped on about one run in three when it did)."""
+    return sorted(all_folders, key=lambda f: (-(roots[f] + from_work[f]), -head_folders[f], repo_root(f) is None,
+                                              -last.get(f, 0), f))[:cap]
+
+
+def sort_repos(repos):
+    """The inventory's repo rows, busiest first (typed + headless + worked sessions), a tie by path. In place."""
+    repos.sort(key=lambda x: (-(x["typed_chats"] + x["headless_runs"] + x.get("worked_chats", 0)), x["repo"]))
 # What a Bash call does to a repo: these git subcommands change it; a read (log, diff, status, show, grep) does not,
 # and neither does a pull or a checkout, which is how a reference clone is brought up to date.
 GIT_WRITES = {"commit", "add", "apply", "am", "mv", "rm", "merge", "rebase", "cherry-pick", "revert", "restore"}
@@ -3158,8 +3178,7 @@ def main(argv=None):
     for c in typed:
         worked_chats.update(worked_by_session.get(c["chat"], {}).keys())
     # repos found only from the work: no session started in them, nor below a start folder (those are read by their rows)
-    from_work = Counter({r: n for r, n in worked_chats.most_common() if r not in roots and os.path.isdir(r)})
-    from_work = Counter(dict(from_work.most_common(WORKED_CAP)))
+    from_work = repos_from_work(worked_chats, roots)
     head_cwds = Counter(r["cwd"] for r in recs if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED))
     head_folders = Counter()
     for cwd, n in head_cwds.items():
@@ -3179,7 +3198,7 @@ def main(argv=None):
         f = scan_folder(cwd) if t1 else None
         if f:
             last[f] = max(last.get(f, 0), t1)
-    ranked = sorted(all_folders, key=lambda f: (-(roots[f] + from_work[f]), -head_folders[f], repo_root(f) is None, -last.get(f, 0)))[:15]
+    ranked = rank_folders(all_folders, roots, from_work, head_folders, last)
     if a.anatomy:
         anat_path = a.anatomy
     else:
@@ -3188,7 +3207,7 @@ def main(argv=None):
         if os.path.exists(anat_path):
             os.remove(anat_path)
         targets = list(dict.fromkeys(list(ranked) + own_marketplace_folders()))   # + their own marketplaces' folders
-        starts = [c for c, _ in (cwd_count + head_cwds).most_common() if c and not TMP.match(c)][:300]
+        starts = [c for c, _ in sorted((cwd_count + head_cwds).items(), key=lambda kv: (-kv[1], str(kv[0]))) if c and not TMP.match(c)][:300]
         proc = subprocess.Popen([sys.executable, ANATOMY, "--out", anat_path, "--written-dirs", written_path, *targets,
                                  *[x for f in starts for x in ("--start-folder", f)]],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
@@ -3215,7 +3234,7 @@ def main(argv=None):
         if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED):
             head_by_repo[place(r["cwd"])] += 1
     repos = []
-    for rr in [*set(roots) | set(head_by_repo), *below_all, *[r for r in from_work if r not in below_all]]:
+    for rr in [*sorted(set(roots) | set(head_by_repo)), *below_all, *[r for r in from_work if r not in below_all]]:
         log = [x for x in git(["log", "--all", f"--since={a.days} days ago", "--format=%an <%ae>"], rr).split("\n") if x] \
             if os.path.isdir(rr) else []
         repos.append({"repo": rr, "typed_chats": roots.get(rr, 0), "headless_runs": head_by_repo.get(rr, 0),
@@ -3230,7 +3249,7 @@ def main(argv=None):
     repos = one_row_per_repo(repos)
     for r in repos:
         r["authors_here"] = authors_in(r["theirs_in_window"], r["commits_in_window"], r["first_commit_theirs"])
-    repos.sort(key=lambda x: -(x["typed_chats"] + x["headless_runs"] + x.get("worked_chats", 0)))
+    sort_repos(repos)
     temp = [r for r in repos if r["repo"].startswith("temp: ")]
     repos = [r for r in repos if not r["repo"].startswith("temp: ")]
     if temp:
@@ -3408,7 +3427,7 @@ def main(argv=None):
                        "repos_worked_in": sum(1 for r in worked_chats if os.path.isdir(r)),
                        "repos_found_only_from_work": sum(1 for r in repos if r.get("found_from_work"))},
         "chats": {"typed_chats": len(typed), "typed_messages": sum(len(c["msgs"]) for c in typed),
-                  "by_repo": [[os.path.basename(r), n] for r, n in roots.most_common(10)]},
+                  "by_repo": [[os.path.basename(r), n] for r, n in sorted(roots.items(), key=lambda kv: (-kv[1], kv[0]))[:10]]},
         "chats_logged": agg["chats_logged"], "jobs_watched": agg["jobs_watched"],
         "slash_commands": hist, "slash_commands_in_chats": agg["slash_commands_in_chats"],
         "tools": agg["tools"], "helpers": agg["helpers"], "workflows": agg["workflows"], "skills_used": agg["skills_used"],
