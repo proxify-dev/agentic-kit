@@ -56,7 +56,7 @@ Output (JSON). Every list item carries `scope` (home | ancestor | project | fold
                         {name (the repo), repo, project, routes[], transport: http|stdio|null, signals{dependency[{file, package}],
                         handler[], route[], doc[], test[]} (paths), evidence[] (every file above but the manifests),
                         origin: own|installed|mixed|third_party, origin_evidence, git{commits, last_commit, user_commits}}. Two
-                        kinds of signal at least, one of them code (a handler or an SDK dependency); origin by ownership.py
+                        kinds of signal at least, and a handler or an SDK dependency with a route; origin by ownership.py
                         (classify_origin), the evidence files asked about as one.
   settings        {files[{path, scope, bytes, mtime, top_level_keys[]}], backups[{path, mtime}], notable[{file, scope, key, value}],
                    counts[{file, permissions_allow, ...}], env_keys[{file, name, value_len}]}
@@ -1481,14 +1481,18 @@ ROUTE_DIRS = {"routes", "router", "routers"}
 MCP_CAPS = {"mcp_code": 60, "mcp_docs": 20, "dep_files": 200, "route_files": 240}   # a Laravel app with a Routes/ per domain has 70
 # an MCP package in a dependency manifest: the official SDKs and the common frameworks, by name
 MCP_PACKAGE = re.compile(r"(?i)modelcontextprotocol|fastmcp|(?:^|[/@_-])mcp(?:[-_/@\[]|$)")
-# a handler: it answers the protocol's tool methods, or it builds a server with an SDK
-MCP_HANDLER = re.compile(r"tools/(?:call|list)|\bMcpServer\b|\bFastMCP\b|@modelcontextprotocol/sdk|\bfrom\s+(?:fast)?mcp\b|\bimport\s+(?:fast)?mcp\b|"
-                         r"PhpMcp\\|Laravel\\Mcp|mark3labs/mcp-go|modelcontextprotocol/go-sdk|\brmcp\b")
+# a handler: it answers the protocol's tool methods (the method name as a case, a comparison or a key it dispatches on;
+# a client sends the same name as the method of its request, so the name alone is not enough), or it builds a server
+# with an SDK (the server side: an SDK's client is imported from the same package)
+MCP_HANDLER = re.compile(r"""(?:\b(?:case|when)\s+|[=!]==?\s*|\.equals\(\s*|\bin\s*[(\[{]\s*)['"]tools/(?:call|list)['"]|"""
+                         r"""['"]tools/(?:call|list)['"]\s*(?:=>|->|[=!]==?|:(?!:))|"""
+                         r"\bMcpServer\b|\bAddMcpServer\b|\bFastMCP\b|@modelcontextprotocol/sdk/server|\b(?:from|import)\s+mcp\.server\b|"
+                         r"PhpMcp\\Server|Laravel\\Mcp\\Server|mark3labs/mcp-go/server|\bNewMCPServer\(|\bmcp\.NewServer\(|\bimpl\s+ServerHandler\b")
 MCP_ROUTE_LINE = re.compile(r"(?i)Route::|\.(?:post|get|all|use|route|handle|mount)\s*\(|@(?:app|router|bp)\.|\bpath\(|HandleFunc|add_api_route|add_route|\.Mount\(")
 MCP_ROUTE_PATH = re.compile(r"""['"]((?:/|[\w{}:?.-]+/)?(?:[\w{}:?.-]+/)*mcp(?:/[\w{}:?.-]+)*/?)['"]""")
 MCP_DOC_SAYS = re.compile(r"(?i)\bMCP\b[^\n.]{0,60}\bserver\b|Model Context Protocol")
 MCP_TEST_SAYS = re.compile(r"tools/(?:call|list)|jsonrpc")
-MCP_READ_BUDGET_S = 8.0   # per target: the candidate files read, all kinds together
+MCP_READ_BUDGET = {"left": 8.0}   # seconds of reading candidate files, every target together (as GIT_BUDGET)
 
 
 def _tokens(name: str) -> str:
@@ -1510,9 +1514,13 @@ def note_mcp_candidate(w: "Walk", p: Path, name: str, ln: str, dp: Path, in_mcp:
         key = "route_files"
     else:
         return
+    if FIXTURE_RE.search(os.path.relpath(p, w.root).replace(os.sep, "/")):
+        return   # a vendored or example copy is never read, and would take the place of the repo's own files under the cap
     lst = getattr(w, key)
     if len(lst) < MCP_CAPS[key]:
         lst.append(p)
+    else:
+        cnr(w.root, f"MCP servers built into the repo: more than {MCP_CAPS[key]} candidate files ({key}); the rest not read")
 
 
 def _mcp_dependencies(f: Path) -> list[str]:
@@ -1576,11 +1584,13 @@ def collect_mcp_built(t: Path, w: "Walk") -> list[dict]:
       route       an HTTP route registered under /mcp (in a routes file or in such a code file)
       doc         a doc named mcp that calls the thing an MCP server
       test        a test named mcp that posts tools/call, tools/list or JSON-RPC
-    One record per git repo with two kinds at least, one of them code (a handler or a dependency). Whose it is: ownership.py
+    One record per git repo with two kinds at least and code that serves: a handler, or a dependency with a route (an SDK
+    is a client's dependency as often as a server's). Whose it is: ownership.py
     decides, as for every artifact (classify_origin), the evidence files asked about as one: the commits that touched any
     of them (the manifests left out: everyone's). Files in fixture paths, vendor folders and plugin folders of theirs are
     not read (a plugin's server counts by its config)."""
-    t_end = time.monotonic() + MCP_READ_BUDGET_S
+    t0 = time.monotonic()
+    t_end = t0 + MCP_READ_BUDGET["left"]
     plugin_prefixes = tuple(str(pr) + os.sep for pr in w.plugin_roots)
 
     def rel_of(p: Path) -> str:
@@ -1658,11 +1668,14 @@ def collect_mcp_built(t: Path, w: "Walk") -> list[dict]:
         text = read_text(f, 400_000, note=False)
         if text and MCP_DOC_SAYS.search(text):
             add("doc", f)
+    MCP_READ_BUDGET["left"] -= time.monotonic() - t0
 
     out = []
     for root, r in by_repo.items():
         kinds = [k for k, v in r["signals"].items() if v]
-        if len(kinds) < 2 or not (r["signals"]["handler"] or r["signals"]["dependency"]):
+        # code that serves: a handler, or an SDK the repo depends on with a route under /mcp. A dependency with a doc or a
+        # test is a client as often as a server (the SDKs hold both sides)
+        if len(kinds) < 2 or not (r["signals"]["handler"] or (r["signals"]["dependency"] and r["signals"]["route"])):
             continue
         r["transport"] = "http" if r["routes"] else ("stdio" if r["signals"]["handler"] else None)
         # whose it is: ownership.py, about the handler (else the first evidence file), with the evidence files as one

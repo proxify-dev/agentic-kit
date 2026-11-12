@@ -126,6 +126,29 @@ class McpBuiltCase(unittest.TestCase):
         commit(r2, {"docs/mcp-plans.md": "An MCP server built into the API, some day.\n", "routes/api.php": ROUTES})   # words, no code
         self.assertEqual(self.built(r2), [])
 
+    def test_an_mcp_client_is_not_a_server(self):
+        # a program that calls someone else's MCP server: the SDK's client from the same package, or the protocol by hand
+        r = self.repo("chat-app")
+        commit(r, {"package.json": PACKAGE,
+                   "src/mcp/client.ts": 'import { Client } from "@modelcontextprotocol/sdk/client/index.js";\n'
+                                        'const c = new Client({name: "app", version: "1"});\nawait c.callTool({name: "search"});\n'})
+        self.assertEqual(self.built(r), [])
+        r2 = self.repo("bot")
+        commit(r2, {"requirements.txt": "mcp>=1.2\n",
+                    "bot/mcp_client.py": 'def ask(rpc, name, args):\n    return rpc("tools/call", {"name": name, "arguments": args})\n',
+                    "docs/search-mcp-tools.md": "The search service's MCP server exposes these tools.\n"})
+        self.assertEqual(self.built(r2), [])
+
+    def test_vendored_mcp_files_do_not_take_the_places_of_the_repos_own(self):
+        files = {"composer.json": '{"require": {"laravel/framework": "^12"}}\n', "app/Mcp/CatalogMcpController.php": CONTROLLER,
+                 "routes/api.php": ROUTES}
+        files.update({f"vendor/acme/mcp-kit/src/Part{i:03d}.php": "<?php\nclass Part {}\n" for i in range(inventory.MCP_CAPS["mcp_code"] + 20)})
+        r = self.repo("shop")
+        commit(r, files)
+        out = self.built(r)
+        self.assertEqual(len(out), 1, out)
+        self.assertIn(os.path.join(r, "app", "Mcp", "CatalogMcpController.php"), out[0]["signals"]["handler"])
+
     def test_a_teammates_server_is_not_theirs(self):
         r = self.repo("shop")
         commit(r, {"composer.json": COMPOSER, "app/Mcp/NotesMcpController.php": CONTROLLER, "routes/api.php": ROUTES}, LEE)
