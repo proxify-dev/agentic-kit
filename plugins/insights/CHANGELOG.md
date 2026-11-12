@@ -11,6 +11,35 @@ You get a new version only when it is released: each entry below is one release,
 brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3 and 0.4.1 were never sent out; their
 changes arrived in the version after them.
 
+## 0.6.5 — 2026-11-12
+
+### What changes for you
+
+- **Repos are found from where a session worked**, not only from the folder it started in: files edited there, `cd` or `git -C` there, commits there. A repo that was only read from does not count. When most of your sessions start outside a repo, the page says so, and a zero reads "couldn't see", not "didn't build" (#14).
+- **Every tab shows the same number for the same thing** (#15).
+  - Programs that start the agent show as scripts, SDK programs and schedules on both tabs.
+  - Tools from others give two counts: skills from others, and MCP servers.
+  - Evals read "changed in 30 days, no run recorded" when nothing ran.
+  - Every project read is listed. Level 3 reads "0 fully shown, 3 partly", and each part names its project.
+  - Plurals are fixed, quotes are whole sentences, and schedules count only when they are your own.
+  - The Share tab marks every line that comes from the older read.
+- **One rule-file count, and the same projects on every run** (#16). Copies of rule files that Claude Code keeps in its plugin cache are not counted as yours. Two projects with the same activity are always picked in the same order.
+- **The scan can no longer run forever on an odd path** (#19). A session that had written to a path starting with `//` could make the scan walk up for ever. It now stops, and odd targets (`//…`, `/dev/null`, shell variables, URLs) are not treated as folders. One session log that takes more than 5 minutes is skipped and reported as "couldn't check"; the rest of the run carries on.
+- **A skill you type as `/name` counts as used** (#11). A skill that is yours stays yours when teammates edited some of its files, and the code it names outside its folder is read.
+- **Sessions in the desktop app or an editor count toward your busiest projects**, not only terminal sessions (#13).
+- **The scan reads MCP servers built into your own repos** (#18). They are not counted toward a level yet.
+
+### Known limits
+
+- A full scan takes 20 minutes or more on a laptop with many sessions, and many of its checks run out of time on a first run. A fix is in progress for the next version.
+- One run's AI part costs about 350k tokens on a large setup, against a target of about 200k.
+- Folders without git are not read as projects.
+- Folders of generated files that each hold a rule file still count as separate rule files.
+- Share still sends the older read's lines until the receiving side accepts the new fields.
+- Every threshold is a guess until it is checked against levels confirmed on calls.
+
+Pull requests: #11, #13, #14, #15, #16, #17, #18, #19. (#17 changes no behaviour.)
+
 ## 0.6.4 — 2026-11-11
 
 ### What changes for you
@@ -23,7 +52,7 @@ changes arrived in the version after them.
 ### Known limits
 
 - One run's AI part costs about 350k tokens on a large setup, against a target of about 200k. The old practice pass is still in; dropping it is pending.
-- Repos are found only from where a session starts. If you start sessions in your home folder and work across many repos, you read low on "what you built" and Level 4. Fixed in 0.6.5.
+- Repos are found only from where a session starts. If you start sessions in your home folder and work across many repos, you read low on "what you built" and Level 4. Fixed in 0.6.5 (#14).
 - Every threshold is a guess until it is checked against levels confirmed on calls.
 - The share receiver needs three new field names before the new lines can be sent.
 
@@ -43,7 +72,7 @@ Pull request: #10
 ### Known limits
 
 - One run's AI part costs about 350k tokens on a large setup, against a target of about 200k. The old practice pass is still in; dropping it is pending.
-- Repos are found only from where a session starts. If you start sessions in your home folder and work across many repos, you read low on "what you built" and Level 4. Fixed in 0.6.5.
+- Repos are found only from where a session starts. If you start sessions in your home folder and work across many repos, you read low on "what you built" and Level 4. Fixed in 0.6.5 (#14).
 - Every threshold is a guess until it is checked against levels confirmed on calls.
 - The share receiver needs three new field names before the new lines can be sent.
 
