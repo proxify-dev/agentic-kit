@@ -56,6 +56,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -204,6 +205,13 @@ def git(args, cwd, timeout=20):
         return ""
 
 
+def parent_dir(q):
+    """The folder above q, or None at the top. A walk up a path stops here: a root is its own parent ("/", "//" (POSIX
+    keeps a leading double slash), "C:\\"), so a loop that waits to reach "/" or the home folder never ends on those."""
+    up = os.path.dirname(q)
+    return up if up and up != q else None
+
+
 def repo_root(path):
     """The repo a folder belongs to, read from the files (worktrees resolve to their main repo). No git call."""
     q = path
@@ -219,7 +227,7 @@ def repo_root(path):
             if not os.path.isabs(t):
                 t = os.path.normpath(os.path.join(q, t))
             return t.split("/.git/")[0] if "/.git/" in t else q
-        q = os.path.dirname(q)
+        q = parent_dir(q)
     return None
 
 
@@ -230,7 +238,7 @@ def in_linked_worktree(path):
             return True
         if os.path.isdir(os.path.join(q, ".git")):
             return False
-        q = os.path.dirname(q)
+        q = parent_dir(q)
     return False
 
 
@@ -324,14 +332,25 @@ FILE_WRITERS = {"tee", "touch", "mv", "cp", "rm", "mkdir", "patch", "install"}  
 WORKISH_RX = re.compile(r"\bgit\b|\b(sed|tee|touch|mv|cp|rm|mkdir|patch|install)\b|>")
 NOT_WORKED_IN = re.compile(r"/node_modules/|/\.git/")
 _WORKED = {}
+NOT_A_PATH = re.compile(r"[$`<>*?|\x00]|://")   # a shell variable, a command substitution, a here-doc marker, a glob, a URL
+LEADING_SLASHES = re.compile(r"^/{2,}")
+
+
+def tidy_path(p):
+    """A path a command names, cleaned for a walk up the tree: `//x` is `/x` (normpath keeps a leading double slash, and
+    a walk up from it never reached `/`). None when it is not a real path: empty, `-`, `/dev/...`, `&1`, a shell variable
+    (`$OUT/file`), a URL, a here-doc marker."""
+    if not p or p == "-" or p.startswith(("/dev/", "&")) or NOT_A_PATH.search(p):
+        return None
+    return LEADING_SLASHES.sub("/", os.path.normpath(p))
 
 
 def worked_repo(folder):
     """The repo a folder belongs to when work done in it counts as worked in; None otherwise. Left out: temporary folders,
     Claude Code's own ~/.claude (its plugin cache is other people's files), node_modules. No git call."""
+    folder = tidy_path(folder)
     if not folder:
         return None
-    folder = os.path.normpath(folder)
     if folder not in _WORKED:
         bad = TMP.match(folder) or (folder + "/").startswith(os.path.join(HOME, ".claude") + "/") or NOT_WORKED_IN.search(folder + "/")
         root = None if bad else repo_root(folder)
@@ -348,7 +367,9 @@ def worked_dirs_of(cmd, cwd):
 
     def absolute(w):
         w = os.path.expanduser(w)
-        return os.path.normpath(w if w.startswith("/") else os.path.join(here, w)) if w.startswith("/") or here else None
+        if not tidy_path(w) or not (w.startswith("/") or here):
+            return None
+        return tidy_path(w if w.startswith("/") else os.path.join(here, w))
 
     def folder_of(a):
         return a if a and os.path.isdir(a) else os.path.dirname(a) if a else None
@@ -382,7 +403,7 @@ def worked_dirs_of(cmd, cwd):
             m = re.match(r"^\d*&?>>?(.*)$", w)
             if m:
                 target = m.group(1) or (tok[j + 1] if j + 1 < len(tok) else "")
-                if target and not target.startswith(("/dev/", "&")):
+                if target:
                     out.append(folder_of(absolute(target)))
     return [d for d in dict.fromkeys(out) if d]
 
@@ -481,6 +502,39 @@ def own_marketplace_folders():
     return list(dict.fromkeys(out))
 
 
+# One session log gets this long. One that takes longer (a loop on a strange line, a log of a size nobody expected) is
+# skipped and counted in meta.could_not_read, so a run still ends; the page reads that as "couldn't check", never a minus.
+SESSION_SECONDS = float(os.environ.get("SETUP_SESSION_SECONDS") or 300)
+_DEADLINE = None
+
+
+class SessionTooLong(BaseException):   # not an Exception: no `except Exception` in the reader may swallow it
+    pass
+
+
+def read_log_limited(args):
+    """read_log with a time limit: the record, or {"timed_out": path}. Where the system has SIGALRM (macOS, Linux) it
+    stops a loop in the middle of one line; elsewhere (Windows) the check between lines still ends a slow log."""
+    global _DEADLINE
+    _DEADLINE = time.time() + SESSION_SECONDS
+
+    def stop(*_):
+        raise SessionTooLong()
+    old = None
+    try:
+        if hasattr(signal, "setitimer"):
+            old = signal.signal(signal.SIGALRM, stop)
+            signal.setitimer(signal.ITIMER_REAL, SESSION_SECONDS)
+        return read_log(args)
+    except SessionTooLong:
+        return {"timed_out": args[0]}
+    finally:
+        if old is not None:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, old)
+        _DEADLINE = None
+
+
 def read_log(args):
     """One log file → a compact record. Main chats (typed or headless) and helper files alike."""
     path, start, is_helper = args
@@ -521,6 +575,8 @@ def read_log(args):
         return None
     with fh:
         for n, line in enumerate(fh):
+            if _DEADLINE and n % 200 == 0 and time.time() > _DEADLINE:
+                raise SessionTooLong()
             if r["ep"] is None and b'"entrypoint":"' in line:
                 j = line.find(b'"entrypoint":"')
                 r["ep"] = line[j + 14:line.find(b'"', j + 14)].decode("ascii", "replace")
@@ -821,8 +877,10 @@ def scan_logs(days, root=PROJECTS):
     helpers = [p for p in glob.glob(os.path.join(root, "*", "*", "subagents", "*.jsonl")) if os.path.getmtime(p) >= start]
     jobs = [(p, start, False) for p in mains] + [(p, start, True) for p in helpers]
     with Pool(max(1, (os.cpu_count() or 2) - 1)) as pool:
-        recs = [x for x in pool.imap_unordered(read_log, jobs, chunksize=6) if x]
-    return recs, len(mains), len(helpers)
+        got = [x for x in pool.imap_unordered(read_log_limited, jobs, chunksize=6) if x]
+    recs = [x for x in got if "timed_out" not in x]
+    timed_out = sorted(x["timed_out"] for x in got if "timed_out" in x)
+    return recs, len(mains), len(helpers), timed_out
 
 
 # ---------------------------------------------------------------- aggregation of the logs
@@ -1872,7 +1930,7 @@ def effective_default_mode(cwd, me, memo=None):
         cands += [(os.path.join(q, ".claude", "settings.local.json"), False), (os.path.join(q, ".claude", "settings.json"), False)]
         if os.path.exists(os.path.join(q, ".git")):
             break
-        q = os.path.dirname(q)
+        q = parent_dir(q)
     cands.append((os.path.join(HOME, ".claude", "settings.json"), False))
     out = None
     for path, managed in cands:
@@ -3160,7 +3218,7 @@ def main(argv=None):
             roots[f] += n
 
     t = time.time()
-    recs, n_main, n_help = scan_logs(a.days)
+    recs, n_main, n_help, logs_timed_out = scan_logs(a.days)
     T["logs"] = round(time.time() - t, 1)
     WRITTEN_DIRS = sorted({d for r in recs for d in r.get("written_dirs", ())})
     written_path = os.path.join(a.out, "written-dirs.json")   # the anatomy scan asks the same ownership question
@@ -3410,7 +3468,9 @@ def main(argv=None):
     inv = {
         "meta": {"days": a.days, "to": day(t0), "made": t0, "main_log_files": n_main, "helper_log_files": n_help,
                  "versions": [v for v, _ in versions.most_common(3)], "seconds": T,
-                 "could_not_read": files_part.pop("could_not_read")},
+                 "logs_timed_out": len(logs_timed_out),
+                 "could_not_read": files_part.pop("could_not_read") + [
+                     {"path": p, "reason": f"session log took over {SESSION_SECONDS:g}s: skipped, couldn't check"} for p in logs_timed_out[:30]]},
         "person": {"identities": sorted(me["emails"]), "names": sorted(me["names"]), "sources": ident["sources"],
                    "not_counted": ident["ask_about"],
                    "most_frequent_author_where_chats_run": me_top.split(" <")[0],

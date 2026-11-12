@@ -1184,7 +1184,8 @@ def plugin_root_of(path: str, _cache: dict = {}) -> str | None:
         if os.path.isfile(os.path.join(d, ".claude-plugin", "plugin.json")):
             r = d
             break
-        d = os.path.dirname(d)
+        up = os.path.dirname(d)
+        d = up if up != d else None   # a root ("/", "//", "C:\\") is its own parent: stop there
     else:
         r = None
     for x in seen:

@@ -143,7 +143,8 @@ class Ctx:
                 except OSError:
                     pass
                 break
-            q = os.path.dirname(q)
+            up = os.path.dirname(q)
+            q = up if up != q else None   # a root ("/", "//", "C:\\") is its own parent: stop there
         else:
             res = None
         for w in walked:
