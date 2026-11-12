@@ -37,6 +37,16 @@ EDITS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 LOOK_TOOLS = re.compile(r"screenshot|browser|playwright|chrome", re.I)
 SESSIONS_DIR = re.compile(r"\.claude/projects\b")
 SCRIPT = re.compile(r"(/[^\s\"']+\.(?:mjs|cjs|js|ts|py|sh))")  # an absolute script path inside a hook's command
+# Where a person types: the terminal, or an app that drives Claude Code through the Agent SDK (VS Code, the desktop app,
+# JetBrains; the same list as the evidence inventory's PERSON_APPS). A headless run (entrypoint sdk-*) carries a
+# program's prompt, so it counts for no project (11-12: the pick took a folder with 3 terminal sessions over the repo
+# with 169 desktop-app sessions, and the review and level read the wrong project).
+PERSON_ENTRIES = ("cli", "claude-vscode", "claude-desktop", "claude-jetbrains")
+
+
+def person_session(entry):
+    """True when the session's "user" messages are the person's (see PERSON_ENTRIES)."""
+    return entry in PERSON_ENTRIES
 
 
 INJECTED = ("<task-notification", "<cross-session-message", "<local-command", "<command-name", "<command-message",
@@ -153,6 +163,20 @@ def repo_of(cwd):
     root = os.path.dirname(common) if common.endswith("/.git") else (git(cwd, "rev-parse", "--show-toplevel").strip() or cwd)
     _roots[cwd] = root
     return root
+
+
+def most_active(per, n):
+    """(by_repo, active): sessions per main checkout (a session typed in any app counts as typed, a headless run only
+    as a session), and the n repos with the most typed sessions, most first; a folder that is no git repo is skipped."""
+    by_repo = defaultdict(Counter)
+    for r in per:
+        repo = repo_of(r["cwd"])
+        if person_session(r["entry"]) and r["counts"].get("typed"):
+            by_repo[repo]["typed_sessions"] += 1
+        by_repo[repo]["sessions"] += 1
+    active = [root for root, _ in sorted(by_repo.items(), key=lambda kv: -kv[1].get("typed_sessions", 0))
+              if root and os.path.isdir(root) and os.path.isdir(os.path.join(root, ".git"))][:n]
+    return by_repo, active
 
 
 def ls(root):
@@ -350,7 +374,7 @@ def main(argv):
     t_logs = time.time() - t0
 
     total, sessions = Counter(), Counter()
-    by_repo, conditions, hooks, ran = defaultdict(Counter), defaultdict(list), Counter(), set()
+    conditions, hooks, ran = defaultdict(list), Counter(), set()
     goal_sessions = goal_wake = rounds = 0
     for r in per:
         c = dict(r["counts"])
@@ -362,9 +386,6 @@ def main(argv):
             if v:
                 sessions[k] += 1
         repo = repo_of(r["cwd"])
-        if r["entry"] == "cli" and c.get("typed"):
-            by_repo[repo]["typed_sessions"] += 1
-        by_repo[repo]["sessions"] += 1
         conditions[repo] += r["conditions"]
         hooks.update(r["hooks"])
         ran.update(r.get("ran_hooks") or [])
@@ -372,8 +393,7 @@ def main(argv):
             goal_sessions += 1
             goal_wake += bool(c.get("wakeups"))
         rounds += c.get("stop_blocks", 0) >= 2
-    active = [root for root, _ in sorted(by_repo.items(), key=lambda kv: -kv[1].get("typed_sessions", 0))
-              if root and os.path.isdir(root) and os.path.isdir(os.path.join(root, ".git"))][:a.projects]
+    by_repo, active = most_active(per, a.projects)
 
     t1 = time.time()
     found, gits, readers = {}, {}, {"tools": [], "hooks": []}

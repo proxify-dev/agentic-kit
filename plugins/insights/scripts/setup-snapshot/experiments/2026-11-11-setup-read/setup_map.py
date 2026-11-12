@@ -7,7 +7,7 @@ judges the map afterwards (README.md in this folder).
     python3 setup_map.py RUN_DIR [--projects 3]   -> RUN_DIR/setup-map.json and RUN_DIR/setup-map.md
 
 Discovery comes from what the earlier steps wrote into RUN_DIR; this step decides nothing about whose a file is:
-  anatomy-scan.json   projects (the same pick anatomy_scan.py made: most typed interactive sessions)
+  anatomy-scan.json   projects (the same pick anatomy_scan.py made: most sessions the person typed in, in any app)
   chats.jsonl         the pick again when anatomy-scan.json is missing (it needs PyYAML)
   inventory.json      repos (a repo found below a folder sessions started in, `found_under`; `authors_here`) and
                       own_artifacts.own (skills, agents, commands: whose they are was decided by ownership.py)
@@ -22,6 +22,9 @@ import re
 import sys
 from collections import Counter
 
+# Where a person types (the same list as anatomy_scan.PERSON_ENTRIES and the evidence inventory's PERSON_APPS): the
+# terminal, or an app that drives Claude Code through the Agent SDK. A headless run (ep sdk-*) counts for no project.
+PERSON_ENTRIES = ("cli", "claude-vscode", "claude-desktop", "claude-jetbrains")
 MAX_BYTES = 300_000
 DOC_EXT = (".md", ".txt", ".mdc")
 OUTLINE_DEPTH, OUTLINE_MAX = 3, 40
@@ -652,7 +655,7 @@ def pick_projects(run, ctx, n, inv, anat, scan):
                     if cwd and os.path.normpath(cwd) == ctx.home:
                         home_start = True
                     r = ctx.repo_root(cwd) if cwd and os.path.isdir(cwd) else None
-                    if r and c.get("ep") == "cli":
+                    if r and c.get("ep") in PERSON_ENTRIES:
                         counts[r] += 1
         except OSError:
             pass
