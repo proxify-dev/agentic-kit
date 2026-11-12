@@ -54,9 +54,10 @@ Output (JSON). Every list item carries `scope` (home | ancestor | project | fold
   mcp_servers[]   {name, transport, source, scope, command?, entry?, args_count, url_host?, env[{name,value_len}], headers[...]}
   mcp_built[]     MCP servers built into the person's own repos, whether or not any client is set up for them (collect_mcp_built):
                         {name (the repo), repo, project, routes[], transport: http|stdio|null, signals{dependency[{file, package}],
-                        handler[], route[], doc[], test[]} (paths), evidence[] (every file above), origin: own|mixed|third_party,
-                        origin_evidence, git{commits, user_commits}}. Two kinds of signal at least, one of them code (a handler
-                        or an SDK dependency); origin by the commits that touched the evidence files, as for artifacts.
+                        handler[], route[], doc[], test[]} (paths), evidence[] (every file above but the manifests),
+                        origin: own|installed|mixed|third_party, origin_evidence, git{commits, last_commit, user_commits}}. Two
+                        kinds of signal at least, one of them code (a handler or an SDK dependency); origin by ownership.py
+                        (classify_origin), the evidence files asked about as one.
   settings        {files[{path, scope, bytes, mtime, top_level_keys[]}], backups[{path, mtime}], notable[{file, scope, key, value}],
                    counts[{file, permissions_allow, ...}], env_keys[{file, name, value_len}]}
   worktrees[]     one item per git repo (common dir): {repo, default_refs[], summary{linked, merged, unmerged, locked, prunable,
@@ -397,17 +398,18 @@ def identity_from_repos(repo_roots: list[Path]):
             Identity.names.add(n.strip().lower())
 
 
-_hist_cache: dict[tuple[Path, str], dict | None] = {}
+_hist_cache: dict[tuple[Path, str | tuple[str, ...]], dict | None] = {}
 
 
-def history(root: Path, rel: str) -> dict | None:
+def history(root: Path, rel: str | tuple[str, ...]) -> dict | None:
+    """The commits that touched `rel`, a path inside root, or any of several (a tuple)."""
     key = (root, rel)
     if key in _hist_cache:
         return _hist_cache[key]
     res = None
     if GIT_BUDGET["left"] > 0:
         t = time.monotonic()
-        r = git(["log", "--format=%aI%x09%ae%x09%an", "--", rel], root, 15)
+        r = git(["log", "--format=%aI%x09%ae%x09%an", "--", *((rel,) if isinstance(rel, str) else rel)], root, 15)
         GIT_BUDGET["left"] -= time.monotonic() - t
         if r is not None and r.returncode == 0:
             rows = [ln.split("\t") + ["", ""] for ln in r.stdout.splitlines() if ln]
@@ -439,6 +441,21 @@ def git_info(path: Path) -> dict:
     if h["commits"] == 0:
         r = git(["check-ignore", "-q", "--", rel], root, 5)
         info["ignored"] = bool(r is not None and r.returncode == 0)
+    return info
+
+
+def files_info(paths) -> dict:
+    """git_info for several files of one repo taken as one thing: the commits that touched any of them."""
+    reals = [Path(os.path.realpath(p)) for p in paths]
+    root = git_root(reals[0]) if reals else None
+    if root is None:
+        return {"in_git": False}
+    info: dict = {"in_git": True, "repo": str(root)}
+    h = history(root, tuple(sorted({os.path.relpath(r, root) for r in reals if _under(r, root)})))
+    if h is None:
+        info["error"] = "git log unavailable"
+        return info
+    info.update(h)
     return info
 
 
@@ -1090,11 +1107,14 @@ def written_in_logs(folder):
     return any(d == w or d.startswith(w.rstrip("/") + "/") for d in WRITTEN_DIRS for w in want)
 
 
-def classify_origin(path: Path, name: str, kind: str) -> tuple[str, str, dict | None]:
+def classify_origin(path: Path, name: str, kind: str, files: list | None = None) -> tuple[str, str, dict | None]:
     """own | installed | mixed | third_party, by ownership.owner (the ruling 11-05): installed only on a receipt (a
     published marketplace's cache, a skills lock, account-synced skills), a teammate's only when git shows most commits
     are someone else's, and theirs otherwise. "Not in git" is theirs: until 11-05 it was "untracked" and the v15 scan
-    dropped it, which lost a person's own skills."""
+    dropped it, which lost a person's own skills.
+    `files`: a thing made of several files of one repo (an MCP server built into a repo: its handler, routes, docs,
+    tests) is judged as one, by the commits that touched any of them, as a skill folder is by every commit on the
+    folder; `path` is the one of them the receipts and the copy rule are checked against."""
     real = Path(os.path.realpath(path))
     link = f" (symlink to {real})" if path.is_symlink() else ""
     if "/skills/synced/" in path.as_posix():
@@ -1107,7 +1127,7 @@ def classify_origin(path: Path, name: str, kind: str) -> tuple[str, str, dict | 
     gi_box = {}
 
     def auth(p):
-        gi = git_info(Path(p))
+        gi = files_info(files) if files and os.path.realpath(p) == str(real) else git_info(Path(p))
         gi_box["gi"] = gi
         if gi.get("in_git") and gi.get("commits"):
             return {"commits": gi["commits"], "theirs": gi.get("user_commits") or 0}
@@ -1549,17 +1569,6 @@ def _in_test_dir(rel: str) -> bool:
     return any(part.lower() in TEST_DIRS for part in rel.split("/")[:-1]) or bool(re.search(r"(?i)(?:^|[._-])(?:test|spec)s?(?:[._-]|$)", os.path.basename(rel)))
 
 
-def _evidence_authorship(root: Path, rels: list[str]) -> dict | None:
-    """One git log over the evidence files: commits that touched any of them, and how many are theirs."""
-    if not GIT or not rels:
-        return None
-    out = git_out(["log", "--format=%ae%x09%an", "--", *rels], root, 20)
-    if out is None:
-        return None
-    rows = [ln.split("\t") + [""] for ln in out.splitlines() if ln]
-    return {"commits": len(rows), "user_commits": sum(Identity.is_user(x[0], x[1]) for x in rows)}
-
-
 def collect_mcp_built(t: Path, w: "Walk") -> list[dict]:
     """MCP servers built into the person's repos under this target, read from the files, never from names alone:
       dependency  a manifest names an MCP SDK or framework (@modelcontextprotocol/sdk, mcp, fastmcp, php-mcp/*, mcp-go, rmcp)
@@ -1567,9 +1576,10 @@ def collect_mcp_built(t: Path, w: "Walk") -> list[dict]:
       route       an HTTP route registered under /mcp (in a routes file or in such a code file)
       doc         a doc named mcp that calls the thing an MCP server
       test        a test named mcp that posts tools/call, tools/list or JSON-RPC
-    One record per git repo with two kinds at least, one of them code (a handler or a dependency). Whose it is: the commits
-    that touched the evidence files (the manifests left out: everyone's), by the same majority rule as artifacts. Files in
-    fixture paths, vendor folders and plugin folders of theirs are not read (a plugin's server counts by its config)."""
+    One record per git repo with two kinds at least, one of them code (a handler or a dependency). Whose it is: ownership.py
+    decides, as for every artifact (classify_origin), the evidence files asked about as one: the commits that touched any
+    of them (the manifests left out: everyone's). Files in fixture paths, vendor folders and plugin folders of theirs are
+    not read (a plugin's server counts by its config)."""
     t_end = time.monotonic() + MCP_READ_BUDGET_S
     plugin_prefixes = tuple(str(pr) + os.sep for pr in w.plugin_roots)
 
@@ -1655,16 +1665,11 @@ def collect_mcp_built(t: Path, w: "Walk") -> list[dict]:
         if len(kinds) < 2 or not (r["signals"]["handler"] or r["signals"]["dependency"]):
             continue
         r["transport"] = "http" if r["routes"] else ("stdio" if r["signals"]["handler"] else None)
-        rels = [os.path.relpath(p, root) for p in r["evidence"] if _under(Path(p), root)]
-        g = _evidence_authorship(root, rels)
-        if g is None:
-            r["origin"], r["origin_evidence"], r["git"] = "own", "no git history read for these files; theirs by default, as for any file not in git", None
-        elif not g["commits"]:
-            r["origin"], r["origin_evidence"], r["git"] = "own", "the evidence files are in the repo but never committed: theirs by default", g
-        else:
-            u, n = g["user_commits"], g["commits"]
-            r["origin"] = "own" if 2 * u >= n else "mixed" if u else "third_party"
-            r["origin_evidence"], r["git"] = f"git: {u} of {n} commits that touched the evidence files are by an identity email", g
+        # whose it is: ownership.py, about the handler (else the first evidence file), with the evidence files as one
+        main = (r["signals"]["handler"] or r["evidence"])[0]
+        files = [p for p in r["evidence"] if _under(Path(p), root)] or [main]
+        origin, ev, slim = classify_origin(Path(main), r["name"], "mcp_server", files=files)
+        r["origin"], r["origin_evidence"], r["git"] = origin, scrub(ev, 220), slim
         r["signals"] = {k: v for k, v in r["signals"].items() if v}
         out.append(r)
     return out

@@ -134,7 +134,23 @@ class McpBuiltCase(unittest.TestCase):
         out = self.built(r)
         self.assertEqual(len(out), 1)
         self.assertEqual(out[0]["origin"], "mixed", out[0]["origin_evidence"])
-        self.assertEqual(out[0]["git"], {"commits": 3, "user_commits": 1})
+        self.assertEqual({k: out[0]["git"][k] for k in ("commits", "user_commits")}, {"commits": 3, "user_commits": 1})
+
+    def test_a_copy_of_someone_elses_server_committed_into_their_repo_is_installed(self):
+        # ownership.py's rule 4: they committed a byte copy of a version of a file from another repo on this laptop whose
+        # commits are someone else's (a clone of the upstream project): installed, not theirs
+        server = 'import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";\nconst server = new McpServer({name: "notes"});\n'
+        upstream = self.repo("notes-server")
+        commit(upstream, {"package.json": PACKAGE, "src/server.ts": server}, LEE)
+        r = self.repo("app")
+        commit(r, {"package.json": PACKAGE, "tools/mcp/server.ts": server})
+        inventory.RECEIPTS = inventory.OWNERSHIP.load_receipts(roots=[upstream, r], use_claude=False)
+        try:
+            out = self.built(r)
+        finally:
+            inventory.RECEIPTS = None
+        self.assertEqual(len(out), 1, out)
+        self.assertEqual(out[0]["origin"], "installed", out[0]["origin_evidence"])
 
     def test_fixture_and_vendor_copies_are_not_read(self):
         r = self.repo("app")
