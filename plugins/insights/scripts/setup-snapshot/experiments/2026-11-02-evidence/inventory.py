@@ -2667,6 +2667,15 @@ def job_is_theirs(args, plist, me):
     return authorship(plist, me, None)["yours"] if plist else True
 
 
+def scheduled_file_is_theirs(path, me):
+    """A Claude Code scheduled_tasks.json: whose it is, by ownership.py, as for any other file of theirs: its authorship in
+    the repo it sits in (a teammate's committed project file is not theirs); one in no repo (~/.claude) is theirs."""
+    if not path:
+        return True
+    real = os.path.realpath(path)
+    return authorship(real, me, repo_root(os.path.dirname(real)))["yours"]
+
+
 def hook_ownership(A, me, plugins):
     """own.hook: a hook's command → True when git shows the person's commits on its script (or the plugin it ships in
     comes from their repo), False when it shows only others', None when nothing says (a script outside any repo)."""
@@ -2990,7 +2999,8 @@ def compact_anatomy(A, me, roots, rd, wr):
                         "launchd_matching": [dict(x, own=job_is_theirs(x.get("program_arguments"), x.get("path"), me))
                                              for x in (L.get("launchd") or {}).get("matching") or []],
                         "launchd_other": [x.get("label") for x in (L.get("launchd") or {}).get("other") or []],
-                        "scheduled_tasks": L.get("claude_scheduled_tasks"),
+                        "scheduled_tasks": [dict(t, own=scheduled_file_is_theirs(t.get("path"), me))
+                                            for t in L.get("claude_scheduled_tasks") or [] if isinstance(t, dict)],
                         "ci": [{"path": c.get("path"), "kinds": c.get("kinds")} for c in L.get("ci") or []][:15],
                         "scripts_that_start_agents": len(scripts), "scripts": scripts[:60]}
 

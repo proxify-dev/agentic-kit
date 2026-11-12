@@ -703,7 +703,7 @@ def setup_read(run_dir):
     except (OSError, ValueError):
         sr = None
     parts = (sr or {}).get("parts") or []
-    shown = [g for g in parts if g.get("structure") and g.get("judged") == "shown" and g.get("quote_ok")]
+    shown = [g for g in parts if level_things.part_state(g)[0] == "shown"]   # things.part_state owns "a part is shown"
     return {"ran": sr is not None and sr.get("ran", True) is not False, "file": sr or {}, "parts": parts, "shown": shown,
             "holds": (sr or {}).get("holds") or [], "held": [h for h in (sr or {}).get("holds") or [] if h.get("fired")],
             "ok": len(shown) >= SETUP_READ_PARTS, "need": SETUP_READ_PARTS}
@@ -752,7 +752,7 @@ def setup_read_gate(pointer, run_dir):
         elif not ok:
             miss = [g for g in parts if g not in shown]
             reasons.append(f"the practices on the {was} list are met, but the files show a setup that carries the "
-                           f"context in {len(shown)} of {len(parts)} parts ({was} asks for {SETUP_READ_PARTS}): "
+                           f"context in {len(parts)} parts: {level_things.parts_said(parts)} ({was} asks for {SETUP_READ_PARTS} fully shown): "
                            + "; ".join(f"{g.get('name') or g.get('id')}: {g.get('why') or g.get('judged') or 'not read'}"
                                        for g in miss))
         for h in held:
