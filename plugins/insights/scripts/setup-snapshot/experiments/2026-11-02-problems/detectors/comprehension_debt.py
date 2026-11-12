@@ -296,7 +296,7 @@ def resolve(h, ds):
     """(repo key, commit time, files) for a commit hash found in one of the directories, else None."""
     seen = []
     for d in ds:
-        while d and not os.path.isdir(d) and d != "/":
+        while d and not os.path.isdir(d) and os.path.dirname(d) != d:   # up to the root, which is its own parent ("/", "//", "C:\\")
             d = os.path.dirname(d)
         if not d or d in seen:
             continue

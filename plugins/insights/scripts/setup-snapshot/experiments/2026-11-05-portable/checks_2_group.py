@@ -1464,6 +1464,8 @@ def _own_setup_files(lt):
                     if skill_dirs[d] and os.path.isfile(rp):
                         out[rp] = True
                     break
+                if os.path.dirname(d) == d:                  # a root is its own parent
+                    break
                 d = os.path.dirname(d)
     c["setup_files"] = out
     return out
