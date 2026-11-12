@@ -8,6 +8,7 @@ the first such parent is followed; a merge that differs from all of them is show
 
     h = Histories(run)               # run(args, cwd, timeout) -> subprocess.CompletedProcess | None, the caller's git
     h.rows(root, "skills/x")         # [(author date, author email, author name), ...] newest first, or None
+    h.rows(root, "skills/x", force=True)   # read the repo whole now, whatever the number of questions so far
 
 None means "not answered here": a path git would read as a pattern (`*`, `?`, `[`, a leading `:`), a repo with no
 commits or too many, a git call that failed. The caller then asks git about that one path, as it did before, so the
@@ -18,6 +19,7 @@ import bisect
 import re
 import subprocess
 import threading
+import time
 
 REC, FLD = "\x1e", "\x1f"
 LOG_FORMAT = f"--format={REC}%H{FLD}%P{FLD}%aI{FLD}%ae{FLD}%an"
@@ -50,6 +52,14 @@ def unquote(name: str) -> str:
     return out.decode("utf-8", "replace")
 
 
+REPO_SECONDS = 180   # the most one repo's whole read (every git call of it together) may take before it is given up and recorded as not read
+
+
+class NotRead(Exception):
+    """The repo's history could not be read in one go in the time allowed: a git call timed out, or the calls together took
+    longer than the repo's limit. Not raised for a repo that has no commits or too many: those are not "slow", just not answered here."""
+
+
 class RepoHistory:
     """The whole history of one repo (what HEAD reaches), indexed by path."""
 
@@ -63,13 +73,26 @@ class RepoHistory:
         self.paths: list[str] = []
 
     @classmethod
-    def read(cls, root, run, max_commits: int = 80000, timeout: float = 180):
-        """The index of `root`, or None (empty repo, too many commits, a failed git call, anything unexpected)."""
-        n = run(["rev-list", "--count", "HEAD"], root, 30)
-        if n is None or n.returncode != 0 or not n.stdout.strip().isdigit() or not 0 < int(n.stdout) <= max_commits:
+    def read(cls, root, run, max_commits: int = 80000, timeout: float = REPO_SECONDS):
+        """The index of `root`, or None (empty repo, too many commits, a failed git call, anything unexpected). `timeout` is the
+        limit for the whole read: its git calls share it, so one repo cannot hold the scan for more than that. Raises NotRead
+        when a call timed out or the limit ran out."""
+        end = time.monotonic() + timeout
+
+        def ask(args, cap):
+            left = end - time.monotonic()
+            if left <= 0:
+                raise NotRead(f"longer than {timeout:g}s")
+            r = run(args, root, min(cap, left))
+            if r is None:   # the caller's git returns None for a call that timed out (or could not start)
+                raise NotRead(f"a git call timed out or could not start (limit {timeout:g}s for the repo)")
+            return r
+
+        n = ask(["rev-list", "--count", "HEAD"], 30)
+        if n.returncode != 0 or not n.stdout.strip().isdigit() or not 0 < int(n.stdout) <= max_commits:
             return None
-        r = run(["-c", "core.quotepath=off", "log", "--root", "--no-renames", "--name-only", "--no-abbrev-commit", LOG_FORMAT], root, timeout)
-        if r is None or r.returncode != 0:
+        r = ask(["-c", "core.quotepath=off", "log", "--root", "--no-renames", "--name-only", "--no-abbrev-commit", LOG_FORMAT], timeout)
+        if r.returncode != 0:
             return None
         h = cls()
         for rec in r.stdout.split(REC)[1:]:
@@ -89,9 +112,9 @@ class RepoHistory:
                 if p:
                     h.by_path.setdefault(unquote(p), []).append((sha, -1))
         if h.merges:
-            m = run(["-c", "core.quotepath=off", "log", "-m", "--merges", "--root", "--no-renames", "--name-only", "--pretty=oneline", "--no-abbrev-commit"],
-                    root, timeout)
-            if m is None or m.returncode != 0:
+            m = ask(["-c", "core.quotepath=off", "log", "-m", "--merges", "--root", "--no-renames", "--name-only", "--pretty=oneline", "--no-abbrev-commit"],
+                    timeout)
+            if m.returncode != 0:
                 return None
             cur = None   # (merge, parent index): a parent whose difference is empty prints nothing, so it is named each time
             for line in m.stdout.split("\n"):
@@ -153,23 +176,29 @@ class RepoHistory:
 
 
 class Histories:
-    """Per-repo indexes, built on the `threshold`-th question about a repo."""
+    """Per-repo indexes, built on the `threshold`-th question about a repo (or at the first, when the caller says the one-path-at-a-time
+    way is no longer open to it: `force`). A repo whose read took longer than `repo_seconds`, or whose git call timed out, is passed to
+    `note(root, why)` once and answered None, so the caller can say it was not read this way."""
 
-    def __init__(self, run, threshold: int = 8):
-        self.run, self.threshold = run, threshold
+    def __init__(self, run, threshold: int = 8, repo_seconds: float = REPO_SECONDS, note=None):
+        self.run, self.threshold, self.repo_seconds, self.note = run, threshold, repo_seconds, note
         self._asked: dict = {}
         self._index: dict = {}
         self._lock = threading.Lock()
 
-    def rows(self, root, rels):
+    def rows(self, root, rels, force: bool = False):
         key = str(root)
         with self._lock:
             if key not in self._index:
                 self._asked[key] = self._asked.get(key, 0) + 1
-                if self._asked[key] < self.threshold:
+                if self._asked[key] < self.threshold and not force:
                     return None
                 try:
-                    self._index[key] = RepoHistory.read(root, self.run)
+                    self._index[key] = RepoHistory.read(root, self.run, timeout=self.repo_seconds)
+                except NotRead as e:
+                    self._index[key] = None
+                    if self.note:
+                        self.note(root, f"history read in one go failed: {e}")
                 except (OSError, ValueError, subprocess.SubprocessError):
                     self._index[key] = None
             idx = self._index[key]

@@ -33,6 +33,8 @@ sys.path.insert(0, os.path.dirname(HERE))
 import common  # noqa: E402  the member wording: clean(), you(), RUNG_WORD
 import theme   # noqa: E402  dark mode + Dark Reader handover
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.dirname(os.path.dirname(HERE)))
+import things as level_things  # noqa: E402  the one count of files whose git history could not be read, and its line
 import check_kit  # noqa: E402  how a verdict was reached, the same block on every view
 import lvl_tip  # noqa: E402  the one tooltip every level badge uses (the substrate's ladder_short)
 import card_kit  # noqa: E402  the one card, and the words on it
@@ -154,6 +156,7 @@ main.rp-wrap{padding-top:32px;padding-bottom:96px}
 .view h2{font-size:24px;font-weight:600;line-height:1.3;letter-spacing:-.01em;margin:0}
 .view .q{color:#475467;margin:4px 0 0}
 .rp-note{font-size:12px;color:#667085;margin:8px 0 0}
+.rp-unread{font-size:14px;color:#15172F;background:#FFFFFF;border:1px solid #EAECF0;border-left:3px solid #DC6803;border-radius:8px;padding:10px 14px;margin:0 0 24px;max-width:72ch}
 .empty{color:#667085}
 @media (max-width:760px){.rp-wrap{padding-left:16px;padding-right:16px}.rp-bar{gap:12px}main.rp-wrap{padding-top:24px}}
 """
@@ -279,6 +282,9 @@ def build(run, out, member=False, level=True, masked=False, page=None):
     print(stamp)
     # The header says what the page is and when it was read, nothing more (11-11 "users get lost"). Who it was read
     # for, Claude Code's version and log setting, and how this copy was built sit in the Review tab's "About this report".
+    # when time ran out while reading git history, the counts of what is theirs rest on a guess; one line above every tab says so
+    unread = level_things.history_unread_said(level_things.history_unread(ctx.get("anatomy")))
+    unread = f'<p class="rp-unread" id="rp-unread" role="note">{esc(unread)}</p>' if unread else ""
     ctx["about"] = {"who": (inv.get("person", {}).get("identities") or [""])[0], "days": meta.get("days", 30),
                     "to": meta.get("to", ""), "laptop": card_kit.header_note(), "stamp": stamp}
     vs = [v for v in views(page["name"] if page else None) if not (member and getattr(v, "PROXIFY_ONLY", False)) and (level or not getattr(v, "LEVEL_VIEW", False))]
@@ -334,7 +340,7 @@ def build(run, out, member=False, level=True, masked=False, page=None):
 {getattr(by_name.get("share"), "BUTTON", "")}{"" if member or page else finder_kit.BUTTON}{ALL_BUTTON}{theme.SWITCH}</div>
 <nav class="rp-tabs" aria-label="Report sections">{"".join(tabs)}</nav></div></header>
 {lab}
-<main class="rp-wrap">{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member or page else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""
+<main class="rp-wrap">{unread}{"".join(subs)}{"".join(sections)}</main><script>{JS}</script>{check_kit.JS}{"" if member or page else lvl_tip.json_script() + lvl_tip.JS}</body></html>"""
     if member:  # a check's text can point at another check by its level code ("see L4#2"); the member's copy never names a level
         page = re.sub(r"\bL[1-4]#\d+\b", "another check", page)
     page = theme.apply(page, switch=False)

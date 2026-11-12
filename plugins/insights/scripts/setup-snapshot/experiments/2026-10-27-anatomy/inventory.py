@@ -95,6 +95,7 @@ import shutil
 import subprocess
 import stat
 import sys
+import threading
 import time
 from collections import Counter, defaultdict
 from contextlib import contextmanager
@@ -305,7 +306,10 @@ def count_lines(text: str) -> int:
 
 GIT = shutil.which("git")
 GIT_ENV = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0", "GIT_PAGER": "cat", "LC_ALL": "C"}
-GIT_BUDGET = {"left": 40.0}  # seconds of git time for per-file history lookups, all targets together
+# Seconds of git time for the one-path-at-a-time history lookups (`git log -- <path>`), all targets together. The batched read of a
+# repo's whole history (file_history.py) is not charged to it: it has its own limit per repo (file_history.REPO_SECONDS). When the
+# budget is spent, a file whose repo the batch cannot read has no history, and `history_unread_files()` says how many.
+GIT_BUDGET = {"left": 40.0}
 
 
 def _switch(var: str) -> bool:
@@ -322,6 +326,9 @@ WORKTREE_MERGED = _switch("AGENTIC_SETUP_WORKTREE_MERGED") # merge-base / rev-li
 IGNORE_CHECK = _switch("AGENTIC_SETUP_IGNORE_CHECK")       # git check-ignore on a file with no commits -> a field git_info drops
 
 
+_LAST_GIT = threading.local()   # whether this thread's last git call timed out (history() tells a timeout from another failure)
+
+
 def git(args: list[str], cwd: Path | str, timeout: float = 15) -> subprocess.CompletedProcess | None:
     if not GIT:
         return None
@@ -330,6 +337,7 @@ def git(args: list[str], cwd: Path | str, timeout: float = 15) -> subprocess.Com
                               cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
                               timeout=timeout, env=GIT_ENV, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
+        _LAST_GIT.timed_out = True
         cnr(cwd, f"git {args[0]} timed out after {timeout:.0f}s")
     except OSError as e:
         cnr(cwd, f"git failed: {e}")
@@ -430,6 +438,14 @@ def identity_from_repos(repo_roots: list[Path]):
 
 
 _hist_cache: dict[tuple[Path, str | tuple[str, ...]], dict | None] = {}
+HISTORY_UNREAD: dict[tuple[str, str], str] = {}   # (repo, path) -> why its history is missing: "budget" or "timeout"
+
+
+def history_unread_files() -> int:
+    """How many files have no git history because the time ran out: the per-file budget was spent before their turn, or the
+    one `git log` for them timed out. The one number the run records (anatomy.json summary.git_history_unread) and the page
+    prints. A file whose history git could not give for another reason (not a repo with commits) is not in it."""
+    return len(HISTORY_UNREAD)
 
 
 def _load_file_history():
@@ -441,7 +457,7 @@ def _load_file_history():
 
 
 # the history of a repo asked about many paths, read with one git call (the same git as every other call here)
-HISTORIES = _load_file_history().Histories(lambda args, cwd, timeout: git(args, cwd, timeout))
+HISTORIES = _load_file_history().Histories(lambda args, cwd, timeout: git(args, cwd, timeout), note=cnr)
 
 
 def history(root: Path, rel: str | tuple[str, ...], budgeted: bool = True) -> dict | None:
@@ -451,26 +467,36 @@ def history(root: Path, rel: str | tuple[str, ...], budgeted: bool = True) -> di
     if key in _hist_cache:
         return _hist_cache[key]
     res = None
-    if not budgeted or GIT_BUDGET["left"] > 0:
+    # a repo asked about many paths is read once (file_history.py), with the answer `git log -- <path>` gives; that read has a limit of
+    # its own per repo and is not charged to GIT_BUDGET. With the budget spent, the first question about a repo reads it whole too
+    # (the one-path-at-a-time way is closed to it). A path it cannot answer, or a repo it cannot read, goes to git one path at a time.
+    spent = budgeted and GIT_BUDGET["left"] <= 0
+    batched = HISTORIES.rows(root, rel, force=spent)
+    r, why = None, ""
+    if batched is None and spent:
+        why = "budget"
+        cnr(root, "git history budget used up; later files have no git block")
+    elif batched is None:
         t = time.monotonic()
-        # a repo asked about many paths is read once (file_history.py), with the answer `git log -- <path>` gives; a path it
-        # cannot answer, or a repo it cannot read, goes to git one path at a time, as before
-        batched = HISTORIES.rows(root, rel)
-        r = None if batched is not None else git(["log", "--format=%aI%x09%ae%x09%an", "--", *((rel,) if isinstance(rel, str) else rel)], root, 15)
+        _LAST_GIT.timed_out = False
+        r = git(["log", "--format=%aI%x09%ae%x09%an", "--", *((rel,) if isinstance(rel, str) else rel)], root, 15)
         if budgeted:
             GIT_BUDGET["left"] -= time.monotonic() - t
-        if batched is not None or (r is not None and r.returncode == 0):
-            rows = [[w, e, n.partition("\t")[0], ""] for w, e, n in batched] if batched is not None else \
-                [ln.split("\t") + ["", ""] for ln in r.stdout.splitlines() if ln]
-            res = {
-                "commits": len(rows),
-                "first_commit": rows[-1][0][:10] if rows else None,
-                "last_commit": rows[0][0][:10] if rows else None,
-                "user_commits": sum(Identity.is_user(x[1], x[2]) for x in rows),
-                "authors": len({x[1].lower() for x in rows}),
-            }
-    else:
-        cnr(root, "git history budget used up; later files have no git block")
+        if r is None and getattr(_LAST_GIT, "timed_out", False):
+            why = "timeout"
+    if batched is not None or (r is not None and r.returncode == 0):
+        rows = [[w, e, n.partition("\t")[0], ""] for w, e, n in batched] if batched is not None else \
+            [ln.split("\t") + ["", ""] for ln in r.stdout.splitlines() if ln]
+        res = {
+            "commits": len(rows),
+            "first_commit": rows[-1][0][:10] if rows else None,
+            "last_commit": rows[0][0][:10] if rows else None,
+            "user_commits": sum(Identity.is_user(x[1], x[2]) for x in rows),
+            "authors": len({x[1].lower() for x in rows}),
+        }
+    elif why:
+        for p in ((rel,) if isinstance(rel, str) else rel):
+            HISTORY_UNREAD[(str(root), p)] = why
     _hist_cache[key] = res
     return res
 
@@ -2850,6 +2876,7 @@ def main(argv=None):
         "plugins_enabled": sum(1 for p in plugins["enabled"] if p["enabled"]),
         "mcp_servers": len(S.lists["mcp_servers"]),
         "mcp_built": len(S.lists["mcp_built"]),
+        "git_history_unread": history_unread_files(),
         "worktree_repos": [{"repo": r["repo"], **{k: r["summary"][k] for k in ("linked", "merged", "unmerged", "total_kb")}} for r in worktrees],
         "launchers": {"cron_entries": len(launchers["crontab"]["entries"]), "launchd_matching": len(launchers["launchd"]["matching"]),
                       "ci_files": len(launchers["ci"]), "scripts": len(launchers["scripts"])},
