@@ -914,22 +914,51 @@ def r_mcp_write(f):
         else:
             unplaced += 1
     mine = {m for m in mine if m}
+    # servers built into a repo of theirs, whether or not any client of Claude Code's is set up for them (anatomy.json
+    # mcp_built: two kinds of file evidence, the files' commits mostly theirs); one per repo across its checkouts
+    built = [dict(x, path=(x.get("evidence") or [x.get("repo")])[0]) for x in _l(f.a.get("mcp_built"))
+             if isinstance(x, dict) and x.get("origin") == "own" and x.get("repo")]
+    built, _ = one_per_repo_path(built, lambda x: x.get("repo"))
 
     def calls_of(name):
         return sum(c for what, c in f.mcp_calls.items() if what == name or what.endswith("_" + name))
     calls = sum(calls_of(n) for n in mine)
-    if mine:
-        out = row("cap-mcp-write", build_state(len(mine), calls), len(mine), calls, "calls",
-                   sorted(mine, key=lambda n: -calls_of(n)),
-                   "anatomy.json: plugins.dir_loaded (origin own, contents.mcp_servers), mcp_servers entry inside such a folder; inventory.json: tools.by_mcp_server",
-                   f"{plural(len(mine), 'MCP server')} inside plugins of yours; {plural(calls, 'call')} in the window")
-        out["list"] = [{"name": n, "about": "", "uses": calls_of(n)} for n in sorted(mine)]
+    if mine or built:
+        n = len(mine) + len(built)
+        why = [f"{plural(len(mine), 'MCP server')} inside plugins of yours; {plural(calls, 'call')} in the window"] if mine else []
+        if built:
+            where = "; ".join(f"{repo_name(x['repo'])}: {', '.join(x.get('routes') or [])}".rstrip(": ") for x in built)
+            why.append(f"{plural(len(built), 'MCP server')} built into your product ({where}); "
+                       f"Claude Code never called {'them' if len(built) > 1 else 'it'}")
+        out = row("cap-mcp-write", build_state(n, calls), n, calls, "calls",
+                   sorted(mine, key=lambda n: -calls_of(n)) + [_built_name(x) for x in built],
+                   "anatomy.json: plugins.dir_loaded (origin own, contents.mcp_servers), mcp_servers entry inside such a folder; "
+                   "mcp_built (an MCP SDK dependency, a handler of tools/call, a route under /mcp, a doc or a test naming it: two kinds "
+                   "at least, one of them code, the files' commits mostly yours); inventory.json: tools.by_mcp_server",
+                   "; ".join(why), repos={repo_name(x["repo"]) for x in built} if built else None)
+        out["list"] = [{"name": n, "about": "", "uses": calls_of(n)} for n in sorted(mine)] + [
+            {"name": _built_name(x), "kind": "product", "uses": 0, "routes": list(x.get("routes") or []),
+             "evidence": list(x.get("evidence") or []), "why": str(x.get("origin_evidence") or ""),
+             "about": "Built into your product; Claude Code never called it · evidence: "
+                      + ", ".join(_rel(e, x["repo"]) for e in _l(x.get("evidence"))[:4])}
+            for x in built]
         return out
     if unplaced:
         return cant("cap-mcp-write", f"{plural(unplaced, 'MCP server')} run{'s' if unplaced == 1 else ''} a script from a folder the scan didn't place as yours or installed; "
                     "none sits inside a plugin of yours", "anatomy.json: mcp_servers entry")
     return row("cap-mcp-write", NOT_SEEN, 0, 0, "calls", (), "anatomy.json: mcp_servers, plugins.dir_loaded",
                "every MCP server set up is a hosted one or started with npx/uvx; none of yours")
+
+
+def _rel(path, root):
+    p, r = _path(path), _path(root)
+    return os.path.relpath(p, r) if p.startswith(r + os.sep) else p
+
+
+def _built_name(x):
+    """'shop /mcp/notes': the repo and the first route it serves at, or the repo alone for a stdio server."""
+    routes = [r for r in _l(x.get("routes")) if isinstance(r, str)]
+    return f"{repo_name(x['repo'])} {routes[0]}" if routes else repo_name(x["repo"])
 
 
 def r_output_styles(f):

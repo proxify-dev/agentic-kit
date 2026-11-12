@@ -52,6 +52,11 @@ Output (JSON). Every list item carries `scope` (home | ancestor | project | fold
   plugins{enabled[], dir_loaded[], marketplaces[]}   enabled[]: {key, enabled, scope(s), version, install_path, marketplace,
                         marketplace_source, marketplace_is_own, contents{skills[], agents[], commands[], hooks_events[], mcp_servers[]}}
   mcp_servers[]   {name, transport, source, scope, command?, entry?, args_count, url_host?, env[{name,value_len}], headers[...]}
+  mcp_built[]     MCP servers built into the person's own repos, whether or not any client is set up for them (collect_mcp_built):
+                        {name (the repo), repo, project, routes[], transport: http|stdio|null, signals{dependency[{file, package}],
+                        handler[], route[], doc[], test[]} (paths), evidence[] (every file above), origin: own|mixed|third_party,
+                        origin_evidence, git{commits, user_commits}}. Two kinds of signal at least, one of them code (a handler
+                        or an SDK dependency); origin by the commits that touched the evidence files, as for artifacts.
   settings        {files[{path, scope, bytes, mtime, top_level_keys[]}], backups[{path, mtime}], notable[{file, scope, key, value}],
                    counts[{file, permissions_allow, ...}], env_keys[{file, name, value_len}]}
   worktrees[]     one item per git repo (common dir): {repo, default_refs[], summary{linked, merged, unmerged, locked, prunable,
@@ -518,6 +523,10 @@ class Walk:
         self.memory_md: list[Path] = []
         self.vaults: list[Path] = []
         self.mcp_files: list[Path] = []
+        self.mcp_code: list[Path] = []       # code whose name, or a folder above it, says mcp: a server's handler, maybe
+        self.mcp_docs: list[Path] = []       # docs named mcp: one may call the thing an MCP server
+        self.dep_files: list[Path] = []      # dependency manifests (package.json, composer.json, pyproject.toml, ...)
+        self.route_files: list[Path] = []    # where HTTP routes are registered (routes/api.php, urls.py, router.ts)
         self.plugin_roots: list[Path] = []
         self.marketplace_files: list[Path] = []
         self.ci: list[Path] = []
@@ -543,7 +552,7 @@ def walk_target(root: Path) -> Walk:
     w = Walk(root)
     t0 = time.monotonic()
     deadline = t0 + WALK_BUDGET_S
-    stack: list[tuple[str, int, bool]] = [(str(root), 0, False)]
+    stack: list[tuple[str, int, bool, bool]] = [(str(root), 0, False, False)]
     if (root / ".git").is_dir():
         w.git_repos.append(root)
     while stack:
@@ -551,7 +560,7 @@ def walk_target(root: Path) -> Walk:
             w.truncated = True
             cnr(root, f"walk stopped early: {w.dirs} dirs, {w.entries} entries, {time.monotonic() - t0:.0f}s (budget {WALK_BUDGET_S:.0f}s)")
             break
-        d, depth, in_skill = stack.pop()
+        d, depth, in_skill, in_mcp = stack.pop()
         try:
             entries = list(os.scandir(d))
         except OSError as e:
@@ -561,6 +570,7 @@ def walk_target(root: Path) -> Walk:
         dp = Path(d)
         names = {e.name for e in entries}
         in_skill_here = in_skill or "SKILL.md" in names
+        in_mcp_here = in_mcp or bool(MCP_TOKEN.search(_tokens(dp.name)))   # a repo named foo-mcp-server too (its files, capped)
         for e in entries:
             w.entries += 1
             name = e.name
@@ -602,7 +612,7 @@ def walk_target(root: Path) -> Walk:
                     w.git_repos.append(p)  # submodule: keep walking
                 elif gitp.is_dir():
                     w.git_repos.append(p)
-                stack.append((e.path, depth + 1, in_skill_here))
+                stack.append((e.path, depth + 1, in_skill_here, in_mcp_here))
                 continue
             if not is_file:
                 continue
@@ -610,6 +620,7 @@ def walk_target(root: Path) -> Walk:
             sk = scaffold_kind(name, dp)
             if sk and not in_skill_here:
                 w.scaffold.append((p, sk))
+            note_mcp_candidate(w, p, name, ln, dp, in_mcp_here)
             kind = instruction_kind(name, dp.name, dp.parent.name)
             if kind:
                 if in_skill_here:
@@ -674,7 +685,7 @@ def prune_nested(t: Path, w: Walk):
     before = len(w.instructions) + len(w.skills) + len(w.scripts) + len(w.ci) + len(w.claude_dirs) + len(w.memory_dirs)
     w.instructions = [(p, k) for p, k in w.instructions if keep(p)]
     for name in ("skills", "claude_dirs", "memory_dirs", "memory_md", "vaults", "mcp_files", "plugin_roots", "marketplace_files",
-                 "ci", "scripts", "locks", "git_repos", "linked_worktrees", "test_dirs"):
+                 "ci", "scripts", "locks", "git_repos", "linked_worktrees", "test_dirs", "mcp_code", "mcp_docs", "dep_files", "route_files"):
         setattr(w, name, [p for p in getattr(w, name) if keep(p)])
     w.scaffold = [(p, k) for p, k in w.scaffold if keep(p)]
     after = len(w.instructions) + len(w.skills) + len(w.scripts) + len(w.ci) + len(w.claude_dirs) + len(w.memory_dirs)
@@ -1436,6 +1447,229 @@ def collect_plugins(targets: list[Path]) -> dict:
 # ---------------------------------------------------------------- memory stores
 
 WIKILINK = re.compile(r"\[\[([^\]\n|#][^\]\n|#]*)(?:#[^\]\n|]*)?(?:\|[^\]\n]*)?\]\]")
+# ---------------------------------------------------------------- MCP servers built into their repos
+
+# A file is a candidate when its name, or a folder above it, carries "mcp" as a word (NotesMcpController.php, Mcp/,
+# foo-mcp-server/); never on the name alone: what the file says decides.
+MCP_TOKEN = re.compile(r"(?<![a-z0-9])mcp(?![a-z0-9])")
+_CAMEL = re.compile(r"([a-z0-9])([A-Z])|([A-Z]+)([A-Z][a-z])")
+MCP_CODE_EXT = {".php", ".py", ".js", ".mjs", ".cjs", ".ts", ".mts", ".tsx", ".jsx", ".go", ".rs", ".rb", ".cs", ".java", ".kt", ".swift", ".ex", ".exs"}
+MCP_DOC_EXT = {".md", ".mdx", ".rst", ".txt"}
+DEP_FILES = {"package.json", "composer.json", "pyproject.toml", "requirements.txt", "requirements-dev.txt", "go.mod", "cargo.toml", "gemfile"}
+ROUTE_FILE = re.compile(r"(?i)^(?:api|web|routes?|routers?|urls)\.(?:php|py|js|mjs|cjs|ts|mts|rb|go)$")
+ROUTE_DIRS = {"routes", "router", "routers"}
+MCP_CAPS = {"mcp_code": 60, "mcp_docs": 20, "dep_files": 200, "route_files": 240}   # a Laravel app with a Routes/ per domain has 70
+# an MCP package in a dependency manifest: the official SDKs and the common frameworks, by name
+MCP_PACKAGE = re.compile(r"(?i)modelcontextprotocol|fastmcp|(?:^|[/@_-])mcp(?:[-_/@\[]|$)")
+# a handler: it answers the protocol's tool methods, or it builds a server with an SDK
+MCP_HANDLER = re.compile(r"tools/(?:call|list)|\bMcpServer\b|\bFastMCP\b|@modelcontextprotocol/sdk|\bfrom\s+(?:fast)?mcp\b|\bimport\s+(?:fast)?mcp\b|"
+                         r"PhpMcp\\|Laravel\\Mcp|mark3labs/mcp-go|modelcontextprotocol/go-sdk|\brmcp\b")
+MCP_ROUTE_LINE = re.compile(r"(?i)Route::|\.(?:post|get|all|use|route|handle|mount)\s*\(|@(?:app|router|bp)\.|\bpath\(|HandleFunc|add_api_route|add_route|\.Mount\(")
+MCP_ROUTE_PATH = re.compile(r"""['"]((?:/|[\w{}:?.-]+/)?(?:[\w{}:?.-]+/)*mcp(?:/[\w{}:?.-]+)*/?)['"]""")
+MCP_DOC_SAYS = re.compile(r"(?i)\bMCP\b[^\n.]{0,60}\bserver\b|Model Context Protocol")
+MCP_TEST_SAYS = re.compile(r"tools/(?:call|list)|jsonrpc")
+MCP_READ_BUDGET_S = 8.0   # per target: the candidate files read, all kinds together
+
+
+def _tokens(name: str) -> str:
+    """'NotesMcpController' -> 'notes_mcp_controller'; 'foo-mcp-server' stays as it is but lower."""
+    return _CAMEL.sub(lambda m: (m.group(1) + "_" + m.group(2)) if m.group(1) else (m.group(3) + "_" + m.group(4)), name).lower()
+
+
+def note_mcp_candidate(w: "Walk", p: Path, name: str, ln: str, dp: Path, in_mcp: bool):
+    """Keep the files collect_mcp_built will read, by name only, each list capped. Config files (.mcp.json) are not here:
+    those are servers set up, read elsewhere."""
+    ext = os.path.splitext(ln)[1]
+    if ln in DEP_FILES:
+        key = "dep_files"
+    elif ext in MCP_CODE_EXT and (in_mcp or MCP_TOKEN.search(_tokens(name))):
+        key = "mcp_code"
+    elif ext in MCP_DOC_EXT and (in_mcp or MCP_TOKEN.search(_tokens(name))):
+        key = "mcp_docs"
+    elif ext in MCP_CODE_EXT and (ROUTE_FILE.match(name) or dp.name.lower() in ROUTE_DIRS):
+        key = "route_files"
+    else:
+        return
+    lst = getattr(w, key)
+    if len(lst) < MCP_CAPS[key]:
+        lst.append(p)
+
+
+def _mcp_dependencies(f: Path) -> list[str]:
+    """The MCP packages a dependency manifest names, by their names."""
+    ln = f.name.lower()
+    if ln in ("package.json", "composer.json"):
+        d = read_json(f)
+        if not isinstance(d, dict):
+            return []
+        names = []
+        for k in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies", "require", "require-dev"):
+            if isinstance(d.get(k), dict):
+                names += [str(x) for x in d[k]]
+        return [n for n in names if MCP_PACKAGE.search(n)]
+    text = read_text(f, 200_000, note=False) or ""
+    out = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ln == "go.mod":
+            m = re.match(r"(?:require\s+)?(\S+)\s+v", line)
+            name = m.group(1) if m else ""
+        elif ln == "cargo.toml":
+            m = re.match(r"([\w-]+)\s*=", line)
+            name = m.group(1) if m else ""
+        elif ln == "gemfile":
+            m = re.match(r"gem\s+['\"]([^'\"]+)", line)
+            name = m.group(1) if m else ""
+        else:   # pyproject / requirements: "mcp>=1.2", "fastmcp", '"mcp[cli]",'
+            m = re.match(r"['\"]?([A-Za-z0-9][\w.-]*)", line)
+            name = m.group(1) if m and (ln.startswith("requirements") or line[0] in "\"'") else ""
+        if name and MCP_PACKAGE.search(name) and name not in out:
+            out.append(name)
+    return out
+
+
+def _route_paths(text: str) -> list[str]:
+    """The paths under /mcp a file registers as HTTP routes, trailing parameter segments dropped: '/mcp/notes/{token?}'
+    -> '/mcp/notes'."""
+    out = []
+    for line in text.splitlines():
+        if not MCP_ROUTE_LINE.search(line):
+            continue
+        for m in MCP_ROUTE_PATH.finditer(line):
+            path = "/" + m.group(1).strip("/")
+            path = re.sub(r"(/[{:<][^/]*)+$", "", path) or "/"
+            if path not in out:
+                out.append(path)
+    return out
+
+
+def _in_test_dir(rel: str) -> bool:
+    return any(part.lower() in TEST_DIRS for part in rel.split("/")[:-1]) or bool(re.search(r"(?i)(?:^|[._-])(?:test|spec)s?(?:[._-]|$)", os.path.basename(rel)))
+
+
+def _evidence_authorship(root: Path, rels: list[str]) -> dict | None:
+    """One git log over the evidence files: commits that touched any of them, and how many are theirs."""
+    if not GIT or not rels:
+        return None
+    out = git_out(["log", "--format=%ae%x09%an", "--", *rels], root, 20)
+    if out is None:
+        return None
+    rows = [ln.split("\t") + [""] for ln in out.splitlines() if ln]
+    return {"commits": len(rows), "user_commits": sum(Identity.is_user(x[0], x[1]) for x in rows)}
+
+
+def collect_mcp_built(t: Path, w: "Walk") -> list[dict]:
+    """MCP servers built into the person's repos under this target, read from the files, never from names alone:
+      dependency  a manifest names an MCP SDK or framework (@modelcontextprotocol/sdk, mcp, fastmcp, php-mcp/*, mcp-go, rmcp)
+      handler     a code file named mcp (or inside a folder named mcp) that answers tools/call or tools/list, or builds a server with an SDK
+      route       an HTTP route registered under /mcp (in a routes file or in such a code file)
+      doc         a doc named mcp that calls the thing an MCP server
+      test        a test named mcp that posts tools/call, tools/list or JSON-RPC
+    One record per git repo with two kinds at least, one of them code (a handler or a dependency). Whose it is: the commits
+    that touched the evidence files (the manifests left out: everyone's), by the same majority rule as artifacts. Files in
+    fixture paths, vendor folders and plugin folders of theirs are not read (a plugin's server counts by its config)."""
+    t_end = time.monotonic() + MCP_READ_BUDGET_S
+    plugin_prefixes = tuple(str(pr) + os.sep for pr in w.plugin_roots)
+
+    def rel_of(p: Path) -> str:
+        return os.path.relpath(p, t).replace(os.sep, "/")
+
+    def skip(p: Path) -> bool:
+        return str(p).startswith(plugin_prefixes) or bool(FIXTURE_RE.search(rel_of(p)))
+
+    by_repo: dict[Path, dict] = {}
+
+    def rec_for(p: Path) -> dict | None:
+        root = git_root(p) or t
+        r = by_repo.get(root)
+        if r is None:
+            r = by_repo[root] = {"name": root.name, "repo": str(root), "project": str(t), "routes": [], "transport": None,
+                                 "signals": {"dependency": [], "handler": [], "route": [], "doc": [], "test": []}, "evidence": []}
+        return r
+
+    def add(kind: str, p: Path, extra=None):
+        r = rec_for(p)
+        item = {"file": str(p), **extra} if extra else str(p)
+        if item not in r["signals"][kind]:
+            r["signals"][kind].append(item)
+        if kind != "dependency" and str(p) not in r["evidence"]:
+            r["evidence"].append(str(p))
+
+    def timed_out() -> bool:
+        if time.monotonic() > t_end:
+            cnr(t, "MCP servers built into the repo: candidate files stopped at the time budget")
+            return True
+        return False
+
+    for f in w.dep_files:
+        if timed_out():
+            break
+        if skip(f):
+            continue
+        for pkg in _mcp_dependencies(f):
+            add("dependency", f, {"package": pkg})
+    code = sorted((p for p in w.mcp_code if not skip(p)), key=lambda p: (_in_test_dir(rel_of(p)), len(str(p))))
+    for f in code:
+        if timed_out():
+            break
+        text = read_text(f, 400_000, note=False)
+        if not text:
+            continue
+        rel = rel_of(f)
+        if _in_test_dir(rel):
+            if MCP_TEST_SAYS.search(text):
+                add("test", f)
+            continue
+        if MCP_HANDLER.search(text):
+            add("handler", f)
+        for path in _route_paths(text):
+            add("route", f)
+            r = rec_for(f)
+            if path not in r["routes"]:
+                r["routes"].append(path)
+    for f in w.route_files:
+        if timed_out():
+            break
+        if skip(f):
+            continue
+        text = read_text(f, 400_000, note=False)
+        paths = _route_paths(text) if text and "mcp" in text.lower() else []
+        if paths:
+            add("route", f)
+            r = rec_for(f)
+            r["routes"] += [x for x in paths if x not in r["routes"]]
+    for f in w.mcp_docs:
+        if timed_out():
+            break
+        if skip(f):
+            continue
+        text = read_text(f, 400_000, note=False)
+        if text and MCP_DOC_SAYS.search(text):
+            add("doc", f)
+
+    out = []
+    for root, r in by_repo.items():
+        kinds = [k for k, v in r["signals"].items() if v]
+        if len(kinds) < 2 or not (r["signals"]["handler"] or r["signals"]["dependency"]):
+            continue
+        r["transport"] = "http" if r["routes"] else ("stdio" if r["signals"]["handler"] else None)
+        rels = [os.path.relpath(p, root) for p in r["evidence"] if _under(Path(p), root)]
+        g = _evidence_authorship(root, rels)
+        if g is None:
+            r["origin"], r["origin_evidence"], r["git"] = "own", "no git history read for these files; theirs by default, as for any file not in git", None
+        elif not g["commits"]:
+            r["origin"], r["origin_evidence"], r["git"] = "own", "the evidence files are in the repo but never committed: theirs by default", g
+        else:
+            u, n = g["user_commits"], g["commits"]
+            r["origin"] = "own" if 2 * u >= n else "mixed" if u else "third_party"
+            r["origin_evidence"], r["git"] = f"git: {u} of {n} commits that touched the evidence files are by an identity email", g
+        r["signals"] = {k: v for k, v in r["signals"].items() if v}
+        out.append(r)
+    return out
+
+
 STORE_PRUNE = {".git", "node_modules", "__pycache__", ".venv", "venv"}
 INDEX_NAMES = {"memory.md", "readme.md", "index.md", "_index.md", "moc.md", "home.md"}
 VAULT_NAME = re.compile(r"(?i)^(?:vault|notes?|brain|wiki|kb|knowledge|second[-_ ]?brain|zettelkasten|journal|memory|memories)$")
@@ -2370,6 +2604,11 @@ def main(argv=None):
             if isinstance(d, dict):
                 for rec in mcp_records(d.get("mcpServers"), str(f), "home", None):
                     S.lists["mcp_servers"].append(rec)
+        # MCP servers built into their own repos: a product's endpoint no Claude Code config names (a
+        # JSON-RPC endpoint an external assistant calls read "none of yours")
+        for t, w in walks.items():
+            for rec in collect_mcp_built(t, w):
+                S.add("mcp_built", rec, key=rec["repo"])
 
     # 9. memory stores
     with section("memory"):
@@ -2501,6 +2740,7 @@ def main(argv=None):
         "plugin_copies_dropped": sum(x["count"] for x in S.lists.get("plugin_copies_dropped") or []),
         "plugins_enabled": sum(1 for p in plugins["enabled"] if p["enabled"]),
         "mcp_servers": len(S.lists["mcp_servers"]),
+        "mcp_built": len(S.lists["mcp_built"]),
         "worktree_repos": [{"repo": r["repo"], **{k: r["summary"][k] for k in ("linked", "merged", "unmerged", "total_kb")}} for r in worktrees],
         "launchers": {"cron_entries": len(launchers["crontab"]["entries"]), "launchd_matching": len(launchers["launchd"]["matching"]),
                       "ci_files": len(launchers["ci"]), "scripts": len(launchers["scripts"])},
@@ -2521,6 +2761,7 @@ def main(argv=None):
         "summary": summary, "identity": identity,
         "instruction_files": S.lists["instruction_files"], "memory_stores": S.lists["memory_stores"], "hooks": S.lists["hooks"],
         "artifacts": arts, "plugins": plugins, "mcp_servers": S.lists["mcp_servers"], "mcp_notes": S.lists["mcp_notes"],
+        "mcp_built": S.lists["mcp_built"],
         "settings": {"files": S.lists["settings_files"], "backups": S.lists["settings_backups"], "notable": S.lists["settings_notable"],
                      "counts": S.lists["settings_counts"], "env_keys": S.lists["settings_env_keys"]},
         "worktrees": worktrees, "scaffolding": scaffolding, "launchers": launchers, "could_not_read": COULD_NOT_READ, "timings_s": TIMINGS,

@@ -356,7 +356,9 @@ def _list(ctx, kind, items, unit):
         return f'<ul class="{cls}">' + "".join(_item(esc, kind, x, names[id(x)], unit, masked, with_step) for x in xs) + "</ul>"
     if kind == "workflows":
         return ul(items)
-    used = sorted([x for x in items if level_things.in_use(x)],
+    # an MCP server built into their product (board: kind product) is listed, not folded as unused: no client of Claude
+    # Code's is set up for it, so its uses are 0 by design and its line says so
+    used = sorted([x for x in items if level_things.in_use(x) or x.get("kind") == "product"],
                   key=lambda x: (x.get("uses") is None, -(x.get("uses") or 0), str(x["name"])))
     idle = sorted([x for x in items if x not in used], key=lambda x: str(x["name"]))
     out = ul(used[:TOP]) if used else ""
