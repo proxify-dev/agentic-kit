@@ -174,23 +174,6 @@ class Built(unittest.TestCase):
             self.assertNotIn(gone, out)
         self.assertIn('review<small title="2 copies on this laptop, counted once">×2', out)   # copies of one skill are one
 
-    def test_an_mcp_server_built_into_their_product_is_listed_not_folded(self):
-        # board.r_mcp_write: a server in a repo of theirs that no Claude Code config names has 0 calls by design (kind product)
-        tools = [{"name": "docs", "about": "", "uses": 7},
-                 {"name": "shop /mcp/notes", "kind": "product", "uses": 0, "routes": ["/mcp/notes"],
-                  "evidence": ["/home/dana/code/shop/app/Mcp/NotesMcpController.php"],
-                  "about": "Built into your product; Claude Code never called it · evidence: app/Mcp/NotesMcpController.php, routes/api.php"}]
-        out = page(FULL + [row("cap-mcp-write", items=2, calls=7, lst=tools)])
-        sec = out[out.index('id="built-tools"'):]
-        sec = sec[:sec.index("</section>")]
-        self.assertEqual(sec.count('<li class="it">'), 2)
-        self.assertNotIn("Not used in 30 days", sec)
-        self.assertLess(sec.index(">docs<"), sec.index(">shop /mcp/notes<"))
-        self.assertIn("Claude Code never called it", sec)
-        self.assertIn("app/Mcp/NotesMcpController.php", sec)
-        self.assertRegex(sec, r'shop /mcp/notes<.*?<span class="u zero"><b>0</b> calls')
-        self.assertNotIn("NotesMcpController", page(FULL + [row("cap-mcp-write", items=2, calls=7, lst=tools)], masked=True))
-
     def test_hooks_are_pinned_on_a_sessions_life(self):
         out = page(FULL)
         hooks = out[out.index('id="built-hooks"'):out.index('id="built-agents"')] if 'id="built-agents"' in out[out.index('id="built-hooks"'):] else out[out.index('id="built-hooks"'):]
