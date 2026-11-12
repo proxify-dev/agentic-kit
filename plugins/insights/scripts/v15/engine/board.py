@@ -290,7 +290,7 @@ EVALS_NOT_SEEN = "has an evals folder, never seen running"
 ALWAYS_OPENED_FROM = 3     # a file opened in every one of this many loads or more is read whole each time: not on demand
 
 
-def skill_depth(s):
+def skill_depth(s, typed=0):
     """One fact row from inventory.json `skill_depth` -> {name, depth, used, why, lines, too_big_one_file, try_next,
     live_context_syntax, has_evals_not_seen_running, evals_note}. Display only: nothing here touches a row's state or any
     level. The rulings 11-06, per skill the person wrote:
@@ -326,6 +326,11 @@ def skill_depth(s):
     elif s.get("shared_name"):
         depth, used = None, None
         why = "an installed skill has the same name, so its uses can't be told apart"
+    elif not loads and typed:
+        # typed /name is a use the person made; the depth read found no load record of it, so no step is known (11-12: the row
+        # said "1 calls" while the card said "not used")
+        depth, used = None, True
+        why = f"typed /{name} {typed}x; no load of it was read in the logs"
     elif not loads:
         depth, used = None, False
         why = NOT_USED
@@ -353,13 +358,15 @@ def skill_depth(s):
             "has_evals_not_seen_running": note, "evals_note": EVALS_NOT_SEEN if note else ""}
 
 
-def skill_depths(f):
+def skill_depths(f, typed=None):
     """The `skills` list and its summary for the cap-skills-own row: most depth first (a skill not used last), then by name. A run
-    folder from before the scan read depth has no `skill_depth` section: no list, and the summary says why."""
+    folder from before the scan read depth has no `skill_depth` section: no list, and the summary says why. `typed`: {name:
+    times the person typed /name}, a use even where the depth read found no load."""
     facts = f.i.get("skill_depth")
     if not isinstance(facts, list):
         return [], "depth not read in this run"
-    skills = sorted((skill_depth(s) for s in facts if isinstance(s, dict) and s.get("name")),
+    typed = typed or {}
+    skills = sorted((skill_depth(s, typed.get(str(s.get("name")), 0)) for s in facts if isinstance(s, dict) and s.get("name")),
                     key=lambda x: (x["depth"] is None, -(x["depth"] or 0), x["name"]))
     by = [sum(1 for x in skills if x["depth"] == d) for d in (4, 3, 2, 1)]
     flagged = sum(1 for x in skills if x["too_big_one_file"])
@@ -389,11 +396,11 @@ def r_skills_own(f):
             "anatomy.json: artifacts (kind skill/command, origin own, one per name); inventory.json: skills_used, skill_depth, who_did_it you.own_commands_typed",
             f"{plural(len(names), 'skill or command', 'skills and commands')} of yours; {plural(calls, 'call')} in the window" if mine else "no skill or command of yours found")
     # depth per skill: display only (see skill_depth); the state above is not touched by it
-    r["skills"], r["skills_summary"] = skill_depths(f)
-    depth = {sk["name"]: sk for sk in r["skills"]}
-    loads = {str(_d(s).get("name")): _n(_d(s).get("loads")) for s in _l(f.i.get("skill_depth"))}
     typed = {str(c.get("command", "")).lstrip("/"): _n(c.get("times"))
              for c in _l(_d(f.i.get("slash_commands")).get("by_command")) if isinstance(c, dict)}
+    r["skills"], r["skills_summary"] = skill_depths(f, typed)
+    depth = {sk["name"]: sk for sk in r["skills"]}
+    loads = {str(_d(s).get("name")): _n(_d(s).get("loads")) for s in _l(f.i.get("skill_depth"))}
     r["list"] = []
     for name, xs in _by_name(mine):
         sk = depth.get(name) or {}

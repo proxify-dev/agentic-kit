@@ -4,13 +4,97 @@
 as four plain steps, hooks pinned on a session's life, rule files counted only where the count holds. Made-up board rows
 with the `list` board.py writes. Run: python3 -m unittest test_view_built   (from this folder; standard library only)"""
 import html
+import importlib.util
+import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import view_built
+
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))   # views -> variants -> engine -> v15 -> scripts/ (= labs/)
+
+
+def _load(name, path):
+    """A module of the scan or the engine, by its path (they find their neighbours by relative path)."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TypedSkill(unittest.TestCase):
+    """A skill of theirs the person typed as /name, from the scan's facts through the board to this tab (11-11: the row said
+    "1 calls" and the same skill's card said "not used in the last 30 days"). Claude Code writes a typed skill command
+    <command-message> first, then an isMeta record "Base directory for this skill: <folder>", which the log reader keeps as
+    a "loaded" event; a Skill tool call is followed by that same record. A made-up skill in a temporary folder."""
+    SKILL_MD = ("---\nname: weekly-report\ndescription: Writes the weekly report from the changes merged this week.\n---\n\n"
+                "# Weekly report\n\n1. List the changes merged since last Monday.\n2. Group them by area and write one line each.\n")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.scan = _load("inventory_for_typed_skill",
+                         os.path.join(SCRIPTS, "setup-snapshot", "experiments", "2026-11-02-evidence", "inventory.py"))
+        cls.board = _load("board_for_typed_skill", os.path.join(SCRIPTS, "v15", "engine", "board.py"))
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="typed-skill-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        project = os.path.join(self.tmp, "repo")
+        folder = os.path.join(project, ".claude", "skills", "weekly-report")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "SKILL.md"), "w") as fh:
+            fh.write(self.SKILL_MD)
+        self.project = project
+        self.skill = {"kind": "skill", "name": "weekly-report", "origin": "own", "scope": "project", "project": project,
+                      "path": folder, "entry": os.path.join(folder, "SKILL.md"), "files": 0, "bytes": len(self.SKILL_MD),
+                      "description": "Writes the weekly report from the changes merged this week."}
+
+    def loads(self, *events):
+        """How many loads the scan counts for the skill from one session's events."""
+        rec = {"file": os.path.join(self.tmp, "logs", "s1.jsonl"), "helper": False, "chat": "s1", "ep": "claude-desktop",
+               "t0": 1000.0, "first_prompt": "write the weekly report", "skill_ev": list(events)}
+        rows = self.scan.skill_depth_facts({"artifacts": [self.skill]}, [rec], 0, None, [self.project], set())
+        return {r["name"]: r for r in rows}["weekly-report"]["loads"]
+
+    def test_a_typed_skill_command_is_a_load(self):
+        # /weekly-report typed: no Skill call, only Claude Code's own "Base directory for this skill" record
+        self.assertEqual(self.loads((1000.0, "loaded", "weekly-report")), 1)
+
+    def test_a_skill_call_and_its_record_are_one_load_not_two(self):
+        self.assertEqual(self.loads((1000.0, "load", "weekly-report"), (1001.0, "loaded", "weekly-report")), 1)
+
+    def test_two_typed_commands_are_two_loads(self):
+        self.assertEqual(self.loads((1000.0, "loaded", "weekly-report"), (2000.0, "loaded", "weekly-report")), 2)
+
+    def test_typed_with_no_load_read_is_used_on_the_card_the_row_and_this_tab(self):
+        # the scan read no load of it (an older log, say), yet the person typed it: used everywhere it shows, never "not used"
+        depth = {"name": "weekly-report", "lines": 8, "other_files": 0, "loads": 0, "loads_opened": 0, "opened": None,
+                 "script_run": None, "live_syntax": False, "eval": None, "copies": 1, "shared_name": False, "has_evals_folder": False}
+        inventory = {"skills_used": [], "skill_depth": [depth],
+                     "slash_commands": {"by_command": [{"command": "/weekly-report", "times": 1, "bare": 0, "chats": 1}]},
+                     "slash_commands_in_chats": [{"what": "/weekly-report", "calls": 1, "chats": 1}],
+                     "who_did_it": {"groups": [{"id": "you", "items": [{"id": "you.own_commands_typed", "n": 1, "chats": 1}]}]},
+                     "chats": {"typed_chats": 3}, "tools": {}}
+        for name, data in (("anatomy.json", {"artifacts": [self.skill]}), ("inventory.json", inventory)):
+            with open(os.path.join(self.tmp, name), "w") as fh:
+                json.dump(data, fh)
+        r = self.board.r_skills_own(self.board.Facts(self.board.Run(self.tmp)))
+        card = {x["name"]: x for x in r["skills"]}["weekly-report"]
+        self.assertTrue(card["used"], card)
+        self.assertIn("typed", card["why"])
+        listed = {x["name"]: x for x in r["list"]}["weekly-report"]
+        self.assertEqual((listed["used"], listed["uses"]), (True, 1), listed)
+        self.assertIn("not used 0", r["skills_summary"])
+        out = page([r])
+        self.assertIn("weekly-report", out)
+        self.assertNotIn("Not used in 30 days", out)
 
 
 def sk(name, step, uses, used=True, why="", about=""):

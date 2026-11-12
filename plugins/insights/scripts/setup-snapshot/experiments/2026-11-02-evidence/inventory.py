@@ -557,7 +557,9 @@ def read_log(args):
          # when Claude Code loaded the project's auto-memory MEMORY.md into the session (an `instructions` record whose
          # file is type AutoMem, with text): the session began with earlier work in its context, no Read call needed
          "automem_t": None, "jobs_came_back": 0, "jobs_poll_loops": 0,
-         # what could show a skill's depth (skill_depth_facts): (t, "load", name) for a Skill call or a typed /name;
+         # what could show a skill's depth (skill_depth_facts): (t, "load", name) for a Skill call or a typed built-in-style
+         # /name; (t, "loaded", folder name) for Claude Code's "Base directory for this skill" record (a typed skill command
+         # leaves only this one);
          # (t, "read" | "edit" | "bash", path or command) for a tool call that names a `skills/` path;
          # (t, "script", (file paths the command names)) for a Bash call that ran a script or test
          "skill_ev": [],
@@ -2454,7 +2456,8 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
     """One fact row per skill the person wrote (anatomy origin `own`, which ownership.py decided), by name. What it holds
     and what the logs of the window show about it; board.skill_depth turns the row into a depth.
 
-      name · lines (of SKILL.md) · other_files (everything else in its folder) · loads (Skill calls and typed /name) ·
+      name · lines (of SKILL.md) · other_files (everything else in its folder) · loads (Skill calls, and typed /name read
+      from Claude Code's "Base directory for this skill" record, once per load) ·
       loads_opened (loads after which the agent opened one of the skill's other files, before its next load) · opened (that
       file) · script_run (a script of the skill, run after a load) · live_syntax (SKILL.md uses !`cmd`) ·
       eval (the skill's evals seen RUNNING, from what Claude Code writes: {how: plugin_eval | headless_run, plugin_evals: calls
@@ -2502,11 +2505,21 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
         evs.sort(key=lambda e: e[0])
         loads = defaultdict(list)       # skill name -> times it loaded in this session
         edited = set()
+        # Claude Code writes "Base directory for this skill: <folder>" (a "loaded" event) every time a skill's text goes in:
+        # right after a Skill call, where it repeats that call's load, and on its own when the person typed /name (the
+        # <command-message> form, which the log reader leaves to this record). A load is still pending until its record comes.
+        pending = Counter()
         for t, kind, val in evs:
             if kind == "load":
                 ns, _, short = val.rpartition(":")
+                pending[short] += 1
                 if short in info and not info[short]["shared_name"] and (not ns or ns in own_plugins):
                     loads[short].append(t)
+            elif kind == "loaded":
+                if pending[val]:
+                    pending[val] -= 1
+                elif val in info and not info[val]["shared_name"]:
+                    loads[val].append(t)
             elif kind == "edit":
                 edited.update(skill_refs(val))
         for name, ts in loads.items():
