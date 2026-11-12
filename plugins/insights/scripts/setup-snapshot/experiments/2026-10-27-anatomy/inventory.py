@@ -401,16 +401,18 @@ def identity_from_repos(repo_roots: list[Path]):
 _hist_cache: dict[tuple[Path, str | tuple[str, ...]], dict | None] = {}
 
 
-def history(root: Path, rel: str | tuple[str, ...]) -> dict | None:
-    """The commits that touched `rel`, a path inside root, or any of several (a tuple)."""
+def history(root: Path, rel: str | tuple[str, ...], budgeted: bool = True) -> dict | None:
+    """The commits that touched `rel`, a path inside root, or any of several (a tuple). `budgeted=False` runs outside
+    GIT_BUDGET, for a lookup made once per thing found rather than once per file."""
     key = (root, rel)
     if key in _hist_cache:
         return _hist_cache[key]
     res = None
-    if GIT_BUDGET["left"] > 0:
+    if not budgeted or GIT_BUDGET["left"] > 0:
         t = time.monotonic()
         r = git(["log", "--format=%aI%x09%ae%x09%an", "--", *((rel,) if isinstance(rel, str) else rel)], root, 15)
-        GIT_BUDGET["left"] -= time.monotonic() - t
+        if budgeted:
+            GIT_BUDGET["left"] -= time.monotonic() - t
         if r is not None and r.returncode == 0:
             rows = [ln.split("\t") + ["", ""] for ln in r.stdout.splitlines() if ln]
             res = {
@@ -445,13 +447,16 @@ def git_info(path: Path) -> dict:
 
 
 def files_info(paths) -> dict:
-    """git_info for several files of one repo taken as one thing: the commits that touched any of them."""
+    """git_info for several files of one repo taken as one thing: the commits that touched any of them. One lookup per
+    thing found (an MCP server built into a repo), so it runs even when the per-file budget is spent: with no history
+    read, ownership.py reads the thing as theirs, and on a real laptop the budget was gone before this step, so a clone
+    of someone else's server read as theirs."""
     reals = [Path(os.path.realpath(p)) for p in paths]
     root = git_root(reals[0]) if reals else None
     if root is None:
         return {"in_git": False}
     info: dict = {"in_git": True, "repo": str(root)}
-    h = history(root, tuple(sorted({os.path.relpath(r, root) for r in reals if _under(r, root)})))
+    h = history(root, tuple(sorted({os.path.relpath(r, root) for r in reals if _under(r, root)})), budgeted=False)
     if h is None:
         info["error"] = "git log unavailable"
         return info

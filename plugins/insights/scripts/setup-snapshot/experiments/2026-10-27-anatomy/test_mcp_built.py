@@ -159,6 +159,19 @@ class McpBuiltCase(unittest.TestCase):
         self.assertEqual(out[0]["origin"], "mixed", out[0]["origin_evidence"])
         self.assertEqual({k: out[0]["git"][k] for k in ("commits", "user_commits")}, {"commits": 3, "user_commits": 1})
 
+    def test_a_teammates_server_stays_theirs_after_the_git_budget_is_spent(self):
+        # earlier steps of a real scan spend the per-file git budget; a server's commits are read all the same
+        r = self.repo("storefront")
+        commit(r, {"composer.json": COMPOSER, "app/Mcp/CatalogMcpController.php": CONTROLLER, "routes/api.php": ROUTES}, LEE)
+        left = inventory.GIT_BUDGET["left"]
+        inventory.GIT_BUDGET["left"] = 0
+        try:
+            out = self.built(r)
+        finally:
+            inventory.GIT_BUDGET["left"] = left
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["origin"], "third_party", out[0]["origin_evidence"])
+
     def test_a_copy_of_someone_elses_server_committed_into_their_repo_is_installed(self):
         # ownership.py's rule 4: they committed a byte copy of a version of a file from another repo on this laptop whose
         # commits are someone else's (a clone of the upstream project): installed, not theirs
