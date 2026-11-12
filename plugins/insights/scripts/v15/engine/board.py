@@ -87,7 +87,16 @@ class Run:
         self.anatomy = self._load("anatomy.json")
         self.inv = self._load("inventory.json")
         self.cheap = self._load("cheap-artifacts.json", [])
+        self.setup_map = self._load_quiet("setup-map.json")
         self.logs_ok = bool(self.inv)
+
+    def _load_quiet(self, name):
+        """A file the board may do without: absent reads as {} and is not listed as missing."""
+        try:
+            with open(os.path.join(self.dir, name)) as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {}
 
     def _load(self, name, empty=None):
         try:
@@ -436,6 +445,31 @@ def r_skills_installed(f):
                if n else "nothing installed from others found")
 
 
+def one_per_target(files):
+    """A link to a rule file is not another rule file: entries that are symlinks count as the file they point to (the scan
+    records `symlink_to`), so a file reached through 400 links, or listed itself and linked from elsewhere, is one. The
+    real file stands for its links when it is listed, else the first link does."""
+    by_target = {}
+    for x in sorted(files, key=lambda x: bool(x.get("symlink_to"))):   # real files first; stable
+        by_target.setdefault(_path(x.get("symlink_to") or x.get("path")), x)
+    return list(by_target.values())
+
+
+def _ownership():
+    """The one ownership rule (setup-snapshot/experiments/2026-11-02-evidence/ownership.py), found beside this folder's
+    parent in the lab and in the shipped plugin alike. None when it is not there."""
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "setup-snapshot", "experiments",
+                        "2026-11-02-evidence", "ownership.py")
+    try:
+        spec = importlib.util.spec_from_file_location("ownership_for_board", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except (OSError, ImportError, AttributeError, SyntaxError):
+        return None
+
+
 def own_instruction_files(f):
     """Every instruction file the scan found that is theirs (anatomy.json instruction_files, origin by ownership.py),
     test fixtures left out; None when the run predates the origin field (11-09). Until 11-09 the row read the AI
@@ -443,7 +477,11 @@ def own_instruction_files(f):
     files = [x for x in _l(f.a.get("instruction_files")) if isinstance(x, dict)]
     if not files or not any("origin" in x for x in files):
         return None
-    return [x for x in files if x.get("origin") == "own" and not x.get("in_fixture_path")]
+    owner = _ownership()
+    # a copy Claude Code keeps in its plugin cache or marketplaces folder is never the person's file (ownership.claude_code_copy),
+    # whatever the run's `origin` says: runs scanned before that rule credited them with the copies (11-11: about 460 of 1,632)
+    return [x for x in files if x.get("origin") == "own" and not x.get("in_fixture_path")
+            and not (owner and owner.claude_code_copy(x.get("path")))]
 
 
 def _loaded_elsewhere(f, files, home_claude):
@@ -461,7 +499,7 @@ def r_instructions(f):
     repos = None
     if full is not None:
         every = [str(x.get("path")) for x in full]   # each copy still loads in the sessions that ran beside it
-        full, repos = one_per_repo_path(full, lambda x: _d(x.get("git")).get("repo") or x.get("project"))
+        full, repos = one_per_repo_path(one_per_target(full), lambda x: _d(x.get("git")).get("repo") or x.get("project"))
         paths = [str(x.get("path")) for x in full]
         always = sum(1 for x in full if x.get("scope") in ("home", "project", "ancestor", "managed"))
         rules = full
@@ -494,8 +532,34 @@ def r_instructions(f):
         source = ("cheap-artifacts.json: kind rules, own true; inventory.json: repos typed_chats (sessions in a repo holding one of them), "
                   "rules_reaching (rule files Claude Code loaded into a session started elsewhere)")
         why = f"{plural(len(rules), 'instruction file')} of yours; {plural(sessions, 'session')} ran where they load"
-    return row("cap-instructions", build_state(len(rules), sessions), len(rules), sessions, "sessions", sorted(set(names)),
-               source, why if rules else "no instruction file of yours found", repos=repos)
+    out = row("cap-instructions", build_state(len(rules), sessions), len(rules), sessions, "sessions", sorted(set(names)),
+              source, why if rules else "no instruction file of yours found", repos=repos)
+    out.update(_rules_in_read(f, rules if always is not None else []))
+    return out
+
+
+def _rules_in_read(f, rules):
+    """Which of the (already deduplicated) rule files sit in the projects the setup read looked at (setup-map.json): the map's
+    project roots, each matched by repo name as the files are. `read_projects` = how many projects the map holds; `in_read` =
+    the files in them; `read` = per map project its files that load in every session (`always`) and in their folder
+    (`scoped`), the table the Built tab prints under the count. Absent when the run has no map."""
+    projects = [p for p in _l(_d(f.r.setup_map).get("projects")) if isinstance(p, dict) and not p.get("error") and p.get("root")]
+    if not projects:
+        return {}
+    by_repo = {}
+    for x in rules:
+        root = _d(x.get("git")).get("repo") or x.get("project")
+        p = str(x.get("path") or "")
+        if root and _path(p).startswith(_path(root) + os.sep):
+            by_repo.setdefault(repo_name(root), []).append(x)
+    read, seen = [], set()
+    for p in projects:
+        name = repo_name(p["root"])
+        mine = [] if name in seen else by_repo.get(name, [])   # a repo reached by two roots (a link, a copy) holds its files once
+        read.append({"root": p["root"], "always": sum(1 for x in mine if x.get("scope") != "folder"),
+                     "scoped": sum(1 for x in mine if x.get("scope") == "folder")})
+        seen.add(name)
+    return {"read_projects": len(projects), "in_read": sum(r["always"] + r["scoped"] for r in read), "read": read}
 
 
 def r_hooks(f):

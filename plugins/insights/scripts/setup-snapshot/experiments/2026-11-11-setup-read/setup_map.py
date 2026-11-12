@@ -665,10 +665,10 @@ def pick_projects(run, ctx, n, inv, anat, scan):
                                 counts[w] += 1
         except OSError:
             pass
-        picked = [(r, {"typed_sessions": k}) for r, k in counts.most_common()]
+        picked = [(r, {"typed_sessions": k}) for r, k in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]   # a tie ends by path, not by read order
     picked = [(r, m) for r, m in picked if os.path.isdir(r)][:n]
     have = {r for r, _ in picked}
-    for row in sorted((inv or {}).get("repos") or [], key=lambda x: -(x.get("worked_chats") or 0)):
+    for row in sorted((inv or {}).get("repos") or [], key=lambda x: (-(x.get("worked_chats") or 0), str(x.get("repo") or ""))):
         r = row.get("repo")
         if len(picked) >= n:
             break
@@ -689,7 +689,7 @@ def pick_projects(run, ctx, n, inv, anat, scan):
                     and os.path.dirname(p) == proj and proj not in have and ctx.repo_root(proj) == proj:
                 roots[proj] = max(roots.get(proj, ""), x.get("mtime") or "")
         if _home_start(run, ctx):
-            for r, _ in sorted(roots.items(), key=lambda kv: kv[1], reverse=True)[:n - len(picked)]:
+            for r, _ in sorted(sorted(roots.items()), key=lambda kv: kv[1], reverse=True)[:n - len(picked)]:   # newest first; equal times keep path order (reverse keeps ties stable)
                 picked.append((r, {"found_under": "~", "picked_by": "rule-files"}))   # not ranked by sessions: the pages say so
     return picked
 
