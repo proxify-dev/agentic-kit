@@ -9,7 +9,9 @@ judges the map afterwards (README.md in this folder).
 Discovery comes from what the earlier steps wrote into RUN_DIR; this step decides nothing about whose a file is:
   anatomy-scan.json   projects (the same pick anatomy_scan.py made: most typed interactive sessions)
   chats.jsonl         the pick again when anatomy-scan.json is missing (it needs PyYAML)
-  inventory.json      repos (a repo found below a folder sessions started in, `found_under`; `authors_here`) and
+  worked-in.json      the repos each session edited or committed in, wherever it started (the pick when anatomy-scan.json is missing)
+  inventory.json      repos (a repo found below a folder sessions started in, `found_under`; one found only from the work
+                      sessions did, `found_from_work`; `authors_here`) and
                       own_artifacts.own (skills, agents, commands: whose they are was decided by ownership.py)
   anatomy.json        instruction_files (path, kind, scope, origin = ownership.py's verdict) and memory_stores
 Only files marked `own` go in. Their text is then read from disk and the pointers in it are followed.
@@ -634,12 +636,15 @@ def load_json(run, name):
 def pick_projects(run, ctx, n, inv, anat, scan):
     """[(root, {typed_sessions, ...})]: anatomy_scan's pick; when it is missing, the same count from chats.jsonl; sessions
     started in a folder above the repos (a start folder that is not a repo) leave the rest to the repos the inventory
-    found below it; a session started in HOME names no repo, so the repos whose own root file was edited last fill in."""
+    found below it; a session started in HOME names no repo, so the repos it worked in (worked-in.json: files it edited,
+    commits it made, wherever it started) rank by sessions, and only then the repos whose own root file was edited last
+    (those carry `picked_by: "rule-files"`: the pages say "busiest" only for a list ranked by sessions or work)."""
     picked = []
     if scan and scan.get("projects"):
         picked = [(p["root"], {k: p[k] for k in ("typed_sessions", "sessions") if k in p}) for p in scan["projects"]]
     else:
         counts, home_start = Counter(), False
+        worked = (load_json(run, "worked-in.json") or {}).get("sessions") or {}
         try:
             with open(os.path.join(run, "chats.jsonl"), encoding="utf-8") as f:
                 f.readline()
@@ -654,17 +659,26 @@ def pick_projects(run, ctx, n, inv, anat, scan):
                     r = ctx.repo_root(cwd) if cwd and os.path.isdir(cwd) else None
                     if r and c.get("ep") == "cli":
                         counts[r] += 1
+                    if c.get("ep") == "cli":
+                        for w in worked.get(c.get("chat"), {}):
+                            if w != r and os.path.isdir(w) and ctx.repo_root(w) == w:
+                                counts[w] += 1
         except OSError:
             pass
         picked = [(r, {"typed_sessions": k}) for r, k in counts.most_common()]
     picked = [(r, m) for r, m in picked if os.path.isdir(r)][:n]
     have = {r for r, _ in picked}
-    for row in (inv or {}).get("repos") or []:
+    for row in sorted((inv or {}).get("repos") or [], key=lambda x: -(x.get("worked_chats") or 0)):
         r = row.get("repo")
         if len(picked) >= n:
             break
-        if r and "found_under" in row and r not in have and os.path.isdir(r) and not row.get("not_a_repo"):
+        if not r or r in have or not os.path.isdir(r) or row.get("not_a_repo"):
+            continue
+        if "found_under" in row:
             picked.append((r, {"found_under": ctx.tilde(row["found_under"])}))
+            have.add(r)
+        elif row.get("found_from_work") and row.get("worked_chats"):
+            picked.append((r, {"typed_sessions": row["worked_chats"]}))
             have.add(r)
     if len(picked) < n and anat:
         # newest root file first: the only order that needs no word list or threshold
@@ -676,7 +690,7 @@ def pick_projects(run, ctx, n, inv, anat, scan):
                 roots[proj] = max(roots.get(proj, ""), x.get("mtime") or "")
         if _home_start(run, ctx):
             for r, _ in sorted(roots.items(), key=lambda kv: kv[1], reverse=True)[:n - len(picked)]:
-                picked.append((r, {"found_under": "~"}))
+                picked.append((r, {"found_under": "~", "picked_by": "rule-files"}))   # not ranked by sessions: the pages say so
     return picked
 
 

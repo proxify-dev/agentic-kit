@@ -59,8 +59,8 @@ class Built(unittest.TestCase):
     def test_at_a_glance_a_tile_per_kind_they_have(self):
         out = page(FULL, setup_map=MAP)
         tiles = re.findall(r'<a class="tile" href="#built-(\w+)"><span class="bt-num">([\d,]+)</span><span class="lab">([^<]+)', out)
-        self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "commands you wrote"),
-                                 ("rules", "6", "rule files in your 2 busiest projects"), ("agents", "1", "sub-agents you defined"),
+        self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "command you wrote"),
+                                 ("rules", "6", "rule files in your 2 busiest projects"), ("agents", "1", "sub-agent you defined"),
                                  ("hooks", "4", "hooks you set up")])
         self.assertIn("<b>12</b> used this month", out)    # used, and a name an installed skill also has: not idle
         self.assertIn("<b>3</b> ran this month", out)
@@ -159,6 +159,29 @@ class Built(unittest.TestCase):
             out = page(junk)                                                   # renders, whatever it could count
             self.assertTrue('class="kd"' in out or "Nothing on this laptop" in out)
         self.assertIn("not in this run", view_built.render({"esc": html.escape, "v15_result": {}}))
+
+
+class StartedOutsideAProject(unittest.TestCase):
+    """Sessions that start in the home folder and work across 6 repos read "built 0" (11-11): the page says where the work was found."""
+    ROWS = [row("cap-mcp", "uses others'", items=2, calls=5)]
+
+    def view(self, work_found):
+        return page(self.ROWS, inventory={"work_found": work_found})
+
+    def test_most_sessions_outside_a_project_and_repos_found_from_the_work(self):
+        out = text(self.view({"typed_sessions": 40, "start_outside_repo": 31, "repos_worked_in": 6}))
+        self.assertIn("This page follows the work, not the folder: it found 6 projects from the files your agent edited and the "
+                      "commits it made there, because most of your sessions start in a folder that isn't a project (31 of 40).", out)
+
+    def test_none_found_reads_as_could_not_see_not_did_not_build(self):
+        out = text(self.view({"typed_sessions": 40, "start_outside_repo": 31, "repos_worked_in": 0}))
+        self.assertIn("A zero below means we couldn't see it, not that you built nothing", out)
+
+    def test_sessions_that_start_in_projects_get_no_line(self):
+        self.assertNotIn("note start", self.view({"typed_sessions": 40, "start_outside_repo": 10, "repos_worked_in": 3}))
+        self.assertNotIn("note start", self.view({"typed_sessions": 40, "start_outside_repo": 20, "repos_worked_in": 3}))   # half is not most
+        self.assertNotIn("note start", self.view({}))                                                                      # an older run
+        self.assertNotIn("note start", page(self.ROWS))
 
 
 if __name__ == "__main__":

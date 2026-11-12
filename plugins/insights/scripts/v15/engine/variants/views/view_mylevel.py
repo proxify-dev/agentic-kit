@@ -18,6 +18,7 @@ import sys
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")))
 import things as level_things  # noqa: E402  which level read is in use, and the things' states
+import wording  # noqa: E402  the one plural
 
 ORDER = 1
 TITLE = "Your level"
@@ -145,28 +146,16 @@ HOLD_WHY = {"endless-sessions": "your sessions were only ever reset by automatic
 
 
 def _part_state(g):
-    """shown needs both readers to agree, as the engine does: the code's map shows the structure AND the agent read it
-    as shown with a quote the code found in the file. One without the other is "partly", with the reason said."""
-    judged = g.get("judged")
-    if g.get("structure") and judged == "shown" and g.get("quote_ok"):
-        return "shown", ""
-    if judged == "shown":
-        return "partly", ("The reading says yes, but the map of your files doesn't show the structure behind it."
-                          if not g.get("structure") else
-                          # setup_read.py drops a quote whose line holds a secret, so no page ever prints one
-                          "The reading says yes, but the line it rests on holds a key or a token, so we don't keep or "
-                          "show it. Move the secret out of that file and run the tool again."
-                          if g.get("quote_dropped") else "The reading says yes, but its quote wasn't found in your file.")
-    if judged == "partly":
-        return "partly", ""
-    if judged == "not shown" or (g.get("structure") is False and judged in (None, "", "can't tell")):
-        return "notshown", ""
-    return "unread", ""
+    """The one rule for a part's state is things.part_state; the Review and the Share tab read it too."""
+    return level_things.part_state(g)
 
 
-def _setup_read(sr, esc):
+def _setup_read(sr, esc, labels=None):
     """'What your files show': one row per part (state as icon and word, the why), the next step in sight for a part
-    that isn't shown, and the quoted line behind a click. A fired hold is its own line: a habit, not a verdict."""
+    that isn't shown, and the quoted line behind a click. A fired hold is its own line: a habit, not a verdict.
+    `labels` = project slug -> its name: each part says which project its reading came from (the best one of the
+    projects read, part by part, so two parts may come from two projects)."""
+    labels = labels or {}
     parts = sr.get("parts") or [{"id": i} for i in DEFAULT_PARTS]
     rows = []
     for g in parts:
@@ -185,20 +174,24 @@ def _setup_read(sr, esc):
         nx = f'<b>Next step:</b> {esc(nxt)}'
         inline = "" if state == "shown" else f'<span class="nx">{nx}</span>'
         inside = quote + (f'<p style="margin:8px 0 0;font-size:13px;color:#344054">{nx}</p>' if state == "shown" else "")
+        # the part's best reading came from one project (setup_read.merge picks each part's best separately): say which
+        slug = g.get("project")
+        project = f'<small>Best read in your project {esc(labels.get(slug) or slug)}.</small>' if slug else ""
         label = ("See the line it rests on, and your next step" if state == "shown" and quote else
                  "See the line it rests on" if quote else "See your next step")
         rows.append(
             f'<li class="{state}"><span class="m" aria-hidden="true">{icon}</span><span><b>{esc(g.get("name") or PART_NAMES.get(pid) or pid)}</b>'
-            f'<span class="st">{word}</span><small>{esc(why)}{" " + esc(note) if note else ""}</small>{inline}'
+            f'<span class="st">{word}</span><small>{esc(why)}{" " + esc(note) if note else ""}</small>{project}{inline}'
             + (f'<details><summary>{label}</summary>{inside}</details>' if inside else "") + '</span></li>')
     holds = "".join(
         f'<div class="hold"><span class="m" aria-hidden="true">!</span><span><b>A habit seen in Claude Code\'s records:</b> '
         f'{esc(h.get("why") or HOLD_WHY.get(h.get("id")) or h.get("id"))}.<small>While it shows, your laptop reads L2. It is a habit, '
         f'not a score: the next run reads what your sessions do then.</small></span></div>'
         for h in sr.get("holds") or [] if h.get("fired"))
+    counted = f" Of the {wording.plural(len(parts), 'part')}, {level_things.parts_said(parts)}." if sr.get("ran", True) and sr.get("parts") else ""
     return ('<h3>What your files show</h3><p style="color:#475467;font-size:13px;margin:0 0 8px">L3 means your setup carries the '
             'context, so the agent knows the right thing without you telling it again. We mapped your own rule files, '
-            'memory and skills, and an AI read them. A part counts when both agree.</p>'
+            f'memory and skills, and an AI read them. A part counts when both agree.{counted}</p>'
             f'<ul class="why files">{"".join(rows)}</ul>{holds}')
 
 
@@ -220,12 +213,12 @@ def _things(pt, esc):
         ts = [t for t in pt.get("things") or [] if t.get("level") == lv]
         if not ts:
             continue
-        yours = sum(t.get("state") in level_things.PRESENT for t in ts)
+        have, of = level_things.things_met(pt)[lv]
         rows = "".join(
             f'<li class="{THING_CLASS.get(t.get("state"), "none")}"><span class="m" aria-hidden="true">{level_things.ICON.get(t.get("state"), "?")}</span>'
-            f'<span><b>{esc(t.get("name"))}</b><span class="st">{esc(THING_WORD.get(t.get("state"), t.get("state")))}</span>'
+            f'<span><b>{esc(t.get("name"))}</b><span class="st">{esc(t.get("word") or THING_WORD.get(t.get("state"), t.get("state")))}</span>'
             f'<small>{esc(t.get("proof"))}</small></span></li>' for t in ts)
-        groups.append(f'<div class="tg"><h4>{lv} · {esc(MEANING[lv])}<small>{yours} of {len(ts)} yours · {esc(GROUP_SAYS[lv])}</small></h4>'
+        groups.append(f'<div class="tg"><h4>{lv} · {esc(MEANING[lv])}<small>{have} of {wording.plural(of, "thing")} in place · {esc(GROUP_SAYS[lv])}</small></h4>'
                       f'<ul class="why things">{rows}</ul></div>')
     return ('<h3>What your laptop shows, level by level</h3><p style="color:#475467;font-size:13px;margin:0 0 8px">Each thing '
             'belongs to one level. What Claude Code or the model did by itself is shown, and counts for nothing.</p>'
@@ -245,7 +238,7 @@ def _render_things(ctx, res, pt):
             + (f'<p><b>{esc(reasons[0])}</b></p>' if reasons else "")
             + "".join(f'<p>{esc(r)}</p>' for r in reasons[1:])
             + '<p>This is what your laptop shows today'
-            + (f', read from {esc(days)} days of sessions and your own files' if days is not None else ', read from your sessions and your own files')
+            + (f', read from {esc(wording.plural(days, "day"))} of sessions and your own files' if days is not None else ', read from your sessions and your own files')
             + '. It is a starting point, not a final score: an evaluation call confirms it or raises it.</p></div>')
     ladder = ""
     if lvl in MEANING:
@@ -254,7 +247,8 @@ def _render_things(ctx, res, pt):
             f'<div class="step{" you" if k == lvl else (" done" if int(k[1]) < n else (" maybe" if k == could else ""))}"><b>{k}</b><span>{esc(MEANING[k])}</span>'
             + ('<em>You are here</em>' if k == lvl else ('<em>Could be</em>' if k == could else "")) + "</div>" for k in sorted(MEANING)) + "</div>"
     sr = pt.get("setup_read") if isinstance(pt.get("setup_read"), dict) else None
-    files = _setup_read(sr, esc) if sr else ""
+    labels = {p.get("slug"): p.get("label") for p in (ctx.get("setup_read") or {}).get("projects") or [] if isinstance(p, dict)}
+    files = _setup_read(sr, esc, labels) if sr else ""
     cmp_ = ""
     old = res.get("pointer") or {}
     if not ctx.get("member") and old.get("level"):  # staff only: both reads side by side while the trial runs
@@ -288,7 +282,7 @@ def _render_practices(ctx):
     ce = (res.get("calibration") or {}).get("certainty") or {}
     sure = ce.get("level")
     sure_html = (f'<span class="sure{"" if sure == "high" else " mid"}">{esc(SURE.get(sure, sure))} · '
-                 f'{esc(ce.get("days_with_sessions"))} days of sessions, {esc(ce.get("backed_practices"))} practices backed by a '
+                 f'{esc(wording.plural(ce.get("days_with_sessions") or 0, "day"))} of sessions, {esc(wording.plural(ce.get("backed_practices") or 0, "practice"))} backed by a '
                  f'count or a file</span>' if sure else "")
     # the setup read (engine.setup_read_gate): present only when the practice lists read L3 or L4. Its level is L2 when
     # the files don't back that, with could_be the level the lists read (none when a hold fired)
@@ -308,7 +302,8 @@ def _render_practices(ctx):
             reason = ("The read of your files didn't run this time, so your laptop can't say whether your setup carries "
                       "the context. Run it again.")
         elif not enough:
-            reason = (f"Your files don't yet show a setup that carries the context: {n_shown} of {n_parts} parts show it so far.")
+            reason = (f"Your files don't yet show a setup that carries the context: of {wording.plural(n_parts, 'part')}, "
+                      f"{level_things.parts_said(sr.get('parts'))}.")
         elif fired:
             h = fired[0]
             reason = ("Claude Code's records show a habit that works against your setup: "
@@ -334,7 +329,7 @@ def _render_practices(ctx):
                         for ok, t, sub in _summary(conds) if ok)
         every = "".join(f"<li>{esc(_say(c.get('test')))}</li>" for c in conds if c.get("met"))
         why = (f'<h3>Why {esc(lvl)}</h3><ul class="why">{lines}</ul>'
-               f'<details><summary>See all {sum(bool(c.get("met")) for c in conds)} things your laptop showed</summary><ul>{every}</ul></details>')
+               f'<details><summary>See all {wording.plural(sum(bool(c.get("met")) for c in conds), "thing")} your laptop showed</summary><ul>{every}</ul></details>')
 
     up = f"L{n + 1}"
     nxt = ""
