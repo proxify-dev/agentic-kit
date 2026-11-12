@@ -11,6 +11,28 @@ You get a new version only when it is released: each entry below is one release,
 brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3 and 0.4.1 were never sent out; their
 changes arrived in the version after them.
 
+## 0.6.6 — 2026-11-12
+
+### What changes for you
+
+- **The page calls the instruction file `AGENTS.md`** (or `CLAUDE.md`) where it said "rule file". `.claude/rules/` keeps its own name. Wording only: no number or level changes (#28).
+- **The browser's find works across tabs.** The text in every tab and panel is in the page, hidden until found, and a "Show everything" control opens it all (#30).
+- **A broken count no longer blanks a tab.** A count that is not a number makes its own row read "couldn't check", and the rest of the tab shows (#29).
+- **Advice on your `AGENTS.md`**, for your busiest projects, as cards on the Review tab (#31): a pointer to a file that does not exist, an `AGENTS.md` that never loads, no command to check the work, lines that restate the repo, and your weakest line with a rewrite. An `AGENTS.md` that Claude Code never reads is no longer counted as loaded.
+
+### Known limits
+
+- A full scan still takes 20 minutes or more on a laptop with many sessions, and some of its checks run out of time on a first run. This is next.
+- The weakest-line card needs the AI reader and shows "couldn't check" when its quote cannot be verified against your file.
+- Advice never changes a level.
+- One run's AI part costs about 350k tokens on a large setup, against a target of about 200k.
+- Folders without git are not read as projects.
+- Folders of generated files that each hold a rule file still count as separate rule files.
+- Share still sends the older read's lines until the receiving side accepts the new fields.
+- Every threshold is a guess until it is checked against levels confirmed on calls.
+
+Pull requests: #27, #28, #29, #30, #31. (#27 changes no behaviour.)
+
 ## 0.6.5 — 2026-11-12
 
 ### What changes for you

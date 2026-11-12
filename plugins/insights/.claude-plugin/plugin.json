@@ -1,7 +1,7 @@
 {
   "name": "insights",
   "description": "How you really work with Claude Code, rebuilt from the files it keeps on your machine. /insights:my-agentic-setup scans your sessions, settings, plugins, skills, hooks and the git repos Claude Code ran in, has AI readers in your own Claude Code session review the rule files and memory of your most active projects, and writes one local page. It opens on a written review of your setup: what works, what to change first, and why. Your level shows the level your laptop reads, a starting point a call confirms or raises; Level 3 and up need your own files to show it (AGENTIC_SETUP_NO_LEVEL=1 leaves the level out). Reads only; nothing leaves the machine unless you press Send on the page. Python 3.12+ or uv.",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "author": {
     "name": "teocns"
   },
