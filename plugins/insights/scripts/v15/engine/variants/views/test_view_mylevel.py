@@ -108,7 +108,7 @@ class SetupRead(unittest.TestCase):
                    could_be="L3", setup_read=sr))
         self.assertIn('<span class="big">L2</span>', out)
         self.assertIn('<span class="could">Could be L3</span>', out)
-        self.assertIn("Your files don't yet show a setup that carries the context: 1 of 3 parts show it so far.", out)
+        self.assertIn("Your files don't yet show a setup that carries the context: of 3 parts, 1 fully shown, 1 partly.", out)
         self.assertIn("<em>Could be</em>", out)
         self.assertNotIn("never goes down", out)
         # code and agent disagree: partly, and it says which half is missing
@@ -191,7 +191,7 @@ class LevelFromThings(unittest.TestCase):
             self.assertIn(f"<b>{name}</b><span class=\"st\">{word}</span>", out)
         self.assertIn("none started by you", out)
         # in place of the practice lists, and without their certainty line
-        for old in ("in place", "practices backed", "Very sure", "What would take you to", "you do it, at least by hand"):
+        for old in ("cover the practices this level asks for", "practices backed", "Very sure", "What would take you to", "you do it, at least by hand"):
             self.assertNotIn(old, out)
 
     def test_staff_see_the_practice_read_beside_it_members_do_not(self):

@@ -36,6 +36,7 @@ IMAGE = re.compile(r"\.(png|jpe?g|webp|gif)$", re.I)
 EDITS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 LOOK_TOOLS = re.compile(r"screenshot|browser|playwright|chrome", re.I)
 SESSIONS_DIR = re.compile(r"\.claude/projects\b")
+WORKED_REPOS = 40   # distinct repos sessions worked in that are asked of git; the busiest ones
 SCRIPT = re.compile(r"(/[^\s\"']+\.(?:mjs|cjs|js|ts|py|sh))")  # an absolute script path inside a hook's command
 # Where a person types: the terminal, or an app that drives Claude Code through the Agent SDK (VS Code, the desktop app,
 # JetBrains; the same list as the evidence inventory's PERSON_APPS). A headless run (entrypoint sdk-*) carries a
@@ -165,18 +166,23 @@ def repo_of(cwd):
     return root
 
 
-def most_active(per, n):
+def most_active(per, n, worked=None, top_worked=()):
     """(by_repo, active): sessions per main checkout (a session typed in any app counts as typed, a headless run only
-    as a session), and the n repos with the most typed sessions, most first; a folder that is no git repo is skipped."""
+    as a session), also for each repo the session worked in (`worked`: worked-in.json's sessions, kept to
+    `top_worked`), and the n busiest repos (`busiest`: most typed sessions, ties by path; a folder that is no git repo
+    is skipped)."""
     by_repo = defaultdict(Counter)
     for r in per:
         repo = repo_of(r["cwd"])
+        also = {repo_of(w) for w in (worked or {}).get(os.path.basename(r["path"])[:-6], {}) if w in top_worked} - {repo}
+        for rp in also:
+            by_repo[rp]["worked_sessions"] += 1
+            if r["entry"] == "cli" and r["counts"].get("typed"):
+                by_repo[rp]["typed_sessions"] += 1
         if person_session(r["entry"]) and r["counts"].get("typed"):
             by_repo[repo]["typed_sessions"] += 1
         by_repo[repo]["sessions"] += 1
-    active = [root for root, _ in sorted(by_repo.items(), key=lambda kv: -kv[1].get("typed_sessions", 0))
-              if root and os.path.isdir(root) and os.path.isdir(os.path.join(root, ".git"))][:n]
-    return by_repo, active
+    return by_repo, busiest(by_repo, n)
 
 
 def ls(root):
@@ -316,7 +322,7 @@ SESSION_READ = re.compile(r"transcript_path|\.claude/projects")
 def session_readers(root):
     """Own files that read Claude Code's session logs (a hook's transcript_path, ~/.claude/projects): agents, skills and
     commands (L3: a tool of theirs reads past sessions) and hook scripts on end-of-session events (L4: every session is
-    read without them). The 11-09 signal test: 0.15 s on his laptop; a laptop without such tools reads 0."""
+    read without them). The 11-09 signal test: 0.15 s on one laptop; a laptop without such tools reads 0."""
     tools, hooks = [], []
     for f in ls(root):
         if not re.search(r"(^|/)(agents|skills|commands|hooks)/", f) or not re.search(r"\.(md|py|mjs|js|sh|ts)$", f):
@@ -352,6 +358,13 @@ Write the result with the Write tool to {out} as one JSON object:
 """
 
 
+def busiest(by_repo, n):
+    """The `n` repos with the most typed sessions that are git repos on this laptop. A tie breaks by path, never by the order
+    the logs were read: with that order the picked project flipped on about one run in three."""
+    ranked = sorted(by_repo.items(), key=lambda kv: (-kv[1].get("typed_sessions", 0), str(kv[0])))
+    return [root for root, _ in ranked if root and os.path.isdir(root) and os.path.isdir(os.path.join(root, ".git"))][:n]
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir")
@@ -373,6 +386,15 @@ def main(argv):
         per = [r for r in pool.map(scan_file, files, chunksize=16) if r]
     t_logs = time.time() - t0
 
+    # the repos each session worked in (inventory.py writes it from the same pass over the logs): a session that started
+    # in the home folder, or in a folder above its repos, belongs to the repos it edited and committed in
+    try:
+        with open(os.path.join(a.run_dir, "worked-in.json")) as f:
+            worked = json.load(f)["sessions"]
+    except (OSError, ValueError, KeyError):
+        worked = {}
+    top_worked = {w for w, _ in sorted(Counter(w for v in worked.values() for w in v).items(), key=lambda kv: (-kv[1], kv[0]))[:WORKED_REPOS]}
+
     total, sessions = Counter(), Counter()
     conditions, hooks, ran = defaultdict(list), Counter(), set()
     goal_sessions = goal_wake = rounds = 0
@@ -393,7 +415,7 @@ def main(argv):
             goal_sessions += 1
             goal_wake += bool(c.get("wakeups"))
         rounds += c.get("stop_blocks", 0) >= 2
-    by_repo, active = most_active(per, a.projects)
+    by_repo, active = most_active(per, a.projects, worked, top_worked)
 
     t1 = time.time()
     found, gits, readers = {}, {}, {"tools": [], "hooks": []}

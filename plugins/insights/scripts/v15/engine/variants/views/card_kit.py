@@ -5,10 +5,10 @@ shared side panel (panel_kit.py) when the card names a substrate item: `data-pk=
 `t:<vocabulary term id>`.
 
 Words that must mean one thing everywhere live here too:
-- how(fact, not_counted): how we know a practice, from the evidence row's `fact`. The side panel uses it (his 11-05: one
+- how(fact, not_counted): how we know a practice, from the evidence row's `fact`. The side panel uses it (11-05: one
   view said "AI reading only", another "Something you built", for the same practice).
 - LAPTOP: whether a check can prove a practice on any laptop (substrate laptop_counts, from tools/laptop_counts.py).
-- level(...): the level badge. The member's copy shows words and never a level (his 10-26 ruling).
+- level(...): the level badge. The member's copy shows words and never a level (10-26 ruling).
 Stdlib only.
 """
 import html

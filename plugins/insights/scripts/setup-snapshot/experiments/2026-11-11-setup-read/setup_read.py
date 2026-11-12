@@ -35,6 +35,11 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import setup_map  # noqa: E402  the outline drawn as a text tree
+ENGINE = os.path.normpath(os.path.join(HERE, "..", "..", "..", "v15", "engine"))   # scripts/ keeps labs' layout
+if ENGINE not in sys.path:
+    sys.path.insert(0, ENGINE)
+import things as level_things  # noqa: E402  the level read: its counts, and the one rule for "a part is shown"
+from wording import plural  # noqa: E402  the counts and plurals every tab uses, worded once
 
 # Every number below is a guess until hand-checked on 3-4 member laptops (labs/setup-snapshot/CLAUDE.md, thresholds).
 RULES_ON_DEMAND_MIN = 2      # rules: docs behind pointers from the rule files, when no rule file is scoped
@@ -102,9 +107,11 @@ Judge three parts, each `shown`, `partly`, `not shown` or `can't tell`:
 
 For each part:
 - `why`: one sentence a non-engineer follows, naming the file.
-- `quote`: `path`, `line` and `text` of ONE exact line copied from the file that best shows it. Required for shown
-  and partly. Code looks the quote up in the file: a quote it can't find does not count. Never pick a line that holds
-  a key, a token or a password, and never copy one into anything you write: code drops such a quote.
+- `quote`: `path`, `line` (where the sentence starts) and `text`: the whole sentence, word for word, that best shows it,
+  at most 300 characters. Files are hard-wrapped, so a sentence may run over several lines: copy all of it, joined
+  with single spaces, and never stop at the end of a line. Required for shown and partly. Code looks the quote up in
+  the file: a quote it can't find does not count. Never pick a line that holds a key, a token or a password, and never
+  copy one into anything you write: code drops such a quote.
 - `complexity`: one sentence on how it is organised and how many layers deep.
 - `next`: the one step that moves this part up: the file, and what goes in it.
 
@@ -337,7 +344,7 @@ def memory_structure(p, user, root, home, reads):
     if not stores:
         return False, "no notes folder found for this project"
     # Claude Code's built-in memory folder never shows a design by its shape: Claude Code itself writes the index and
-    # the typed notes there, for everyone. 11-11: a tester's built-in folders (24 files, read in 27 sessions) read
+    # the typed notes there, for everyone. 11-11: a person's built-in folders (24 files, read in 27 sessions) read
     # as her notes. Whether the person shaped it is the reader's call, and it then needs an own store to count.
     own = [(s, base) for s, base in stores if s.get("kind") != "builtin"]
     if not own:
@@ -469,19 +476,18 @@ def hold_endless(inv):
                  for h in inv.get("hooks_configured") or [])
     fired = auto >= HOLD_AUTO_COMPACTIONS and twice >= HOLD_SESSIONS_TWICE and not by_hand and not hooked
     if fired:
-        why = (f"{auto} compactions, all automatic, and {twice} sessions compacted more than once; you never typed "
+        why = (f"{plural(auto, 'compaction')}, all automatic, and {plural(twice, 'session')} compacted more than once; you never typed "
                f"/compact or /clear: sessions run until Claude Code compacts them on its own")
     elif not auto:
         why = "no automatic compactions in the logs read"
     else:
-        why = f"{auto} automatic compactions, {twice} sessions compacted more than once" + (
+        why = f"{plural(auto, 'automatic compaction')}, {plural(twice, 'session')} compacted more than once" + (
             "; you also reset or compacted by hand" if by_hand else "") + ("; a hook runs on compaction" if hooked else "")
     return {"id": "endless-sessions", "fired": fired, "why": why}
 
 
 # ------------------------------------------------------------------ cards: advice from Claude Code's own records
 
-ENGINE = os.path.normpath(os.path.join(HERE, "..", "..", "..", "v15", "engine"))   # scripts/ keeps labs' layout
 SCOPE_COST = ("After a compaction the agent works from a summary of the session. What you decided and corrected early "
               "on is the first thing a summary drops, so you end up explaining it again.")
 SCOPE_DO = ("Give each task its own session: type /clear when a task is done. When a task has to carry on, ask the agent "
@@ -541,8 +547,8 @@ def long_sessions(chats):
 
 def longest_said(r):
     n = len(r.get("compactions") or [])
-    return (f"the longest stayed open {span_hours(r):,.0f} hours, with {len(r.get('calls') or []):,} tool calls and "
-            f"{n} compaction{'s' if n != 1 else ''}")
+    return (f"the longest stayed open {plural(round(span_hours(r)), 'hour')}, with {plural(len(r.get('calls') or []), 'tool call')} and "
+            f"{plural(n, 'compaction')}")
 
 
 def card_session_scope(chats):
@@ -550,7 +556,7 @@ def card_session_scope(chats):
     if len(long) < SCOPE_SESSIONS or len(long) < SCOPE_SHARE * len(chats):
         return None
     return {"id": "session-scope", "source": "records", "cost": SCOPE_COST, "do": SCOPE_DO,
-            "saw": f"{len(long)} of your {len(chats)} sessions stayed open for more than a day and were compacted "
+            "saw": f"{len(long)} of your {plural(len(chats), 'session')} stayed open for more than a day and were compacted "
                    f"{SCOPE_COMPACTIONS} times or more; {longest_said(long[0])}."}
 
 
@@ -589,11 +595,11 @@ def card_starting_context(chats, an, home):
     servers = len({x.get("name") for x in (an or {}).get("mcp_servers") or [] if isinstance(x, dict) and x.get("name")})
     skills = sum(1 for a in (an or {}).get("artifacts") or [] if isinstance(a, dict) and a.get("kind") == "skill")
     # found, not loaded: the records don't split a session's start, and a skill puts in only its name and description
-    around = [f"{servers} MCP server{'s are' if servers != 1 else ' is'} configured" if servers else "",
-              f"{skills} skill{'s were' if skills != 1 else ' was'} found" if skills else ""]
+    around = [f"{plural(servers, 'MCP server')} {'are' if servers != 1 else 'is'} configured" if servers else "",
+              f"{plural(skills, 'skill')} {'were' if skills != 1 else 'was'} found" if skills else ""]
     around = " and ".join(x for x in around if x)
     saw = (f"Your sessions start with about {tokens(med)} tokens in context before the first task (the median of "
-           f"{len(starts)} sessions). Your own rule files are about {tokens(rules)} of that"
+           f"{plural(len(starts), 'session')}). Your own rule files are about {tokens(rules)} of that"
            + (f"; {around} on this laptop." if around else "."))
     if share >= START_RULES_SHARE:
         do = ("Your rule files are a large part of it. Keep in the always-loaded file only what every task needs; move "
@@ -621,9 +627,12 @@ def board_rows(run):
 
 
 def card_unused_setup(rows, days):
-    inst, own = rows.get("cap-skills-installed") or {}, rows.get("cap-skills-own") or {}
-    n, calls = int(_num(inst.get("items")) or 0), int(_num(inst.get("calls")) or 0)
-    theirs = [s for s in own.get("skills") or [] if isinstance(s, dict)]
+    own = rows.get("cap-skills-own") or {}
+    c = level_things.others_tools(rows)
+    n, calls = c["skills"], c["skill_calls"]
+    # the same thing the level's sentence counts: skills and commands of theirs, one per name (the board's `list`), not the
+    # skill-depth facts alone (11-12: "3 skills you wrote" beside "5 skills and commands")
+    theirs = [s for s in (own.get("list") if isinstance(own.get("list"), list) else own.get("skills")) or [] if isinstance(s, dict)]
     idle = [s for s in theirs if s.get("used") is False]
     others = n >= UNUSED_INSTALLED_MIN and calls < n * UNUSED_CALLS_PER_ITEM
     mine = len(idle) >= UNUSED_OWN_MIN
@@ -631,16 +640,16 @@ def card_unused_setup(rows, days):
         return None
     said = []
     if others:
-        said.append(f"{n} skills, commands and plugins from others are set up, and together they were called "
-                    f"{calls} time{'s' if calls != 1 else ''} in the last {days} days")
+        said.append(level_things.others_said(c, days).rstrip(".").replace("You have ", "", 1))
     if mine:
-        said.append(f"{len(idle)} of the {len(theirs)} skills you wrote were not loaded in {'that time' if others else f'the last {days} days'}")
+        said.append(f"{len(idle)} of the {plural(len(theirs), 'skill or command you wrote', 'skills and commands you wrote')} "
+                    f"{'was' if len(idle) == 1 else 'were'} not loaded in {'that time' if others else f'the last {days} days'}")
     do = ("Type /plugin and uninstall what you did not use this month. For a skill that sits in a skills folder, move "
           "its folder out: nothing is lost, and it goes back the day you need it." if others else
           "Open each unused skill's SKILL.md. If its description doesn't say when to use it, rewrite that one line; if "
           "you no longer need the skill, move its folder out.")
     figures = {"own": len(theirs), "own_used": len(theirs) - len(idle)} if mine else {"others": n, "others_calls": calls}
-    return {"id": "unused-setup", "source": "records", "saw": "; ".join(said) + ".", "do": do, "figures": figures,
+    return {"id": "unused-setup", "source": "records", "saw": ("You have " if others else "") + "; ".join(said) + ".", "do": do, "figures": figures,
             "cost": "Each one puts its name and description into every session. The more there are, the more the "
                     "agent has to choose between, and the less often it picks the one you meant."}
 
@@ -675,7 +684,7 @@ def card_rules_only_grow(inv, own, home):
     name = tilde(path, home)
     more = f", and {len(grew) - 1} more like it" if len(grew) > 1 else ""
     return {"id": "rules-only-grow", "source": "records",
-            "saw": f"{name} loads in every session and has only ever grown: {words:,} words after {commits} changes, "
+            "saw": f"{name} loads in every session and has only ever grown: {plural(words, 'word')} after {plural(commits, 'change')}, "
                    f"none of which made it shorter{more}.",
             "cost": "Every line loads on every turn. The longer the file, the less weight each line carries, and the "
                     "agent starts passing over rules you care about.",
@@ -756,7 +765,7 @@ def opening(projects, first):
     if not n:
         return []
     k = {pid: sum(1 for p in read for g in p["parts"]
-                  if g["id"] == pid and g["structure"] and g["judged"] == "shown" and g["quote_ok"]) for pid, _ in PARTS}
+                  if g["id"] == pid and level_things.part_state(g)[0] == "shown") for pid, _ in PARTS}
     names = [PART_SAYS[pid] for pid, _ in PARTS]
     if n == 1:
         yes, no = [PART_SAYS[i] for i, _ in PARTS if k[i]], [PART_SAYS[i] for i, _ in PARTS if not k[i]]
@@ -845,15 +854,15 @@ def merge(run, home=None):
             continue
         # the best single project: one that passes whole, then the strongest reading, then structure; ties go to the
         # most active project (the map's order)
-        parts.append(max(rows, key=lambda r: (r["structure"] and r["judged"] == "shown" and r["quote_ok"],
+        parts.append(max(rows, key=lambda r: (level_things.part_state(r)[0] == "shown",
                                               rank[r["judged"]], r["structure"], r["quote_ok"], -rows.index(r))))
     hold = hold_endless(inv)
     out = {"ran": ran, "parts": parts, "holds": [hold], "cards": cards(run, inv, m, hold, home), "projects": projects}
     out["opening"] = opening(projects, first_change(out)) if ran else []
     with open(os.path.join(run, "setup-read.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)
-    shown = [x["id"] for x in parts if x["structure"] and x["judged"] == "shown" and x["quote_ok"]]
-    print(f"setup read: {len(projects)} project{'s' if len(projects) != 1 else ''}"
+    shown = [x["id"] for x in parts if level_things.part_state(x)[0] == "shown"]
+    print(f"setup read: {plural(len(projects), 'project')}"
           + ("" if ran else ", no reader answered (the level reads 'could be')")
           + f"; parts shown: {', '.join(shown) or 'none'}"
           + ("; held: endless sessions" if out["holds"][0]["fired"] else "")

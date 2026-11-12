@@ -13,12 +13,12 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 V15 = os.path.normpath(os.path.join(HERE, "..", "..", "..", "v15"))
 
-RULES = """## How a rung is read (v15 README, levels.md, his rulings in inputs/SCOPE.md)
+RULES = """## How a rung is read (v15 README, levels.md, the rulings in inputs/SCOPE.md)
 The rung says WHO CARRIES the practice: L1 doesn't do it (the problem happens, unhandled) · L2 you do it, by hand, in
 the moment · L3 your setup does it (the next chat, run or teammate gets it without you) · L4 you built something that
 does it and changes how the agent runs. Use the practice's own ladder text below; a rung is the highest one whose text
 the evidence matches. Evidence from the laptop is "did".
-His rulings (quote the one you use in `why` only if it decides the rung):
+The rulings (quote the one you use in `why` only if it decides the rung):
 - Using MCP servers, plugins or skills OTHERS wrote = L1. Writing your own skills = L3. Building an MCP server, or hooks,
   plugins or programs that set how the agent behaves = L4. Authorship comes from git (inventory: plugins[].theirs,
   own_artifacts, tools.*.by_program[].where.theirs); an installed copy counts as theirs only through its source repo.

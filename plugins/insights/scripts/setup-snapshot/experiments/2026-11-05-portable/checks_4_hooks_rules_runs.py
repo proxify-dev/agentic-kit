@@ -1529,7 +1529,7 @@ def _(fx):
     h = fx.session("~/work/shop", entrypoint="sdk-cli"); h.typed("go")                         # trap: headless
     h.attachment("nested_memory", path=fx.p("~/work/shop/services/ops/CLAUDE.md"), content={"path": "x", "type": "Project", "content": "ops"})
     fx.session("~/work/team").typed("x")
-    # trap (11-11 tester): a session started in the home folder reaches two repos, each with only its ROOT rule file. Claude
+    # trap (11-11): a session started in the home folder reaches two repos, each with only its ROOT rule file. Claude
     # Code records both as nested_memory, but one rule file per repo is that repo's always-loaded file, not a scoped rule
     fx.repo("~/work/blog", {"CLAUDE.md": "blog"}); fx.repo("~/work/tool", {"AGENTS.md": "tool", ".claude/CLAUDE.md": "tool"})
     u = Session(fx, fx.home, "claude-vscode"); u.typed("hi")                                  # no repo around the home folder

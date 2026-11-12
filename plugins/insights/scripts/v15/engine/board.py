@@ -30,6 +30,10 @@ import hashlib
 import json
 import os
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from wording import plural  # noqa: E402  the one place a count meets its noun; imports nothing from the engine
 
 BUILT_USED, BUILT_IDLE, USES_OTHERS, NOT_SEEN, CANT_TELL = (
     "built and used", "built, not used lately", "uses others'", "not seen", "can't tell")
@@ -66,6 +70,9 @@ ROWS = [
 ]
 # The kinds of build that count toward "built something" (the task's list): not instructions, memory, permissions or
 # model routing, which are settings and habits as much as builds.
+# Rows whose "uses others'" is Claude Code's own feature, not something another person made: the page says "built into
+# Claude Code" for them (11-12: Agent teams sat under "made by others" on the Built tab).
+BUILT_INTO_CLAUDE_CODE = ("cap-teams", "cap-parallel", "cap-workflows", "cap-memory", "cap-model-routing", "cap-telemetry")
 STATE_ORDER = (BUILT_USED, BUILT_IDLE, USES_OTHERS, NOT_SEEN, CANT_TELL)  # the order rows are listed in
 BUILD_KINDS = ("cap-skills-own", "cap-hooks", "cap-subagents", "cap-plugins-own", "cap-mcp-write", "cap-own-rig",
                "cap-sdk", "cap-evals", "cap-output-styles", "cap-event-runs")
@@ -80,7 +87,16 @@ class Run:
         self.anatomy = self._load("anatomy.json")
         self.inv = self._load("inventory.json")
         self.cheap = self._load("cheap-artifacts.json", [])
+        self.setup_map = self._load_quiet("setup-map.json")
         self.logs_ok = bool(self.inv)
+
+    def _load_quiet(self, name):
+        """A file the board may do without: absent reads as {} and is not listed as missing."""
+        try:
+            with open(os.path.join(self.dir, name)) as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {}
 
     def _load(self, name, empty=None):
         try:
@@ -267,17 +283,17 @@ def _skill_calls(f, names, plugin_names):
 
 # ------------------------------------------------------------------------------------------------------ the rows
 
-TOO_BIG_LINES = 250        # his words: a skill "over 250 lines with no progressive disclosure and no other files"
+TOO_BIG_LINES = 250        # the words: a skill "over 250 lines with no progressive disclosure and no other files"
 TRY_SPLIT = "split the parts only some tasks need into references"
 NOT_USED = "not used in the last 30 days"
 EVALS_NOT_SEEN = "has an evals folder, never seen running"
 ALWAYS_OPENED_FROM = 3     # a file opened in every one of this many loads or more is read whole each time: not on demand
 
 
-def skill_depth(s):
+def skill_depth(s, typed=0):
     """One fact row from inventory.json `skill_depth` -> {name, depth, used, why, lines, too_big_one_file, try_next,
     live_context_syntax, has_evals_not_seen_running, evals_note}. Display only: nothing here touches a row's state or any
-    level. His rulings 11-06, per skill the person wrote:
+    level. The rulings 11-06, per skill the person wrote:
       -  never loaded in the window (no Skill call, no typed /name): depth None, used False, "not used in the last 30 days".
          Its structure-only facts (live_context_syntax, the 250-line flag) still show.
       1  one file, read whole every time: no other file of the skill is ever opened
@@ -304,12 +320,17 @@ def skill_depth(s):
             parts.append(f"`claude plugin eval` was run on the plugin that holds it ({int(_n(ev.get('plugin_evals')))}x)")
         if ev.get("headless_runs"):
             n, files = int(_n(ev.get("headless_runs"))), [str(x) for x in ev.get("eval_files") or []]
-            parts.append(f"{n} headless run{'' if n == 1 else 's'} that loaded it {'was' if n == 1 else 'were'} given a prompt "
+            parts.append(f"{plural(n, 'headless run')} that loaded it {'was' if n == 1 else 'were'} given a prompt "
                          f"written in an eval or test file of theirs{f' ({files[0]})' if files else ''}")
         why = " and ".join(parts)
     elif s.get("shared_name"):
         depth, used = None, None
         why = "an installed skill has the same name, so its uses can't be told apart"
+    elif not loads and typed:
+        # typed /name is a use the person made; the depth read found no load record of it, so no step is known (11-12: the row
+        # said "1 calls" while the card said "not used")
+        depth, used = None, True
+        why = f"typed /{name} {typed}x; no load of it was read in the logs"
     elif not loads:
         depth, used = None, False
         why = NOT_USED
@@ -337,20 +358,22 @@ def skill_depth(s):
             "has_evals_not_seen_running": note, "evals_note": EVALS_NOT_SEEN if note else ""}
 
 
-def skill_depths(f):
+def skill_depths(f, typed=None):
     """The `skills` list and its summary for the cap-skills-own row: most depth first (a skill not used last), then by name. A run
-    folder from before the scan read depth has no `skill_depth` section: no list, and the summary says why."""
+    folder from before the scan read depth has no `skill_depth` section: no list, and the summary says why. `typed`: {name:
+    times the person typed /name}, a use even where the depth read found no load."""
     facts = f.i.get("skill_depth")
     if not isinstance(facts, list):
         return [], "depth not read in this run"
-    skills = sorted((skill_depth(s) for s in facts if isinstance(s, dict) and s.get("name")),
+    typed = typed or {}
+    skills = sorted((skill_depth(s, typed.get(str(s.get("name")), 0)) for s in facts if isinstance(s, dict) and s.get("name")),
                     key=lambda x: (x["depth"] is None, -(x["depth"] or 0), x["name"]))
     by = [sum(1 for x in skills if x["depth"] == d) for d in (4, 3, 2, 1)]
     flagged = sum(1 for x in skills if x["too_big_one_file"])
     unused = sum(1 for x in skills if x["used"] is False)
     unseen = sum(1 for x in skills if x["has_evals_not_seen_running"])
     n = len(skills)
-    return skills, (f"{n} skill{'' if n == 1 else 's'}: depth 4 {by[0]} \u00b7 3 {by[1]} \u00b7 2 {by[2]} \u00b7 1 {by[3]}; "
+    return skills, (f"{plural(n, 'skill')}: depth 4 {by[0]} \u00b7 3 {by[1]} \u00b7 2 {by[2]} \u00b7 1 {by[3]}; "
                     f"not used {unused}; evals not seen running {unseen}; {flagged} flagged")
 
 
@@ -371,13 +394,13 @@ def r_skills_own(f):
     r = row("cap-skills-own", build_state(len(names), calls), len(names), calls, "calls",
             _first(hit, sorted(names)),
             "anatomy.json: artifacts (kind skill/command, origin own, one per name); inventory.json: skills_used, skill_depth, who_did_it you.own_commands_typed",
-            f"{len(names)} skills and commands of yours; {calls} calls in the window" if mine else "no skill or command of yours found")
+            f"{plural(len(names), 'skill or command', 'skills and commands')} of yours; {plural(calls, 'call')} in the window" if mine else "no skill or command of yours found")
     # depth per skill: display only (see skill_depth); the state above is not touched by it
-    r["skills"], r["skills_summary"] = skill_depths(f)
-    depth = {sk["name"]: sk for sk in r["skills"]}
-    loads = {str(_d(s).get("name")): _n(_d(s).get("loads")) for s in _l(f.i.get("skill_depth"))}
     typed = {str(c.get("command", "")).lstrip("/"): _n(c.get("times"))
              for c in _l(_d(f.i.get("slash_commands")).get("by_command")) if isinstance(c, dict)}
+    r["skills"], r["skills_summary"] = skill_depths(f, typed)
+    depth = {sk["name"]: sk for sk in r["skills"]}
+    loads = {str(_d(s).get("name")): _n(_d(s).get("loads")) for s in _l(f.i.get("skill_depth"))}
     r["list"] = []
     for name, xs in _by_name(mine):
         sk = depth.get(name) or {}
@@ -425,8 +448,33 @@ def r_skills_installed(f):
     n = len(allnames) + len(f.installed_plugins - {""})
     return row("cap-skills-installed", USES_OTHERS if n else NOT_SEEN, n, calls, "calls", _first(hit, sorted(allnames)),
                "anatomy.json: artifacts (origin installed/third_party), plugins.enabled (installed, not their marketplace); inventory.json: skills_used",
-               f"{len(allnames)} skills and commands and {len(f.installed_plugins)} plugins from others; {calls} calls in the window"
+               f"{plural(len(allnames), 'skill or command', 'skills and commands')} and {plural(len(f.installed_plugins), 'plugin')} from others; {plural(calls, 'call')} in the window"
                if n else "nothing installed from others found")
+
+
+def one_per_target(files):
+    """A link to a rule file is not another rule file: entries that are symlinks count as the file they point to (the scan
+    records `symlink_to`), so a file reached through 400 links, or listed itself and linked from elsewhere, is one. The
+    real file stands for its links when it is listed, else the first link does."""
+    by_target = {}
+    for x in sorted(files, key=lambda x: bool(x.get("symlink_to"))):   # real files first; stable
+        by_target.setdefault(_path(x.get("symlink_to") or x.get("path")), x)
+    return list(by_target.values())
+
+
+def _ownership():
+    """The one ownership rule (setup-snapshot/experiments/2026-11-02-evidence/ownership.py), found beside this folder's
+    parent in the lab and in the shipped plugin alike. None when it is not there."""
+    import importlib.util
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "setup-snapshot", "experiments",
+                        "2026-11-02-evidence", "ownership.py")
+    try:
+        spec = importlib.util.spec_from_file_location("ownership_for_board", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except (OSError, ImportError, AttributeError, SyntaxError):
+        return None
 
 
 def own_instruction_files(f):
@@ -436,7 +484,21 @@ def own_instruction_files(f):
     files = [x for x in _l(f.a.get("instruction_files")) if isinstance(x, dict)]
     if not files or not any("origin" in x for x in files):
         return None
-    return [x for x in files if x.get("origin") == "own" and not x.get("in_fixture_path")]
+    owner = _ownership()
+    # a copy Claude Code keeps in its plugin cache or marketplaces folder is never the person's file (ownership.claude_code_copy),
+    # whatever the run's `origin` says: runs scanned before that rule credited them with the copies (11-11: about 460 of 1,632)
+    return [x for x in files if x.get("origin") == "own" and not x.get("in_fixture_path")
+            and not (owner and owner.claude_code_copy(x.get("path")))]
+
+
+def _loaded_elsewhere(f, files, home_claude):
+    """Sessions that did not start in the repo of a rule file of theirs but had it loaded by Claude Code itself (its nested-memory
+    records, inventory.json rules_reaching): a home-started session working in a repo. Working in a repo proves nothing about its
+    rules; a load record does. A lower bound: the busiest file's sessions, since one session can load several files."""
+    started = [repo + os.sep for repo, x in f.repos.items() if _n(x.get("typed_chats")) and any(_path(p).startswith(repo + os.sep) for p in files)]
+    mine = {_path(p) for p in files if not _path(p).startswith(home_claude) and not any(_path(p).startswith(r) for r in started)}
+    by_file = _l(_d(f.i.get("rules_reaching")).get("by_file"))
+    return max([_n(x.get("chats")) for x in by_file if isinstance(x, dict) and _path(x.get("what")) in mine], default=0)
 
 
 def r_instructions(f):
@@ -444,7 +506,7 @@ def r_instructions(f):
     repos = None
     if full is not None:
         every = [str(x.get("path")) for x in full]   # each copy still loads in the sessions that ran beside it
-        full, repos = one_per_repo_path(full, lambda x: _d(x.get("git")).get("repo") or x.get("project"))
+        full, repos = one_per_repo_path(one_per_target(full), lambda x: _d(x.get("git")).get("repo") or x.get("project"))
         paths = [str(x.get("path")) for x in full]
         always = sum(1 for x in full if x.get("scope") in ("home", "project", "ancestor", "managed"))
         rules = full
@@ -462,18 +524,49 @@ def r_instructions(f):
         for repo, x in f.repos.items():
             if any(_path(p).startswith(repo + os.sep) for p in every):
                 sessions += _n(x.get("typed_chats"))
+    loaded = _loaded_elsewhere(f, every, home_claude)
+    sessions += loaded
     names = [os.path.basename(p) for p in paths]
     if always is not None:
         source = ("anatomy.json: instruction_files (origin own by ownership.py, test fixtures left out); "
-                  "inventory.json: repos typed_chats (sessions in a repo holding one of them)")
-        where = f" in {len(repos)} project{'s' if len(repos) != 1 else ''}" if repos else ""
-        why = (f"{len(rules)} instruction files of yours{where}: {always} load in every session where they sit, "
-               f"{len(rules) - always} load when Claude works in their folder; {sessions} sessions ran where they load")
+                  "inventory.json: repos typed_chats (sessions in a repo holding one of them), "
+                  "rules_reaching (rule files Claude Code loaded into a session started elsewhere)")
+        where = f" in {plural(len(repos), 'project')}" if repos else ""
+        why = (f"{plural(len(rules), 'instruction file')} of yours{where}: {always} load in every session where they sit, "
+               f"{len(rules) - always} load when Claude works in their folder; {plural(sessions, 'session')} ran where they load"
+               + (f" or had one loaded from elsewhere ({loaded})" if loaded else ""))
     else:
-        source = "cheap-artifacts.json: kind rules, own true; inventory.json: repos typed_chats (sessions in a repo holding one of them)"
-        why = f"{len(rules)} instruction files of yours; {sessions} sessions ran where they load"
-    return row("cap-instructions", build_state(len(rules), sessions), len(rules), sessions, "sessions", sorted(set(names)),
-               source, why if rules else "no instruction file of yours found", repos=repos)
+        source = ("cheap-artifacts.json: kind rules, own true; inventory.json: repos typed_chats (sessions in a repo holding one of them), "
+                  "rules_reaching (rule files Claude Code loaded into a session started elsewhere)")
+        why = f"{plural(len(rules), 'instruction file')} of yours; {plural(sessions, 'session')} ran where they load"
+    out = row("cap-instructions", build_state(len(rules), sessions), len(rules), sessions, "sessions", sorted(set(names)),
+              source, why if rules else "no instruction file of yours found", repos=repos)
+    out.update(_rules_in_read(f, rules if always is not None else []))
+    return out
+
+
+def _rules_in_read(f, rules):
+    """Which of the (already deduplicated) rule files sit in the projects the setup read looked at (setup-map.json): the map's
+    project roots, each matched by repo name as the files are. `read_projects` = how many projects the map holds; `in_read` =
+    the files in them; `read` = per map project its files that load in every session (`always`) and in their folder
+    (`scoped`), the table the Built tab prints under the count. Absent when the run has no map."""
+    projects = [p for p in _l(_d(f.r.setup_map).get("projects")) if isinstance(p, dict) and not p.get("error") and p.get("root")]
+    if not projects:
+        return {}
+    by_repo = {}
+    for x in rules:
+        root = _d(x.get("git")).get("repo") or x.get("project")
+        p = str(x.get("path") or "")
+        if root and _path(p).startswith(_path(root) + os.sep):
+            by_repo.setdefault(repo_name(root), []).append(x)
+    read, seen = [], set()
+    for p in projects:
+        name = repo_name(p["root"])
+        mine = [] if name in seen else by_repo.get(name, [])   # a repo reached by two roots (a link, a copy) holds its files once
+        read.append({"root": p["root"], "always": sum(1 for x in mine if x.get("scope") != "folder"),
+                     "scoped": sum(1 for x in mine if x.get("scope") == "folder")})
+        seen.add(name)
+    return {"read_projects": len(projects), "in_read": sum(r["always"] + r["scoped"] for r in read), "read": read}
 
 
 def r_hooks(f):
@@ -518,7 +611,7 @@ def r_hooks(f):
                _first([os.path.basename(str(s)) for s in sorted(mine, key=mine.get, reverse=True)],
                       [x.get("name") for x in wired]),
                "inventory.json: hook_runs (yours, runs); anatomy.json: artifacts (hook_script, own, wired)",
-               f"{n_own} hook scripts of yours; {calls} runs in the window" if n_own else
+               f"{plural(n_own, 'hook script')} of yours; {plural(calls, 'run')} in the window" if n_own else
                ("only hooks from others ran" if others else "no hook of yours found"))
     out["list"] = hook_list
     return out
@@ -532,7 +625,7 @@ def r_mcp(f):
     calls = sum(f.mcp_calls.values())
     return row("cap-mcp", USES_OTHERS if names or calls else NOT_SEEN, len(names), calls, "calls", names,
                "anatomy.json: mcp_servers; inventory.json: tools.typed_chats.by_mcp_server",
-               f"{len(names)} MCP servers set up; {calls} calls in the window" if names or calls else "no MCP server set up")
+               f"{plural(len(names), 'MCP server')} set up; {plural(calls, 'call')} in the window" if names or calls else "no MCP server set up")
 
 
 def r_subagents(f):
@@ -548,8 +641,8 @@ def r_subagents(f):
     # one per name, as skills: an agent file copied into a second repo is the same sub-agent
     out = row("cap-subagents", build_state(len(names), calls, len(others)), len(names), calls, "calls", _first(ran, sorted(names)),
                "anatomy.json: artifacts (kind agent, origin own); inventory.json: helpers.by_type (calls per sub-agent type)",
-               f"{len(names)} sub-agents of yours; {calls} launches in the window" if mine else
-               f"no sub-agent of yours; Claude Code's built-in sub-agents ran {built_in} times")
+               f"{plural(len(names), 'sub-agent')} of yours; {plural(calls, 'launch', 'launches')} in the window" if mine else
+               f"no sub-agent of yours; Claude Code's built-in sub-agents ran {plural(built_in, 'time')}")
     out["list"] = agent_list
     return out
 
@@ -560,7 +653,7 @@ def r_teams(f):
         return cant("cap-teams", "the teammate count is missing from inventory.json", "inventory.json: who_did_it cant.teammates")
     return row("cap-teams", USES_OTHERS if n else NOT_SEEN, 0, n, "teammates", (),
                "inventory.json: who_did_it cant.teammates (teammates in agent teams)",
-               f"{n} teammates ran in agent teams (a Claude Code feature; nothing of yours to count)" if n else "no agent team ran in the window")
+               f"{plural(n, 'teammate')} ran in agent teams (a Claude Code feature; nothing of yours to count)" if n else "no agent team ran in the window")
 
 
 def r_workflows(f):
@@ -572,8 +665,8 @@ def r_workflows(f):
     out = row("cap-workflows", build_state(len(mine), calls, 1 if calls else 0), len({x.get("name") for x in mine}), calls, "calls",
                [x.get("name") for x in mine],
                "inventory.json: tools.typed_chats.by_tool Workflow; anatomy.json: artifacts (kind workflow, origin own)",
-               f"{len({x.get('name') for x in mine})} workflow scripts of yours; Workflow tool called {calls} times" if mine else
-               f"Workflow tool called {calls} times, none of your own saved workflow files")
+               f"{plural(len({x.get('name') for x in mine}), 'workflow script')} of yours; Workflow tool called {plural(calls, 'time')}" if mine else
+               f"Workflow tool called {plural(calls, 'time')}, none of your own saved workflow files")
     # calls are not per workflow; one entry per name, a copy in a release folder is the same workflow
     out["list"] = [{"name": n, "about": next((_about(x) for x in xs if _about(x)), ""), "uses": None, "copies": len(xs)}
                    for n, xs in _by_name(mine)]
@@ -586,7 +679,7 @@ def r_parallel(f):
         return cant("cap-parallel", "inventory.json is missing", "inventory.json")
     return row("cap-parallel", USES_OTHERS if wt else NOT_SEEN, 0, wt, "worktrees", (),
                "inventory.json: tools EnterWorktree calls, chats_logged.worktree_adds_by_shell",
-               f"{wt} worktrees opened in the window (a Claude Code feature)" if wt else "no worktree opened in the window")
+               f"{plural(wt, 'worktree')} opened in the window (a Claude Code feature)" if wt else "no worktree opened in the window")
 
 
 def r_memory(f):
@@ -601,7 +694,7 @@ def r_memory(f):
     st = build_state(len(built), calls, len(auto))
     out = row("cap-memory", st, len(built), calls, "reads", [os.path.basename(str(s.get("path", "")).rstrip("/")) for s in built],
                "inventory.json: memory_stores (kind, agent_reads), past_work_reach.looked_it_up_early",
-               f"{len(built)} memory stores kept; the agent read them {calls} times" if built else
+               f"{plural(len(built), 'memory store')} kept; the agent read them {plural(calls, 'time')}" if built else
                ("only Claude Code's automatic memory exists" if auto else "no memory store found"))
     out["list"] = [{"name": str(s.get("path", "")).rstrip("/"), "about": "", "uses": _n(s.get("agent_reads"))} for s in built]
     return out
@@ -617,7 +710,7 @@ def r_model_routing(f):
     return row("cap-model-routing", build_state(len(mine), calls, 1 if typed or other else 0), len(mine), calls, "calls",
                sorted(names),
                "anatomy.json: artifacts (agent, own, model set); inventory.json: helpers.by_type, helpers.calls_that_set_a_model, slash_commands_in_chats /model /fast",
-               f"{len(mine)} of your sub-agents pin a model; {calls} launches and switches in the window" if mine else
+               f"{plural(len(mine), 'sub-agent')} of yours pin{'s' if len(mine) == 1 else ''} a model; {plural(calls, 'launch or switch', 'launches and switches')} in the window" if mine else
                ("models were set on calls or switched by hand, none pinned in a sub-agent file of yours" if typed or other else "no model choice seen"))
 
 
@@ -637,23 +730,27 @@ def r_permissions(f):
     return row("cap-permissions", build_state(limits, f.typed), limits, f.typed, "sessions", (),
                "anatomy.json: settings.counts (permissions_deny + permissions_ask) of settings files cheap-artifacts.json marks own; "
                "inventory.json: chats.typed_chats (the rules load in every session)",
-               f"{limits} deny or ask rules of yours; they applied in {f.typed} sessions" if limits else "no deny or ask rule of yours found (allow rules alone are not a limit)")
+               f"{plural(limits, 'deny or ask rule')} of yours; they applied in {plural(f.typed, 'session')}" if limits else "no deny or ask rule of yours found (allow rules alone are not a limit)")
 
 
 def r_event_runs(f):
     ln = _d(f.i.get("launchers"))
+    # only theirs, by ownership.py (the scan writes `own` on each): a job a teammate's repo or an installed app put on the
+    # laptop is not a schedule of theirs. A run folder from before the scan wrote it for a kind has none: undecided
+    # reads as theirs, ownership.py's own default ("theirs otherwise"). 11-12: launchd jobs ignored the flag.
+    mine = lambda x: isinstance(x, dict) and x.get("own") is not False  # noqa: E731
     cron = [c for c in _l(ln.get("crontab")) if isinstance(c, dict) and c.get("own") and c.get("starts_agents")]
-    sched = sum(_n(_d(t).get("count")) for t in _l(ln.get("scheduled_tasks")))
-    launchd = [x for x in _l(ln.get("launchd_matching"))]
+    sched = sum(_n(_d(t).get("count")) for t in _l(ln.get("scheduled_tasks")) if mine(t))
+    launchd = [x for x in _l(ln.get("launchd_matching")) if mine(x)]
     own = len(cron) + sched + len(launchd)
     hl = _d(f.i.get("headless"))
     unattended = _n(hl.get("while_away", hl.get("started_with_no_typed_message_in_30_min_before")))
     if own:
         return row("cap-event-runs", build_state(own, unattended), own, unattended, "runs", (),
                    "inventory.json: launchers (crontab starts_agents, launchd_matching, scheduled_tasks); headless.while_away",
-                   f"{own} schedules of yours start an agent; {unattended} runs began while you were away")
+                   f"{plural(own, 'schedule')} of yours start{'s' if own == 1 else ''} an agent; {plural(unattended, 'run')} began while you were away")
     if unattended:
-        return cant("cap-event-runs", f"{unattended} runs began while you were away, but the logs don't say whether a schedule, a hook, "
+        return cant("cap-event-runs", f"{plural(unattended, 'run')} began while you were away, but the logs don't say whether a schedule, a hook, "
                     "an app or a plugin started them, and no schedule of yours that starts an agent was found",
                     "inventory.json: headless.while_away, launchers")
     if not f.r.logs_ok:
@@ -674,12 +771,14 @@ def r_evals(f):
         return cant("cap-evals", "inventory.json is missing", "inventory.json")
     ran = sum(_n(e.get("ledger_lines_in_window")) for e in mine)
     changed = sum(1 for e in mine if e.get("changed_in_window"))
-    calls = ran or changed
+    calls = ran or changed   # what the L4 gate asks (engine: ran or changed); `ran` and `changed` are the two facts, kept apart
     unit = "recorded runs" if ran else "folders changed"
     out = row("cap-evals", build_state(len(mine), calls), len(mine), calls, unit,
                [os.path.basename(os.path.dirname(str(e.get("path", "")).rstrip("/"))) for e in mine],
                "inventory.json: evals (owner theirs; ledger_lines_in_window = runs recorded in the window; changed_in_window)",
-               f"{len(mine)} eval folders of yours; {ran} runs recorded in the window, {changed} folders changed" if mine else "no eval folder of yours found")
+               f"{plural(len(mine), 'eval folder')} of yours; {plural(ran, 'run')} recorded in the window, {plural(changed, 'folder')} changed" if mine else "no eval folder of yours found")
+    out["ran"], out["changed"] = ran, changed
+
     def where(e):
         root, path = _path(e.get("repo")), _path(e.get("path"))
         inside = os.path.dirname(os.path.relpath(path, root)) if e.get("repo") and path.startswith(root + os.sep) else os.path.dirname(path)
@@ -727,11 +826,11 @@ def r_own_rig(f):
         out = row("cap-own-rig", build_state(len(mine), calls), len(mine), calls, "headless runs",
                    [os.path.basename(str(s.get("path"))) for s in mine],
                    "anatomy.json: launchers.scripts (starts claude -p / SDK, in a repo with their commits); inventory.json: headless.by_repo",
-                   f"{len(mine)} scripts of yours start an agent; {calls} headless runs in those repos", repos=_repos_of(mine))
+                   f"{plural(len(mine), 'script')} of yours start{'s' if len(mine) == 1 else ''} an agent; {plural(calls, 'headless run')} in those repos", repos=_repos_of(mine))
         out["list"] = sorted(per.values(), key=lambda v: -v["uses"])
         return out
     if total:
-        return cant("cap-own-rig", f"{total} headless runs, but a run is recorded the same whether you typed `claude -p`, a script of yours "
+        return cant("cap-own-rig", f"{plural(total, 'headless run')}, but a run is recorded the same whether you typed `claude -p`, a script of yours "
                     "or a plugin started it, and no script of yours that starts an agent was found",
                     "inventory.json: headless.runs; anatomy.json: launchers.scripts")
     if not f.r.logs_ok:
@@ -763,14 +862,14 @@ def r_plugins_own(f):
 
     def adds(k):
         a = _d(info.get(k, {}).get("adds"))
-        bits = [f'{_n(a.get("skills"))} skill{"s" if _n(a.get("skills")) != 1 else ""}' if _n(a.get("skills")) else "",
-                f'{_n(a.get("agents"))} agent{"s" if _n(a.get("agents")) != 1 else ""}' if _n(a.get("agents")) else "",
-                f'hooks at {_n(a.get("hooks_events"))} moment{"s" if _n(a.get("hooks_events")) != 1 else ""}' if _n(a.get("hooks_events")) else ""]
+        bits = [plural(int(_n(a.get("skills"))), "skill") if _n(a.get("skills")) else "",
+                plural(int(_n(a.get("agents"))), "agent") if _n(a.get("agents")) else "",
+                f'hooks at {plural(int(_n(a.get("hooks_events"))), "moment")}' if _n(a.get("hooks_events")) else ""]
         bits = [b for b in bits if b]
         return ("Adds " + ", ".join(bits)) if bits else ""
     out = row("cap-plugins-own", build_state(len(names), calls), len(names), calls, "hook runs and skill calls", _first(ran, names),
                "anatomy.json: artifacts (plugin_manifest, own); inventory.json: plugins (owner theirs), hook_runs set_up_by, skills_used `plugin:skill`",
-               f"{len(names)} plugins of yours; their hooks and skills ran {calls} times" if names else "no plugin of yours found")
+               f"{plural(len(names), 'plugin')} of yours; their hooks and skills ran {plural(calls, 'time')}" if names else "no plugin of yours found")
     out["list"] = [{"name": k, "about": adds(k), "uses": hooks.get(k, 0) + skills.get(k, 0),
                     "on": k in on} for k in names]
     return out
@@ -783,9 +882,9 @@ def r_sdk(f):
     if mine:
         return row("cap-sdk", build_state(len(mine), calls), len(mine), calls, "SDK runs", [os.path.basename(str(s.get("path"))) for s in mine],
                    "anatomy.json: launchers.scripts (SDK import or query call, in a repo with their commits); inventory.json: headless.entrypoints sdk-py / sdk-ts",
-                   f"{len(mine)} scripts of yours use the Agent SDK; {calls} SDK runs in the window", repos=_repos_of(mine))
+                   f"{plural(len(mine), 'script')} of yours use{'s' if len(mine) == 1 else ''} the Agent SDK; {plural(calls, 'SDK run')} in the window", repos=_repos_of(mine))
     if calls:
-        return cant("cap-sdk", f"{calls} runs came through the Agent SDK, but none from a script of yours that was found "
+        return cant("cap-sdk", f"{plural(calls, 'run')} came through the Agent SDK, but none from a script of yours that was found "
                     "(an installed plugin or an app can start them too)", "inventory.json: headless.entrypoints; anatomy.json: launchers.scripts")
     if not f.r.logs_ok:
         return cant("cap-sdk", "inventory.json is missing", "inventory.json")
@@ -823,11 +922,11 @@ def r_mcp_write(f):
         out = row("cap-mcp-write", build_state(len(mine), calls), len(mine), calls, "calls",
                    sorted(mine, key=lambda n: -calls_of(n)),
                    "anatomy.json: plugins.dir_loaded (origin own, contents.mcp_servers), mcp_servers entry inside such a folder; inventory.json: tools.by_mcp_server",
-                   f"{len(mine)} MCP servers inside plugins of yours; {calls} calls in the window")
+                   f"{plural(len(mine), 'MCP server')} inside plugins of yours; {plural(calls, 'call')} in the window")
         out["list"] = [{"name": n, "about": "", "uses": calls_of(n)} for n in sorted(mine)]
         return out
     if unplaced:
-        return cant("cap-mcp-write", f"{unplaced} MCP servers run a script from a folder the scan didn't place as yours or installed; "
+        return cant("cap-mcp-write", f"{plural(unplaced, 'MCP server')} run{'s' if unplaced == 1 else ''} a script from a folder the scan didn't place as yours or installed; "
                     "none sits inside a plugin of yours", "anatomy.json: mcp_servers entry")
     return row("cap-mcp-write", NOT_SEEN, 0, 0, "calls", (), "anatomy.json: mcp_servers, plugins.dir_loaded",
                "every MCP server set up is a hosted one or started with npx/uvx; none of yours")
@@ -845,7 +944,7 @@ def r_output_styles(f):
     out = row("cap-output-styles", build_state(len(mine), f.typed if on else 0), len(mine), f.typed if on else 0, "sessions",
                ([chosen] if on else []) + sorted(names),
                "anatomy.json: artifacts (output_style, own); inventory.json: settings notable.outputStyle (the style in force; every session uses it)",
-               (f"{len(mine)} output styles of yours; one is switched on" if on else f"{len(mine)} output styles of yours; none switched on") if mine
+               (f"{plural(len(mine), 'output style')} of yours; one is switched on" if on else f"{plural(len(mine), 'output style')} of yours; none switched on") if mine
                else "no output style of yours found")
     out["list"] = [{"name": x.get("name"), "about": _about(x), "uses": f.typed if x.get("name") == chosen else 0,
                     "on": x.get("name") == chosen} for x in mine]
@@ -862,7 +961,7 @@ def r_telemetry(f):
     return row("cap-telemetry", USES_OTHERS if on else NOT_SEEN, len(tele), screens, "times opened", (),
                "anatomy.json: settings.env_keys (telemetry variables); inventory.json: slash_commands_in_chats /cost /usage /stats",
                ("telemetry is switched on" if tele else "") + ("; " if tele and screens else "") +
-               (f"you opened the cost or usage screens {screens} times" if screens else "") if on else
+               (f"you opened the cost or usage screens {plural(screens, 'time')}" if screens else "") if on else
                "no telemetry variable set and no cost screen opened (a shell profile is not read)")
 
 

@@ -1080,14 +1080,16 @@ def written_in_logs(folder):
 
 
 def classify_origin(path: Path, name: str, kind: str) -> tuple[str, str, dict | None]:
-    """own | installed | mixed | third_party, by ownership.owner (his ruling 11-05): installed only on a receipt (a
+    """own | installed | mixed | third_party, by ownership.owner (the ruling 11-05): installed only on a receipt (a
     published marketplace's cache, a skills lock, account-synced skills), a teammate's only when git shows most commits
     are someone else's, and theirs otherwise. "Not in git" is theirs: until 11-05 it was "untracked" and the v15 scan
-    dropped it, which lost a tester's own skills."""
+    dropped it, which lost a person's own skills."""
     real = Path(os.path.realpath(path))
     link = f" (symlink to {real})" if path.is_symlink() else ""
     if "/skills/synced/" in path.as_posix():
         return "installed", "synced from the account (skills/synced)", None
+    if kind == "instruction" and OWNERSHIP.claude_code_copy(path):
+        return "installed", "a copy Claude Code keeps in its plugin cache or marketplaces folder", None
     # skills locks are read by ownership.py by path (the lock's own folder), not by name: a skill of theirs that shares
     # a name with an installed one stays theirs
     rc = RECEIPTS or OWNERSHIP.load_receipts(use_claude=False)
@@ -1182,7 +1184,8 @@ def plugin_root_of(path: str, _cache: dict = {}) -> str | None:
         if os.path.isfile(os.path.join(d, ".claude-plugin", "plugin.json")):
             r = d
             break
-        d = os.path.dirname(d)
+        up = os.path.dirname(d)
+        d = up if up != d else None   # a root ("/", "//", "C:\\") is its own parent: stop there
     else:
         r = None
     for x in seen:
@@ -2284,7 +2287,7 @@ def main(argv=None):
                 S.add_artifact(make_artifact("marketplace_manifest", mf, "project", t, name=mf.parent.parent.name))
         # the plugins they load from a folder of their own (a "directory" marketplace, --plugin-dir, a clone of their
         # GitHub marketplace): list what each holds from that folder, so their own agents, skills, commands and hook
-        # scripts count wherever the folder sits (11-05: a builder's agent in his own marketplace vanished once the
+        # scripts count wherever the folder sits (11-05: an agent in their own marketplace vanished once the
         # scan stopped reading his kit folder by name). Whose each file is: ownership.py, like every other artifact.
         seen = {os.path.realpath(a["path"]) for a in S.lists["artifacts"] if a.get("path")}
         for src in sorted({v for v in (RECEIPTS.source_dirs.values() if RECEIPTS else []) if v and os.path.isdir(v)}):

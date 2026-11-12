@@ -39,7 +39,7 @@ def built_ids(run_dir):
     return {a["id"]: a for a in json.load(open(p))} if os.path.exists(p) else {}
 
 
-# kinds of cited record and what each is as a fact (11-05: her skills, memory and settings had no id and read as opinion)
+# kinds of cited record and what each is as a fact (11-05: skills, memory and settings of a laptop had no id and read as opinion)
 FILE_KINDS = ("rules", "settings")   # one of their own files, when `own`
 COUNT_KINDS = ("memory",)            # Claude Code's record of sessions reading it, when `reads` > 0
 
@@ -73,7 +73,7 @@ def fact(r, built):
         return "built"
     # A "by hand:" line the AI pass cites is NOT a fact (11-11). Those lines count what Claude Code and the model do
     # by default (the model's own sub-agents, automatic compactions, plan files) with no minimum, and the AI chose
-    # which practice a number speaks for: a tester read L2 on "restart with a handoff" from 21 automatic compactions.
+    # which practice a number speaks for: a person read L2 on "restart with a handoff" from 21 automatic compactions.
     # A by-hand count moves a rung only through the signal map (signals.yaml: the person's own act, with its
     # `enough` bar), which arrives as found_by "code" or as a `signal` evidence entry (rows(), below).
     if any(x.get("kind") in COUNT_KINDS and (x.get("reads") or 0) > 0 for x in recs):
@@ -113,7 +113,7 @@ def rows(run_dir):
                 # a count the code proved (signals.yaml, or a portable check a skeptic let set a level) still stands
                 # when the AI read higher on something that isn't a fact: the row keeps the counted rung (11-05: 306
                 # /btw sessions did not save a practice whose AI basis was an id the digest no longer had). A count AT the AI's
-                # rung stands too: with "<" a /btw count (L2) was dropped whenever the AI also read L2 (11-06 tester, L1)
+                # rung stands too: with "<" a /btw count (L2) was dropped whenever the AI also read L2 (11-06, L1)
                 code = [e.get("rung") for e in r.get("evidence") or []
                         if isinstance(e, dict) and e.get("signal") and e.get("rung") in RANK and RANK[e["rung"]] <= RANK[rung]]
                 rung = max(code, key=RANK.get) if code else None

@@ -1,16 +1,100 @@
 #!/usr/bin/env python3
-"""'What you've built' answers "what have I built for my agent, and does it get used?" (his 11-11 on the tab before:
+"""'What you've built' answers "what have I built for my agent, and does it get used?" (11-11 on the tab before:
 "really hard to read"): a tile per kind they have, then each kind sorted by use with the unused folded, a skill's reach
 as four plain steps, hooks pinned on a session's life, rule files counted only where the count holds. Made-up board rows
 with the `list` board.py writes. Run: python3 -m unittest test_view_built   (from this folder; standard library only)"""
 import html
+import importlib.util
+import json
 import os
 import re
+import shutil
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import view_built
+
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS = os.path.normpath(os.path.join(HERE, "..", "..", "..", ".."))   # views -> variants -> engine -> v15 -> scripts/ (= labs/)
+
+
+def _load(name, path):
+    """A module of the scan or the engine, by its path (they find their neighbours by relative path)."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TypedSkill(unittest.TestCase):
+    """A skill of theirs the person typed as /name, from the scan's facts through the board to this tab (11-11: the row said
+    "1 calls" and the same skill's card said "not used in the last 30 days"). Claude Code writes a typed skill command
+    <command-message> first, then an isMeta record "Base directory for this skill: <folder>", which the log reader keeps as
+    a "loaded" event; a Skill tool call is followed by that same record. A made-up skill in a temporary folder."""
+    SKILL_MD = ("---\nname: weekly-report\ndescription: Writes the weekly report from the changes merged this week.\n---\n\n"
+                "# Weekly report\n\n1. List the changes merged since last Monday.\n2. Group them by area and write one line each.\n")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.scan = _load("inventory_for_typed_skill",
+                         os.path.join(SCRIPTS, "setup-snapshot", "experiments", "2026-11-02-evidence", "inventory.py"))
+        cls.board = _load("board_for_typed_skill", os.path.join(SCRIPTS, "v15", "engine", "board.py"))
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="typed-skill-")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        project = os.path.join(self.tmp, "repo")
+        folder = os.path.join(project, ".claude", "skills", "weekly-report")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "SKILL.md"), "w") as fh:
+            fh.write(self.SKILL_MD)
+        self.project = project
+        self.skill = {"kind": "skill", "name": "weekly-report", "origin": "own", "scope": "project", "project": project,
+                      "path": folder, "entry": os.path.join(folder, "SKILL.md"), "files": 0, "bytes": len(self.SKILL_MD),
+                      "description": "Writes the weekly report from the changes merged this week."}
+
+    def loads(self, *events):
+        """How many loads the scan counts for the skill from one session's events."""
+        rec = {"file": os.path.join(self.tmp, "logs", "s1.jsonl"), "helper": False, "chat": "s1", "ep": "claude-desktop",
+               "t0": 1000.0, "first_prompt": "write the weekly report", "skill_ev": list(events)}
+        rows = self.scan.skill_depth_facts({"artifacts": [self.skill]}, [rec], 0, None, [self.project], set())
+        return {r["name"]: r for r in rows}["weekly-report"]["loads"]
+
+    def test_a_typed_skill_command_is_a_load(self):
+        # /weekly-report typed: no Skill call, only Claude Code's own "Base directory for this skill" record
+        self.assertEqual(self.loads((1000.0, "loaded", "weekly-report")), 1)
+
+    def test_a_skill_call_and_its_record_are_one_load_not_two(self):
+        self.assertEqual(self.loads((1000.0, "load", "weekly-report"), (1001.0, "loaded", "weekly-report")), 1)
+
+    def test_two_typed_commands_are_two_loads(self):
+        self.assertEqual(self.loads((1000.0, "loaded", "weekly-report"), (2000.0, "loaded", "weekly-report")), 2)
+
+    def test_typed_with_no_load_read_is_used_on_the_card_the_row_and_this_tab(self):
+        # the scan read no load of it (an older log, say), yet the person typed it: used everywhere it shows, never "not used"
+        depth = {"name": "weekly-report", "lines": 8, "other_files": 0, "loads": 0, "loads_opened": 0, "opened": None,
+                 "script_run": None, "live_syntax": False, "eval": None, "copies": 1, "shared_name": False, "has_evals_folder": False}
+        inventory = {"skills_used": [], "skill_depth": [depth],
+                     "slash_commands": {"by_command": [{"command": "/weekly-report", "times": 1, "bare": 0, "chats": 1}]},
+                     "slash_commands_in_chats": [{"what": "/weekly-report", "calls": 1, "chats": 1}],
+                     "who_did_it": {"groups": [{"id": "you", "items": [{"id": "you.own_commands_typed", "n": 1, "chats": 1}]}]},
+                     "chats": {"typed_chats": 3}, "tools": {}}
+        for name, data in (("anatomy.json", {"artifacts": [self.skill]}), ("inventory.json", inventory)):
+            with open(os.path.join(self.tmp, name), "w") as fh:
+                json.dump(data, fh)
+        r = self.board.r_skills_own(self.board.Facts(self.board.Run(self.tmp)))
+        card = {x["name"]: x for x in r["skills"]}["weekly-report"]
+        self.assertTrue(card["used"], card)
+        self.assertIn("typed", card["why"])
+        listed = {x["name"]: x for x in r["list"]}["weekly-report"]
+        self.assertEqual((listed["used"], listed["uses"]), (True, 1), listed)
+        self.assertIn("not used 0", r["skills_summary"])
+        out = page([r])
+        self.assertIn("weekly-report", out)
+        self.assertNotIn("Not used in 30 days", out)
 
 
 def sk(name, step, uses, used=True, why="", about=""):
@@ -46,6 +130,8 @@ def text(out):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", out)))
 
 
+RULES = row("cap-instructions", items=40, calls=129, unit="sessions", projects=3, in_read=6, read_projects=2,
+            read=[{"root": "~/shop", "always": 2, "scoped": 3}, {"root": "~/ops", "always": 1, "scoped": 0}])
 FULL = [row("cap-skills-own", items=14, calls=47, lst=SKILLS), row("cap-hooks", items=3, calls=940, unit="runs", lst=HOOKS),
         row("cap-subagents", "built, not used lately", items=1, lst=[{"name": "scout", "about": "Reads", "uses": 0, "model": "haiku"}]),
         row("cap-mcp", "uses others'", items=6, calls=902), row("cap-evals", "not seen"), row("cap-event-runs", "can't tell",
@@ -57,16 +143,16 @@ MAP = {"projects": [{"root": "~/shop", "typed_sessions": 120, "totals": {"always
 
 class Built(unittest.TestCase):
     def test_at_a_glance_a_tile_per_kind_they_have(self):
-        out = page(FULL, setup_map=MAP)
-        tiles = re.findall(r'<a class="tile" href="#built-(\w+)"><span class="bt-num">([\d,]+)</span><span class="lab">([^<]+)', out)
-        self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "commands you wrote"),
-                                 ("rules", "6", "rule files in your 2 busiest projects"), ("agents", "1", "sub-agents you defined"),
+        out = page(FULL + [RULES], setup_map=MAP)
+        tiles = re.findall(r'<a class="tile" href="#built-(\w+)"[^>]*><span class="bt-num">([\d,]+)</span><span class="lab">([^<]+)', out)
+        self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "command you wrote"),
+                                 ("rules", "40", "rule files of yours"), ("agents", "1", "sub-agent you defined"),
                                  ("hooks", "4", "hooks you set up")])
         self.assertIn("<b>12</b> used this month", out)    # used, and a name an installed skill also has: not idle
         self.assertIn("<b>3</b> ran this month", out)
         self.assertIn("<b>129</b> sessions ran with them", out)
         for kind in ("skills", "commands", "rules", "agents", "hooks"):   # a tile opens its section
-            self.assertIn(f'<section class="kd" id="built-{kind}">', out)
+            self.assertIn(f'<section class="kd" id="built-{kind}"', out)
         self.assertNotIn('href="#built-evals"', out)                     # nothing of theirs: no tile
 
     def test_a_kind_lists_its_things_by_use_and_folds_the_unused(self):
@@ -99,22 +185,24 @@ class Built(unittest.TestCase):
         # where the records count no runs, the hook is drawn with no number and the moment says so (never "0")
         self.assertRegex(hooks, r"You send a message<small>runs not counted</small>.*?<span>notes</span></span>")
 
-    def test_rule_files_are_counted_only_where_the_count_holds(self):
-        rows = FULL + [row("cap-instructions", items=1632, calls=593, unit="sessions",
-                           why="1632 instruction files of yours in 19 projects")]
-        out = page(rows, setup_map=MAP)
+    def test_rule_files_are_told_in_the_one_sentence_with_the_projects_read_under_it(self):
+        out = page(FULL + [RULES], setup_map=MAP)
         rules = out[out.index('id="built-rules"'):out.index('id="built-agents"')]
-        self.assertNotIn("1632", out)
+        self.assertIn("40 rule files of yours in 3 projects; 6 of them in the 2 projects we read. 129 sessions ran where they load.", text(rules))
         self.assertIn("2 load in every session · 3 load in their folder · 7 docs opened when needed", rules)
-        self.assertIn("Plus 1 file in your user folder", rules)
-        self.assertIn("can't yet tell rule files you wrote from copies", rules)
-        self.assertNotIn('href="#built-rules"', page(rows))                   # no map: no count to show
+        self.assertIn("1 load in every session", rules)
+        self.assertNotIn("busiest", rules)
+        self.assertNotIn('href="#built-rules"', page(FULL, setup_map=MAP))    # no row with rule files of theirs: no tile
+
+    def test_the_rule_files_count_does_not_need_the_map(self):
+        out = page(FULL + [row("cap-instructions", items=40, calls=129, unit="sessions", projects=3)])
+        self.assertIn("40 rule files of yours in 3 projects. 129 sessions ran", text(out))
 
     def test_the_persons_own_page_names_their_things_the_masked_copy_does_not(self):
-        own = page(FULL, setup_map=MAP)
+        own = page(FULL + [RULES], setup_map=MAP)
         for name in ("deploy-secret", "guard", "scout", "shop"):
             self.assertIn(name, own)
-        masked = page(FULL, masked=True, setup_map=MAP)
+        masked = page(FULL + [RULES], masked=True, setup_map=MAP)
         for leaked in ("deploy-secret", "Ships a secret.", "refs/review-rules.md", "scripts/deploy-secret.sh", "guard", "scout", ">shop<"):
             self.assertNotIn(leaked, masked)
         for kept in ("own-skill-1", "own-hook-1", "own-sub-agent-1", "project-1", "Runs code</span>", "<b>900</b>"):
@@ -159,6 +247,29 @@ class Built(unittest.TestCase):
             out = page(junk)                                                   # renders, whatever it could count
             self.assertTrue('class="kd"' in out or "Nothing on this laptop" in out)
         self.assertIn("not in this run", view_built.render({"esc": html.escape, "v15_result": {}}))
+
+
+class StartedOutsideAProject(unittest.TestCase):
+    """Sessions that start in the home folder and work across 6 repos read "built 0" (11-11): the page says where the work was found."""
+    ROWS = [row("cap-mcp", "uses others'", items=2, calls=5)]
+
+    def view(self, work_found):
+        return page(self.ROWS, inventory={"work_found": work_found})
+
+    def test_most_sessions_outside_a_project_and_repos_found_from_the_work(self):
+        out = text(self.view({"typed_sessions": 40, "start_outside_repo": 31, "repos_worked_in": 6}))
+        self.assertIn("This page follows the work, not the folder: it found 6 projects from the files your agent edited and the "
+                      "commits it made there, because most of your sessions start in a folder that isn't a project (31 of 40).", out)
+
+    def test_none_found_reads_as_could_not_see_not_did_not_build(self):
+        out = text(self.view({"typed_sessions": 40, "start_outside_repo": 31, "repos_worked_in": 0}))
+        self.assertIn("A zero below means we couldn't see it, not that you built nothing", out)
+
+    def test_sessions_that_start_in_projects_get_no_line(self):
+        self.assertNotIn("note start", self.view({"typed_sessions": 40, "start_outside_repo": 10, "repos_worked_in": 3}))
+        self.assertNotIn("note start", self.view({"typed_sessions": 40, "start_outside_repo": 20, "repos_worked_in": 3}))   # half is not most
+        self.assertNotIn("note start", self.view({}))                                                                      # an older run
+        self.assertNotIn("note start", page(self.ROWS))
 
 
 if __name__ == "__main__":

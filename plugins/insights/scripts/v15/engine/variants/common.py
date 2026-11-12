@@ -112,7 +112,7 @@ def load(path):
     return {
         "title": "How you work with agents",
         "period": "Last 30 days · read on your own laptop, from your Claude Code logs and setup files",
-        # one plain sentence first (his 10-29 ask: a summary is the first thing someone should see)
+        # one plain sentence first (10-29 ask: a summary is the first thing someone should see)
         "summary": (f"Your setup carries {count['Runs without you'] + count['Your setup does it']} of the "
                     f"{len(allp)} practices we looked for – {count['Runs without you']} of them run without you."),
         "split": count | {"Not yet": sum(not p["has_rung"] for p in allp)},

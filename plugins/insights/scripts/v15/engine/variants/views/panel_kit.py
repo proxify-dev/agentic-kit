@@ -1,6 +1,6 @@
 """One side panel for every substrate item, used by every view. Not a view: frame.py only loads view_*.py.
 
-His 11-05 point: the substrate is a knowledge base as well as an evaluation, so wherever a practice, a problem or a
+The 11-05 point: the substrate is a knowledge base as well as an evaluation, so wherever a practice, a problem or a
 vocabulary term appears, its name opens the same panel, and the panel links onward. Each has a deep link that works from
 any tab: `#p/<practice id>`, `#c/<problem id>`, `#t/<term id>` (frame.py leaves the current tab where it is and opens the panel).
 
@@ -195,7 +195,7 @@ def _nolevel(t):
 
 def portable_by_pid(ctx):
     """{practice id: [check]}, every portable check of the run (run.py pre writes portable-checks.json and portable-rows.json).
-    Two separate facts per check, never mixed (his 11-05): `approved` is about the tool (the skeptic let this check set a level), `run` is
+    Two separate facts per check, never mixed (11-05): `approved` is about the tool (the skeptic let this check set a level), `run` is
     about this laptop: counted | slow (over its time budget) | cant (can't tell) | error. An approved check that was too slow is approved
     and slow, never "proven"."""
     checks = ((ctx.get("portable_checks") or {}).get("checks")) or []

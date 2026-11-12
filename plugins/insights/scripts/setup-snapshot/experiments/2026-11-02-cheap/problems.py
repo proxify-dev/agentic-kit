@@ -65,7 +65,7 @@ def chat_moment(C, short, what):
 
 
 def check(kind, looked_at, looked_for, matched, bar, depends_on, moments=None, no_moments=""):
-    """How a verdict was reached, for a person judging whether to trust it (dev mode, his 11-03 ask):
+    """How a verdict was reached, for a person judging whether to trust it (dev mode, the 11-03 ask):
     kind = words | counts | hand read | files | git | settings | tool calls | none."""
     return {"kind": kind, "looked_at": looked_at, "looked_for": looked_for, "matched": matched, "bar": bar,
             "depends_on": depends_on, "moments": moments or [],

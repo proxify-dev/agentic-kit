@@ -70,7 +70,7 @@ def views():
 # The report's navigation: groups as top tabs, a second row only where a group holds more than one view.
 # Both copies open on the same four tabs, which tell one story: the written review, the level it adds up to, what the
 # person built, and the summary they can send. They rest on the setup read and on plain things with one home level.
-STORY = [("review", "Review", ["review"]),  # first: the page opens on what the setup is and why, in sentences (his 11-11)
+STORY = [("review", "Review", ["review"]),  # first: the page opens on what the setup is and why, in sentences (11-11)
          ("mylevel", "Your level", ["mylevel"]),
          ("built", "What you've built", ["built"]),
          ("share", "Share with Proxify", ["share"])]
@@ -79,7 +79,7 @@ STORY = [("review", "Review", ["review"]),  # first: the page opens on what the 
 MEMBER_GROUPS = STORY
 # Proxify's copy adds the substrate, the call sheet and the internal checks after the four. The twelve views built on
 # the 33 practices and their four rungs (Part by part, By discipline, Board...) are gone from both copies (11-11): the
-# level no longer rests on them, on a tester's page "Part by part" said session resets were "not seen yet" while the
+# level no longer rests on them, on one page "Part by part" said session resets were "not seen yet" while the
 # level tab ticked the same thing, and he ruled they shouldn't be on the staff page either.
 # A view module listed nowhere still shows here, in a "More" group, so a new view never disappears.
 GROUPS = STORY + [
@@ -188,12 +188,12 @@ def archive_previous(out, page):
     return copy
 
 
-TESTERS = "origin/feat/v15"  # the branch the testers install the plugin from
+INSTALL_BRANCH = "origin/feat/v15"  # the branch the plugin is installed from
 
 
 def built_from():
     """One line for the page header: when it was built, from which branch and commit, and how many commits the
-    testers' copy (TESTERS) doesn't have yet. His 11-05 "struggling to determine did we make any change or what's
+    installed copy (INSTALL_BRANCH) doesn't have yet. The 11-05 ask "struggling to determine did we make any change or what's
     pending": the page says what it is. Only the time when the code isn't in a git checkout."""
     when = time.strftime("built %m-%d %H:%M")
     def git(*a):
@@ -205,9 +205,9 @@ def built_from():
     if not commit:
         return when
     line = f"{when} from {branch} {commit}"
-    ahead = git("rev-list", "--count", f"{TESTERS}..HEAD")
+    ahead = git("rev-list", "--count", f"{INSTALL_BRANCH}..HEAD")
     if ahead.isdigit():
-        line += f" · {ahead} change{'s' if ahead != '1' else ''} testers don't have yet" if ahead != "0" else " · same as what testers have"
+        line += f" · {ahead} change{'s' if ahead != '1' else ''} the installed copy doesn't have yet" if ahead != "0" else " · same as the installed copy"
     if git("status", "--porcelain", "--untracked-files=no"):
         line += " · plus uncommitted edits"
     return line
@@ -237,7 +237,7 @@ def build(run, out, member=False, level=True, masked=False):
     meta = inv.get("meta", {})
     stamp = built_from()
     print(stamp)
-    # The header says what the page is and when it was read, nothing more (his 11-11 "users get lost"). Who it was read
+    # The header says what the page is and when it was read, nothing more (11-11 "users get lost"). Who it was read
     # for, Claude Code's version and log setting, and how this copy was built sit in the Review tab's "About this report".
     ctx["about"] = {"who": (inv.get("person", {}).get("identities") or [""])[0], "days": meta.get("days", 30),
                     "to": meta.get("to", ""), "laptop": card_kit.header_note(), "stamp": stamp}

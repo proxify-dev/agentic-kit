@@ -1464,6 +1464,8 @@ def _own_setup_files(lt):
                     if skill_dirs[d] and os.path.isfile(rp):
                         out[rp] = True
                     break
+                if os.path.dirname(d) == d:                  # a root is its own parent
+                    break
                 d = os.path.dirname(d)
     c["setup_files"] = out
     return out
@@ -2665,7 +2667,7 @@ def _agent_reads(path, cwd):
 @check(PID_S, "L3", 0)
 def read_only_agent_of_your_own(lt):
     """Runs of an agent the person wrote (the one ownership rule, not installed or copied) that cannot change anything (see _read_only_agent) and that,
-    in the run, Read a file its session had already written or edited: a look at the builder's work, not a planner or explorer working
+    in the run, Read a file its session had already written or edited: a look at the agent's work, not a planner or explorer working
     before the edits. A run is matched to the agent by its meta file (agentType, plugin namespace) and its Agent call."""
     ro = [a for a in _artifacts(lt) if a["own"] and a["kind"] == "agent" and _read_only_agent(a["path"])]
     ids = _own_ids(lt, ro, "agent")
@@ -2739,7 +2741,7 @@ def _starts_second_model(h):
 @check(PID_S, "L4", 0)
 def stop_hook_runs_a_reviewer(lt):
     """Stop / SubagentStop blocks that Claude Code recorded (hook_blocking_error) from a hook the person wrote and that runs `claude -p`
-    (in its command or its script): the builder was held at the end until that run let it through. A hook that only ran, a plugin's
+    (in its command or its script): the agent was held at the end until that run let it through. A hook that only ran, a plugin's
     hook that is not enabled, and a Stop hook that never blocked are not counted."""
     own = {h["command"].strip() for h in _hooks(lt) if h["event"] in REVIEW_EVENTS and h["type"] == "command" and h["command"]
            and _hook_active(lt, h) and _starts_second_model(h)}

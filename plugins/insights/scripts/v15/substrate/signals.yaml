@@ -4,9 +4,9 @@
 # by who made it happen. This file says what each count means for a practice. Code turns it into evidence rows next to
 # the AI pass's rows (setup-snapshot/experiments/2026-11-02-cheap/signals.py); the higher rung wins and both reasons stay.
 #
-# Rules (his 11-04 calls: the level is about who made it happen; raw stats first, scoring after):
+# Rules (11-04 calls: the level is about who made it happen; raw stats first, scoring after):
 # - Only records Claude Code writes for everyone. Never a count that rests on one person's own tools, their names or
-#   their text (his ruling 11-04): on another laptop it reads 0, so it rewards his tool by name. Each signal will carry a
+#   their text (the ruling 11-04): on another laptop it reads 0, so it rewards his tool by name. Each signal will carry a
 #   `from:` line to the Claude Code built-in it rests on (substrate claude-code.yaml, session proxify-6e, in progress).
 # - `id` is the scan's own id for the count (who_did_it.groups[].items[].id, "<group>.<name>"). The group before the
 #   dot is who did it. A label may be reworded; an id never is. When an item moves group its id changes and this map must
@@ -142,7 +142,7 @@ signals:
     says: '{pct} of your messages ({n} of {of}) were typed while 3 or more of your sessions were active.'
 - id: setup.chats_opened_in_plan_by_settings
   # a settings file of theirs (ownership.py) sets defaultMode "plan" and wins for the folder; the same act as switching it
-  # on by hand, done by their setup (11-06: a tester with plan as her default was credited 13 sessions of 3-4 a day)
+  # on by hand, done by their setup (11-06: a person with plan as the default was credited 13 sessions of 3-4 a day)
   enough: {n: 3, chats: 3}
   counts_for:
   - practice: settle-the-approach-first
