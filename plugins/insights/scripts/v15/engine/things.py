@@ -2,8 +2,8 @@
 """The level read from plain things (a trial, 11-11), beside the read from practices (engine.level_pointer).
 
 Why: the practice read gave each of 33 practices four rungs, and the rungs that should not exist got filled. On 11-11 a
-tester's page showed "tools made for the agent" at L3 (his ruling: building tools is L4), plan mode as "agree the
-approach first" at L3 (it is a built-in), and the model's own sub-agent calls as her habit. His rulings place THINGS at
+one page showed "tools made for the agent" at L3 (the ruling: building tools is L4), plan mode as "agree the
+approach first" at L3 (it is a built-in), and the model's own sub-agent calls as the person's habit. The rulings place THINGS at
 levels, so this read does too: each thing has one home level and a name he would say out loud.
 
     L1  uses Claude Code and what ships with it or what others made
@@ -39,8 +39,8 @@ L2_HABITS_FOR_L2 = 2             # of the four L2 things, counted as the person'
 DEFAULT_BAR = {"n": 3, "chats": 3}  # a habit, for a count the signal map (substrate signals.yaml) gives no bar
 MIN_DAYS_FOR_L1 = 7              # days with sessions before "uses Claude Code on real work" is said (certainty's floor for a fair read)
 # L4, in this read's own terms: evals on what they built, plus this many of the other four kinds of built thing, each
-# built AND used in the window. It stays strict on purpose: one built thing plus an eval folder once read a tester L4,
-# and his answer was "we can't give L4 away like that" (11-05). It does not borrow the practice read's "builds in 3
+# built AND used in the window. It stays strict on purpose: one built thing plus an eval folder once read L4,
+# and the answer was "we can't give L4 away like that" (11-05). It does not borrow the practice read's "builds in 3
 # areas": the board can only ever name two areas, so a laptop with all five L4 things in use read L3 (11-11).
 L4_BUILT_KINDS = 3
 L4_KINDS = ("hooks", "mcp-built", "plugins", "agent-programs")   # the four kinds beside evals
@@ -247,6 +247,43 @@ def evals_said(row, days=30):
     return f"none ran or changed in the last {days} days"
 
 
+def in_use(x):
+    """Whether one listed thing (an entry of a board row's `list`) was in use in the window: the board's own flag where it
+    gave one (a skill: a name an installed skill also has was loaded, whoever's it was, and counts as in use, as on the
+    Review's card), else a use counted. An eval folder that changed counts as in use too: it is listed with "changed, no run
+    recorded", never under "not used". The one rule the Built tab's meters and its used/idle lists both read."""
+    if "changed" in x:
+        return bool(x.get("uses")) or bool(x.get("changed"))
+    return x.get("used") is not False if "used" in x else bool(x.get("uses"))
+
+
+# ---- rule files: one count, one scope, one session figure ---------------------------------------------------------
+
+def rule_files(rows):
+    """The person's rule files (CLAUDE.md, AGENTS.md and the files beside them), as every tab prints them, from the board's
+    cap-instructions row: {total, projects, in_read, read_projects, sessions, by_project}. `total` is across every project, one
+    per file whatever the worktrees and checkouts (board.one_per_repo_path), without the copies Claude Code keeps in its plugin
+    folders (ownership.claude_code_copy); `projects` is how many projects hold them; `in_read` is how many of those sit in the
+    `read_projects` projects the setup read looked at (None when the run has no map); `sessions` is how many sessions ran where
+    they load (one figure, the row's); `by_project` is the table of the read projects: [{root, always, scoped}].
+    (11-12: Built counted the 3 busiest projects, 32 files, the Your level tab every project, 1,632.)"""
+    r = (rows or {}).get("cap-instructions") or {}
+    return {"total": int(r.get("items") or 0), "projects": int(r.get("projects") or 0), "sessions": int(r.get("calls") or 0),
+            "in_read": int(r["in_read"]) if r.get("in_read") is not None else None,
+            "read_projects": int(r.get("read_projects") or 0), "by_project": list(r.get("read") or [])}
+
+
+def rule_files_said(c):
+    """"4 rule files of yours in 3 projects; 4 of them in the 2 projects we read": one sentence on every tab. A side with
+    nothing to say is left out (no project count on an older run, no read on a run without the map)."""
+    out = plural(c["total"], "rule file") + " of yours"
+    if c["projects"]:
+        out += f" in {plural(c['projects'], 'project')}"
+    if c["in_read"] is not None and c["read_projects"]:
+        out += f"; {_n(c['in_read'])} of them in the {plural(c['read_projects'], 'project')} we read"
+    return out
+
+
 # ---- projects: one list for every tab ----------------------------------------------------------------------------
 
 def mapped_projects(setup_map, setup_read=None):
@@ -383,6 +420,10 @@ def _from_board(t, rows):
         proof = "You have " + "; ".join(r["phrase"] for r in programs_rows(rows) if r["n"]) + "."
     elif t["id"] == "evals" and state in PRESENT:
         proof = f"You keep {plural(items, 'set of evals', 'sets of evals')} on what you built; {evals_said(best)}."
+    elif t["id"] == "rule-files" and state in PRESENT:
+        c = rule_files(rows)
+        proof = (f"{rule_files_said(c)}; {plural(c['sessions'], 'session')} ran where they load." if c["sessions"]
+                 else f"{rule_files_said(c)}; no session in the last 30 days ran where they load.")
     elif state == YOURS_USED:
         proof = say(t["used_p"] if ids and t.get("used_p") else t.get("used") or "You have {n} of your own; used {calls:time} in the last 30 days.", **f)
     elif state == YOURS_IDLE:
@@ -439,6 +480,8 @@ def things(run_dir, board, bars):
             else:
                 state, proof = NOT_SEEN, "No session in the last 30 days."
         thing = {"id": t["id"], "name": t["name"], "level": t["level"], "state": state, "proof": proof}
+        if t["id"] == "rule-files" and state in PRESENT:
+            thing["said"] = rule_files_said(rule_files(rows))   # the sentence the Built tab prints too; a test compares them
         if t["id"] == "evals" and state == YOURS_USED and not evals_counts(rows.get("cap-evals"))[0]:
             # the level asks for "ran or changed", but nothing ran: the page never says "used" for it
             thing["word"] = "Yours, changed in 30 days"

@@ -2,7 +2,7 @@
 # only what this file lists. A person's own tools (their modes, plugins, memory or search tools) are never matched by
 # name or by the text they print: they are credited through `own:` below, by what git says the person wrote.
 #
-# Why (his ruling 11-04): "we cannot fine-tune this tool against my own personal setup that others wouldn't have unless
+# Why (the ruling 11-04): "we cannot fine-tune this tool against my own personal setup that others wouldn't have unless
 # it's a built-in from Claude Code." The scan had matched the reminder text of one person's own plugins
 # (an orchestration command, memory and session-search tools) and those tools' names.
 # On any other laptop those count 0.
@@ -56,7 +56,7 @@ records:
   kind: attachment
   match: {attachment_type: file, minus: att.compact_file_reference}
   means: A file attached to the person's message, after leaving out the files /compact re-attaches.
-  not: Every file attachment. 159 of 178 on his laptop were re-attached after /compact.
+  not: Every file attachment. 159 of 178 on one laptop were re-attached after /compact.
   who_acts: person
   checked: {by: card audit 11-04, commit: dd76d2e8}
 - id: att.compact_file_reference
@@ -304,7 +304,7 @@ cards:
   setup.hook_text_chats: {from: [att.hook_additional_context], status: ok}
   programs.runs_started_by_code: {from: [rec.entrypoint], status: ok}
   programs.runs_unattended: {from: [rec.entrypoint, rec.user_typed], status: ok}
-  programs.scheduled_jobs: {from: [os.scheduler], status: check, why: 0 jobs on his machine; scheduled_task_fire left 
+  programs.scheduled_jobs: {from: [os.scheduler], status: check, why: 0 jobs on one laptop; scheduled_task_fire left 
       out because /loop wakeups write it too}
   probably.helpers_after_ask: {from: [tool.agent, rec.user_typed], status: ok, checked: {by: proxify-d4 
         (who-did-it-rebuild), session: d27b6013}}

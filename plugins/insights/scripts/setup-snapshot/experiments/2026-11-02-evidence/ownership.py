@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Whose is a file the setup uses: theirs, unless something on the laptop says it was installed.
 
-His ruling 2026-11-05: "it's probably theirs if they're not installed via the skills lock or something". The old
-default was "not yours unless git proves it", and it lost one tester's own work four times (10-22 a second git email,
+The ruling 2026-11-05: "it's probably theirs if they're not installed via the skills lock or something". The old
+default was "not yours unless git proves it", and it lost one person's own work four times (10-22 a second git email,
 10-23 skills linked in from her team repo, 11-04 the folder a chat started in, 11-05 skills/memory/settings with no
 id). Each fix taught the scan one more folder layout. Installs leave a receipt; nothing else needs guessing.
 
@@ -509,6 +509,23 @@ def owner(path, rc, authorship=None, written_in_logs=None, blob_authorship=None)
     if unpacked:
         return {"owner": "installed", "how": unpacked[0], "source": unpacked[1]}
     return {"owner": "theirs", "how": "no receipt", "source": look if look != path else None}
+
+
+_CLAUDE_CODE_COPY = re.compile(r"(?:^|/)\.claude[^/]*/plugins/(?:cache|marketplaces)/")
+
+
+def claude_code_copy(path):
+    """True when path sits in Claude Code's own plugin storage, `<config folder>/plugins/cache/` (a copy per installed
+    version) or `<config folder>/plugins/marketplaces/` (a clone of each marketplace). Whatever plugin it is, that file is
+    a copy Claude Code made, never a file the person wrote there: a plugin of theirs is counted where its source lives (their
+    repo), so counting the copy as well credits the same file twice, and a plugin of someone else's credits them with
+    its files. Decided by the folder alone (any home, any version, any plugin name), so it needs no receipt, git or
+    network, and it holds on a run scanned before this rule existed. For files that are counted by what they say
+    (instruction files); `owner()` still answers whose a plugin is."""
+    p = os.path.expanduser(str(path or "")).replace(os.sep, "/")
+    cfg = os.environ.get("CLAUDE_CONFIG_DIR")
+    return bool(_CLAUDE_CODE_COPY.search(p)) or bool(
+        cfg and any(p.startswith(os.path.normpath(cfg).replace(os.sep, "/") + f"/plugins/{d}/") for d in ("cache", "marketplaces")))
 
 
 def is_theirs(path, rc, authorship=None, written_in_logs=None, blob_authorship=None):

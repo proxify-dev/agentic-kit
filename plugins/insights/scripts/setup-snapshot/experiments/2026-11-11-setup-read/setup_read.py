@@ -344,7 +344,7 @@ def memory_structure(p, user, root, home, reads):
     if not stores:
         return False, "no notes folder found for this project"
     # Claude Code's built-in memory folder never shows a design by its shape: Claude Code itself writes the index and
-    # the typed notes there, for everyone. 11-11: a tester's built-in folders (24 files, read in 27 sessions) read
+    # the typed notes there, for everyone. 11-11: a person's built-in folders (24 files, read in 27 sessions) read
     # as her notes. Whether the person shaped it is the reader's call, and it then needs an own store to count.
     own = [(s, base) for s, base in stores if s.get("kind") != "builtin"]
     if not own:

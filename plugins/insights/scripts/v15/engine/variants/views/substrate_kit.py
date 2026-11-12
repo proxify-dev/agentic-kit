@@ -1,4 +1,4 @@
-"""The Substrate section (his 11-03: "Include the full substrate in this doc... that's how we'll know whether the
+"""The Substrate section (11-03: "Include the full substrate in this doc... that's how we'll know whether the
 substrate needs a fix or not... If something's missing from the substrate or something's wrong in the substrate I
 should be able to tell."). Not a view: frame.py only loads view_*.py. Used by view_sub_board.py and the discipline pages (where each element's
 chain breaks) and the five discipline pages view_sub_<discipline>.py (the full substrate text + this laptop's run).

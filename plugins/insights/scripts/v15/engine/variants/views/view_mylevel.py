@@ -206,6 +206,11 @@ GROUP_SAYS = {"L1": "What ships with Claude Code, or what others made.",
               "L4": "Things you built that change how the agent runs."}
 
 
+def _said_attr(t, esc):
+    """An invisible attribute holding the sentence a thing's count is told in, where one function words it for every tab."""
+    return f' data-said="{esc(t["said"])}"' if t.get("said") else ""
+
+
 def _things(pt, esc):
     """Every thing by its home level: state as icon and word, the proof under it. No practice names, no rung words."""
     groups = []
@@ -215,10 +220,10 @@ def _things(pt, esc):
             continue
         have, of = level_things.things_met(pt)[lv]
         rows = "".join(
-            f'<li class="{THING_CLASS.get(t.get("state"), "none")}"><span class="m" aria-hidden="true">{level_things.ICON.get(t.get("state"), "?")}</span>'
+            f'<li class="{THING_CLASS.get(t.get("state"), "none")}" data-thing="{esc(t.get("id"))}" data-state="{esc(t.get("state"))}"{_said_attr(t, esc)}><span class="m" aria-hidden="true">{level_things.ICON.get(t.get("state"), "?")}</span>'
             f'<span><b>{esc(t.get("name"))}</b><span class="st">{esc(t.get("word") or THING_WORD.get(t.get("state"), t.get("state")))}</span>'
             f'<small>{esc(t.get("proof"))}</small></span></li>' for t in ts)
-        groups.append(f'<div class="tg"><h4>{lv} · {esc(MEANING[lv])}<small>{have} of {wording.plural(of, "thing")} in place · {esc(GROUP_SAYS[lv])}</small></h4>'
+        groups.append(f'<div class="tg" data-level="{lv}" data-have="{have}" data-of="{of}" data-unit="thing"><h4>{lv} · {esc(MEANING[lv])}<small>{have} of {wording.plural(of, "thing")} in place · {esc(GROUP_SAYS[lv])}</small></h4>'
                       f'<ul class="why things">{rows}</ul></div>')
     return ('<h3>What your laptop shows, level by level</h3><p style="color:#475467;font-size:13px;margin:0 0 8px">Each thing '
             'belongs to one level. What Claude Code or the model did by itself is shown, and counts for nothing.</p>'

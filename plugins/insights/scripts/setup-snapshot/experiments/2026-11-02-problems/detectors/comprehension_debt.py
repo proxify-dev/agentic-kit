@@ -69,7 +69,7 @@ TEST_BUILD = re.compile(
     r"\bmake( test| check| lint| build)?\b|\bcargo (test|build|check|clippy)|\bgo (test|build|vet)|\btsc\b|\bmypy\b|"
     r"\bpyright\b|\bruff\b|\beslint\b|\bnext build|\bvite build|\bnode\s+--check|\bbash\s+-n\b|\bpy_compile|"
     r"\bplugin validate|\bshellcheck|\byamllint|\bplaywright test",
-    re.I)   # public tools only (11-05: the builder's own recipes were removed; the guard in plugins/agentic-setup fails on them)
+    re.I)   # public tools only (11-05: recipes were removed; the guard in plugins/agentic-setup fails on them)
 RUN_APP = re.compile(r"\bcurl\b|\bplaywright\b|screencapture|"
                      r"\bopen\s+(-a\s+)?\S*(http|localhost|\.html)|localhost:\d+|127\.0\.0\.1|\bnpm (run )?(dev|start)\b|"
                      r"\belectron\b|google chrome|\bvite\b(?! build)", re.I)

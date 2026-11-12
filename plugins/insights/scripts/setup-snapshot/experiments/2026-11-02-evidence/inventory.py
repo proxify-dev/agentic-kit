@@ -136,7 +136,7 @@ BUILTIN_COMMANDS = frozenset({
     "usage-credits", "use-case", "version", "voice", "web-setup", "wellbeing", "workflow-launch-exec", "workflows"
 })
 # Rule-file or hook text that talks about sub-agents (plain English). Whose text it is comes from git (own.hook,
-# own.rule_file), never from the text: his ruling 11-04, nothing tuned to one person's tools.
+# own.rule_file), never from the text: the ruling 11-04, nothing tuned to one person's tools.
 SUBAGENT_TALK_RX = re.compile(r"(?i)\bsub-?agents?\b|\bdelegat\w*|\bteammates?\b|\bAgent tool\b|\bparallel agents?\b")
 INSTRUCTION_NAMES = ("CLAUDE.md", "AGENTS.md", "CLAUDE.local.md", "GEMINI.md")
 START = time.time() - 30 * 86400  # set in main() from --days
@@ -293,10 +293,30 @@ def repos_below(folder, budget_s=BELOW_SECONDS, depth=BELOW_DEPTH):
             except OSError:
                 pass
         return 0
-    return sorted(found, key=latest, reverse=True)
+    return sorted(found, key=lambda r: (-latest(r), r))   # a tie (equal times, or none readable) breaks by path, never by the order the folder lists
 
 
 WORKED_CAP = 15   # repos kept for the work sessions did; git is read for each of them
+
+
+def repos_from_work(worked_chats, roots, cap=None):
+    """The repos found only from the work (no session started in them): most sessions first, the first `cap` kept. A tie
+    breaks by path, never by the order sessions were read, so the cap keeps the same repos on every run."""
+    ranked = sorted(((r, n) for r, n in worked_chats.items() if r not in roots and os.path.isdir(r)), key=lambda kv: (-kv[1], kv[0]))
+    return Counter(dict(ranked[:cap or WORKED_CAP]))
+
+
+def rank_folders(all_folders, roots, from_work, head_folders, last, cap=15):
+    """The folders the file scan reads, most sessions typed in first; among equals the ones with headless runs, then a repo
+    before a plain folder, then the newest session, and last the path: a full key, so no tie falls to the order folders
+    were listed in (the picked project flipped on about one run in three when it did)."""
+    return sorted(all_folders, key=lambda f: (-(roots[f] + from_work[f]), -head_folders[f], repo_root(f) is None,
+                                              -last.get(f, 0), f))[:cap]
+
+
+def sort_repos(repos):
+    """The inventory's repo rows, busiest first (typed + headless + worked sessions), a tie by path. In place."""
+    repos.sort(key=lambda x: (-(x["typed_chats"] + x["headless_runs"] + x.get("worked_chats", 0)), x["repo"]))
 # What a Bash call does to a repo: these git subcommands change it; a read (log, diff, status, show, grep) does not,
 # and neither does a pull or a checkout, which is how a reference clone is brought up to date.
 GIT_WRITES = {"commit", "add", "apply", "am", "mv", "rm", "merge", "rebase", "cherry-pick", "revert", "restore"}
@@ -603,7 +623,7 @@ def read_log(args):
                                 if str(f.get("content") or "").strip() and (r["automem_t"] is None or t < r["automem_t"]):
                                     r["automem_t"] = t
                                 # Claude Code loaded its auto memory into the session itself (no Read call): the session
-                                # read that store (11-05: a tester's memory read in 92 of 101 sessions read as 16)
+                                # read that store (11-05: a person's memory read in 92 of 101 sessions read as 16)
                                 for d in dirs_of([str(f["path"])]):
                                     r["dirs_read"][d] += 1
                 elif at == "skill_listing":
@@ -1813,7 +1833,7 @@ def _git_log_authors(path, cwd=None):
 def authorship(path, me, cwd=None):
     """Commits on a path: total, the person's, other authors (names only), and whose it is by ownership.py.
     yours = ownership.owner() says "theirs": no install receipt (marketplace, skills lock) and git doesn't show it is
-    mostly someone else's. A file in no repo is theirs (his ruling 11-05); until then it was nobody's and a tester's
+    mostly someone else's. A file in no repo is theirs (the ruling 11-05); until then it was nobody's and a person's
     own skills, hooks and rule files went uncounted."""
     log = _git_log_authors(path, cwd)
     mine = sum(1 for a in log if is_mine(a, me))
@@ -2009,7 +2029,7 @@ def eval_runner_and_results(d):
     return deny[:6], results[:5]
 
 
-# ---------------------------------------------------------------- how deep each skill of theirs goes (his ruling 11-06)
+# ---------------------------------------------------------------- how deep each skill of theirs goes (the ruling 11-06)
 # Facts only; the rule that turns them into depth 1-4 is labs/v15/engine/board.py (skill_depth). Display only: no level moves.
 # A skill is found in the logs by its name and the `skills/<name>/` part of a path (so a worktree, a checkout, a symlink or a
 # plugin cache copy of it all count), never by the name of one person's tool.
@@ -2452,7 +2472,7 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
                     if scripts and not i["script_run"]:
                         i["script_run"] = runs_script(val, name, scripts)
             i["loads_opened"] += len(hit)
-    # evals seen RUNNING the skill (his ruling 11-06), never guessed from a file's contents:
+    # evals seen RUNNING the skill (the ruling 11-06), never guessed from a file's contents:
     #  (a) `claude plugin eval <target>` in their logs, the target resolving to the plugin folder that holds the skill;
     #  (b) a headless run (entrypoint sdk-*) that loaded the skill and whose first prompt is written in a file of theirs that holds
     #      eval or test cases (eval_file_matches). Not by time: a run that merely overlaps a script call proves nothing.
@@ -2604,7 +2624,7 @@ def sqlite_stores(paths):
 
 def find_dbs():
     """Databases kept inside Claude Code's own folder (~/.claude), whoever's tool wrote them. No tool is looked for by
-    name (his ruling 11-04): a member's tools live where theirs do."""
+    name (the ruling 11-04): a member's tools live where theirs do."""
     out = []
     for base in (os.path.join(HOME, ".claude"),):
         for d, subdirs, files in os.walk(base):
@@ -2620,7 +2640,7 @@ def find_dbs():
 
 
 def past_work_reach(typed, own_start_ctx, automem_chats=()):
-    """New sessions where earlier work reached Claude early, by the effect and never by a tool's name (his ruling 11-04),
+    """New sessions where earlier work reached Claude early, by the effect and never by a tool's name (the ruling 11-04),
     in three kinds kept apart: loaded automatically (Claude Code put the project's auto-memory MEMORY.md, which an earlier
     session or the person wrote, in the session's context at its start: the `instructions` record says so), looked up
     (Claude read a file another, earlier session wrote before the person's 3rd message), or put in by a hook (a
@@ -2955,7 +2975,7 @@ def compact_anatomy(A, me, roots, rd, wr):
                 a["words"] = len(open(a["path"], errors="replace").read().split())
             except OSError:
                 pass
-    # every one: a silent cap at 250 cut his agents to 7 of 52 once untracked files counted as theirs (11-06), and a
+    # every one: a silent cap at 250 cut their agents to 7 of 52 once untracked files counted as theirs (11-06), and a
     # practice that cited a cut agent lost its fact. Ordered by kind so the small kinds lead whatever the reader skims.
     order = {"agent": 0, "hook_script": 1, "plugin_manifest": 2, "marketplace_manifest": 3, "command": 4, "workflow": 5,
              "output_style": 6, "skill": 7}
@@ -3128,7 +3148,7 @@ def main(argv=None):
         shutil.copy(a.chats, chats_path)
     elif not a.chats:
         # read the logs again on every run: a session list left in the run folder by an earlier run was built by older
-        # code from older logs (11-09: a tester's rerun after a fix kept her old empty list). Reuse only on --chats.
+        # code from older logs (11-09: a person's rerun after a fix kept their old empty list). Reuse only on --chats.
         load_module("logs", LOGS).main(["--days", str(a.days), "--out", chats_path])
     T["chats"] = round(time.time() - t0, 1)
     typed = [json.loads(x) for x in open(chats_path).readlines()[1:]]
@@ -3158,8 +3178,7 @@ def main(argv=None):
     for c in typed:
         worked_chats.update(worked_by_session.get(c["chat"], {}).keys())
     # repos found only from the work: no session started in them, nor below a start folder (those are read by their rows)
-    from_work = Counter({r: n for r, n in worked_chats.most_common() if r not in roots and os.path.isdir(r)})
-    from_work = Counter(dict(from_work.most_common(WORKED_CAP)))
+    from_work = repos_from_work(worked_chats, roots)
     head_cwds = Counter(r["cwd"] for r in recs if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED))
     head_folders = Counter()
     for cwd, n in head_cwds.items():
@@ -3179,7 +3198,7 @@ def main(argv=None):
         f = scan_folder(cwd) if t1 else None
         if f:
             last[f] = max(last.get(f, 0), t1)
-    ranked = sorted(all_folders, key=lambda f: (-(roots[f] + from_work[f]), -head_folders[f], repo_root(f) is None, -last.get(f, 0)))[:15]
+    ranked = rank_folders(all_folders, roots, from_work, head_folders, last)
     if a.anatomy:
         anat_path = a.anatomy
     else:
@@ -3188,7 +3207,7 @@ def main(argv=None):
         if os.path.exists(anat_path):
             os.remove(anat_path)
         targets = list(dict.fromkeys(list(ranked) + own_marketplace_folders()))   # + their own marketplaces' folders
-        starts = [c for c, _ in (cwd_count + head_cwds).most_common() if c and not TMP.match(c)][:300]
+        starts = [c for c, _ in sorted((cwd_count + head_cwds).items(), key=lambda kv: (-kv[1], str(kv[0]))) if c and not TMP.match(c)][:300]
         proc = subprocess.Popen([sys.executable, ANATOMY, "--out", anat_path, "--written-dirs", written_path, *targets,
                                  *[x for f in starts for x in ("--start-folder", f)]],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
@@ -3215,7 +3234,7 @@ def main(argv=None):
         if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED):
             head_by_repo[place(r["cwd"])] += 1
     repos = []
-    for rr in [*set(roots) | set(head_by_repo), *below_all, *[r for r in from_work if r not in below_all]]:
+    for rr in [*sorted(set(roots) | set(head_by_repo)), *below_all, *[r for r in from_work if r not in below_all]]:
         log = [x for x in git(["log", "--all", f"--since={a.days} days ago", "--format=%an <%ae>"], rr).split("\n") if x] \
             if os.path.isdir(rr) else []
         repos.append({"repo": rr, "typed_chats": roots.get(rr, 0), "headless_runs": head_by_repo.get(rr, 0),
@@ -3230,7 +3249,7 @@ def main(argv=None):
     repos = one_row_per_repo(repos)
     for r in repos:
         r["authors_here"] = authors_in(r["theirs_in_window"], r["commits_in_window"], r["first_commit_theirs"])
-    repos.sort(key=lambda x: -(x["typed_chats"] + x["headless_runs"] + x.get("worked_chats", 0)))
+    sort_repos(repos)
     temp = [r for r in repos if r["repo"].startswith("temp: ")]
     repos = [r for r in repos if not r["repo"].startswith("temp: ")]
     if temp:
@@ -3408,7 +3427,7 @@ def main(argv=None):
                        "repos_worked_in": sum(1 for r in worked_chats if os.path.isdir(r)),
                        "repos_found_only_from_work": sum(1 for r in repos if r.get("found_from_work"))},
         "chats": {"typed_chats": len(typed), "typed_messages": sum(len(c["msgs"]) for c in typed),
-                  "by_repo": [[os.path.basename(r), n] for r, n in roots.most_common(10)]},
+                  "by_repo": [[os.path.basename(r), n] for r, n in sorted(roots.items(), key=lambda kv: (-kv[1], kv[0]))[:10]]},
         "chats_logged": agg["chats_logged"], "jobs_watched": agg["jobs_watched"],
         "slash_commands": hist, "slash_commands_in_chats": agg["slash_commands_in_chats"],
         "tools": agg["tools"], "helpers": agg["helpers"], "workflows": agg["workflows"], "skills_used": agg["skills_used"],

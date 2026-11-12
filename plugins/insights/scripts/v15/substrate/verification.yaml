@@ -240,7 +240,7 @@ practices:
     laptop_signal: /goal and its status in the session logs (scan, Sessions row)
   - tool: Claude Code
     how: 'Only for unattended runs (claude -p, Agent SDK, a loop script): a Stop hook or runner step that runs a check a script can decide and blocks the finish while it fails. Not as the definition of
-      done in a session someone is watching (his ruling, 10-16).'
+      done in a session someone is watching (the ruling, 10-16).'
     laptop_signal: null
   - tool: any
     how: CI or pre-commit checks on every change, with the agent told to read their result.

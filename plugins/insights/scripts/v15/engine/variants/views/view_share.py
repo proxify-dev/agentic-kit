@@ -171,9 +171,9 @@ def new_lines(esc, sent):
         names, order = {}, []
     by_state = {}
     for tid, t in (sent.get("things") or {}).items():
-        by_state.setdefault(t.get("state"), []).append(names.get(tid, tid.replace("-", " ")))
+        by_state.setdefault(t.get("state"), []).append((tid, names.get(tid, tid.replace("-", " "))))
     groups = "".join(f'<div><h4>{esc(st[:1].upper() + st[1:])}</h4><ul class="sh-chips">'
-                     + "".join(f"<li>{esc(n)}</li>" for n in ns) + "</ul></div>"
+                     + "".join(f'<li data-thing="{esc(tid)}" data-state="{esc(st)}">{esc(n)}</li>' for tid, n in ns) + "</ul></div>"
                      for st, ns in sorted(by_state.items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99))
     out = []
     if parts:

@@ -75,7 +75,7 @@ def _raise(base, more):
 _L2 = [(("put-rules-where-they-apply",), HAND), (("notes-the-next-chat-reads",), HAND),
        (("reset-with-a-handoff",), HAND),
        # isolate's L2 rung names two ways: a fork by hand, or a workflow that spreads the reading. The trusted workflow-runs
-       # check moved to lead-a-team (e68b0df2), so the entry is either/or or a workflow user with no hand forks reads L1 (11-06 tester)
+       # check moved to lead-a-team (e68b0df2), so the entry is either/or or a workflow user with no hand forks reads L1 (11-06)
        (("isolate-side-work", "lead-a-team-of-agents"), HAND),
        (("bound-the-task",), HAND), (("settle-the-approach-first",), HAND), (("reword-the-ask",), HAND),
        (("prove-it-works",), HAND), (("limit-what-the-agent-can-reach",), HAND), (("parallel-work-kept-apart",), HAND)]
@@ -92,10 +92,10 @@ DESIGN_LISTS = {"L2": _L2, "L3": _L3, "L4": _L4}  # the lists as designed (level
 
 
 def countable(lists, S):
-    """The lists a laptop level is read from (labs/v15/CLAUDE.md, his 11-04 rule, applied 11-05): an entry is required only
+    """The lists a laptop level is read from (labs/v15/CLAUDE.md, the 11-04 rule, applied 11-05): an entry is required only
     up to the rung a skeptic-approved check proves on any laptop (substrate `laptop_proven_at`, tools/laptop_counts.py);
     an entry no approved check proves is left out and becomes a question for the call. Why: a list that required habits
-    no laptop can see read a tester L1 whose setup met L2, and dropped him (L4) two levels over one unseen habit.
+    no laptop can see read a person L1 whose setup met L2, and dropped them (L4) two levels over one unseen habit.
     A substrate built without laptop counts (an old substrate.json) keeps the lists as designed."""
     pr = {pid: p.get("laptop_proven_at") for pid, p in S.get("practices", {}).items()}
     lo = {pid: p.get("laptop_proven_min") or p.get("laptop_proven_at") for pid, p in S.get("practices", {}).items()}
@@ -109,7 +109,7 @@ def countable(lists, S):
             # a laptop that doesn't see the other (compaction) can't tell a miss from the unprovable alternative.
             # And only from the lowest step a check sees: a check that sees only their setup (L3) is silent on the
             # same habit done by hand (L2), so an L2 entry it can't see is a call question (11-05, the merge of
-            # fetch into rules-where-they-apply read a tester L1 over it)
+            # fetch into rules-where-they-apply read a person L1 over it)
             if all(pr.get(i) and RANK[lo[i]] <= need for i in ids):
                 keep.append((ids, min(need, min(RANK[pr[i]] for i in ids))))
         out[lv] = keep
@@ -145,7 +145,7 @@ LEVEL_RULE = {
 STEP_WORD = {HAND: "they do it, at least by hand (L2+)", SETUP: "their setup does it (L3+)"}
 
 
-# the board's build rows that are L4 building by his rulings (hooks, plugins, MCP servers he built = L4; a program that runs
+# the board's build rows that are L4 building by the rulings (hooks, plugins, MCP servers they built = L4; a program that runs
 # the agent = a runner), and the area each one builds in. Skills, agent roles, notes, instruction files and output styles
 # are setup (L3), never an L4 build. A board row counts only when it is "built and used" (theirs, and it ran).
 BOARD_BUILD_AREAS = {"cap-hooks": "harness", "cap-plugins-own": "harness", "cap-mcp-write": "harness",
@@ -470,7 +470,7 @@ def _first_count(text):
 
 
 def _verdict_for(practices):
-    """strong · partly · by_hand · cant_tell for one area (his 11-06 ask: "is this good or bad? what now?").
+    """strong · partly · by_hand · cant_tell for one area (11-06 ask: "is this good or bad? what now?").
     A practice has a reading when it has a rung, or the logs were searched and it was not found. "Not read" and a
     rung that is only a hint (could_be) are no reading, and no reading is never a minus: it can only make the
     area "can't tell"."""
@@ -587,7 +587,7 @@ def verdicts(result, S=None):
 
     def climb(pid, rung, problem=None):  # noqa: C901
         """The next step up this practice's own ladder, in its words, with how it's done today and where to read:
-        never 'read the playbook' as the advice itself (his 11-05: "we don't need shitty advice")."""
+        never 'read the playbook' as the advice itself (11-05: "we don't need shitty advice")."""
         P = (S.get("practices") or {}).get(pid) or {}
         lad = P.get("ladder") or {}
         nxt = {0: "L2", 1: "L2", 2: "L3", 3: "L4"}.get(RANK.get(rung or "", 0))
@@ -717,7 +717,7 @@ def setup_read_gate(pointer, run_dir):
     the code found in the file; either alone is "could be".
 
     Unlike every other check, a setup read that did not run is NOT "never a minus": the level is read as L2, could be
-    L3. Why: on 11-11 a tester who is not an engineer read L3 on six practices, five of them by-hand counts of what
+    L3. Why: on 11-11 a person who is not an engineer read L3 on six practices, five of them by-hand counts of what
     Claude Code does by default and the sixth a rule file per repo. What decides a level has to be seen; only what
     is beside the point may go unseen.
 
@@ -861,7 +861,7 @@ def run(run_dir, call_level=None):
                            # what a laptop would show for it, per technique: the page's "we searched for"
                            "signals": [t["laptop_signal"] for t in S["practices"][pid].get("techniques") or [] if t.get("laptop_signal")][:3],
                            # a rung is a sighting: a check or a by-hand row can set one with no AI state row behind it, and
-                           # "L3 · not read" read as a contradiction to a tester (11-06)
+                           # "L3 · not read" read as a contradiction to a person (11-06)
                            "state": "seen" if (rung.get(pid) or {}).get("rung") else
                                     (state.get(("practice", pid)) or {}).get("state") or "not read",
                            "could_be_rung": (state.get(("practice", pid)) or {}).get("could_be_rung"),

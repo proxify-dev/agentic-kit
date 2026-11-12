@@ -146,7 +146,7 @@ challenges:
   - Web fetches in the same sessions (untrusted text)
   - Ask rules, refuse rules and hooks that can block, over the ways out (a send, a push, an upload, a deploy)
   detector: problems.py
-  seen_in: 'A tester with private data debugging in the same sessions as web reading and Slack, git and Drive sends: all the ways out sat behind her ask rules and a commit-blocking hook, so it did not show.'
+  seen_in: 'A person with private data debugging in the same sessions as web reading and Slack, git and Drive sends: all the ways out sat behind ask rules and a commit-blocking hook, so it did not show.'
 - id: each-run-set-up-by-hand
   name: Every run is set up by hand
   term: none
@@ -256,7 +256,7 @@ practices:
     how: Their own plugin that carries their checks into every project
     laptop_signal: null
   - tool: any
-    how: A git pre-commit or pre-push hook they wrote to check the agent's commits (level pending his ruling)
+    how: A git pre-commit or pre-push hook they wrote to check the agent's commits (level pending the ruling)
     laptop_signal: null
   - tool: Claude Code
     how: When the action is never allowed at all, a deny rule instead of a check (see 'Decide what the agent may do on its own')
@@ -273,7 +273,7 @@ practices:
     ref: /patterns/system-evolution
     title: System Evolution
   rulings:
-  - 'His hooks norm (10-16): hooks are for ''a cheap rule that must hold every time'', ''a hard gate on what can''t be undone'', ''the right context at the right moment'', and ''watching, logging, notifying''.
+  - 'The hooks norm (10-16): hooks are for ''a cheap rule that must hold every time'', ''a hard gate on what can''t be undone'', ''the right context at the right moment'', and ''watching, logging, notifying''.
     They are not for ''defining done'', not for ''blocking on something cheap to redo, like a failing test'', and not for ''replacing a person who is already reviewing''. "''If it matters, make it a hook''
     is wrong as a general rule… What counts is whether a hook was the right tool."'
   - 'Ruling 2: ''Setting up claude''s behavior via hooks tooling or anything else, is mostly L4. Engineering the behavior of agents through scripting (plugins) is l4''.'
@@ -700,7 +700,7 @@ crosswalk:
 - v13: harness-7
   to: enforce-fixed-rules-in-code
   why: Hooks is a technique (SCOPE), and what a hook does decides which practice it shows. A guard belongs here, context at the right moment belongs to context, and watching belongs to orchestration. A
-    hook used to define 'done' is the misuse his 10-16 ruling names.
+    hook used to define 'done' is the misuse the 10-16 ruling names.
 - v13: hn-hook-fired
   to: enforce-fixed-rules-in-code
   why: A hook they wrote that blocks or fixes is this practice's L4 level (ruling 2, behaviour by code). It overlaps hn-hook-authored, which v13 added because this cue credited planned and team hooks. Keep
@@ -733,7 +733,7 @@ crosswalk:
     to the practice its build serves.'
 - v13: hn-hook-authored
   to: enforce-fixed-rules-in-code
-  why: L4 when the hook is a guard. A hook that loads context is context's L4. One that refuses 'done' is verification's, and his 10-16 norm limits that use.
+  why: L4 when the hook is a guard. A hook that loads context is context's L4. One that refuses 'done' is verification's, and the 10-16 norm limits that use.
 - v13: hn-runner-authored
   to: orchestration:work that runs without you (scheduled, triggered, batch)
   why: A script they wrote that starts the agent is the L4 level of work that runs without them.
@@ -763,12 +763,12 @@ open_questions:
 - 'Still pending since v13: a git hook the person wrote to check the agent''s work (h10-git-hook). Drafted as a guardrails technique with its level open.'
 - 'Duplicate cues: hn-hook-fired and hn-hook-authored both map to the guardrails L4 level. Keep only the stricter one (hn-hook-authored).'
 - 'Hook-tip problem still live in the playbook: ''/setup/hooks-playbook'' (''The Quality Gate'': Claude ''can''t declare done until tests pass''; ''If you''ve written it in CLAUDE.md and it matters, back
-  it up with a hook'') and ''/patterns/system-evolution'' (a Stop hook so the agent ''cannot declare done prematurely'') contradict his 10-16 hooks ruling. ''/patterns/autonomous-tasks'' and ''/patterns/permission-modes''
+  it up with a hook'') and ''/patterns/system-evolution'' (a Stop hook so the agent ''cannot declare done prematurely'') contradict the 10-16 hooks ruling. ''/patterns/autonomous-tasks'' and ''/patterns/permission-modes''
   repeat ''stop hooks'' as a completion gate in passing. I did not link the hooks playbook as learning for guardrails until it is fixed. The backpressure check''s ''try'' line (a Stop check that runs the
   tests) repeats the same tip; flag for the verification draft.'
 - 'Content gaps (no playbook page teaches it): prompt injection and the lethal trifecta as such (only covered sideways by /patterns/supply-chain and /setup/secrets-safety); the builder patterns (Dual LLM,
   plan-then-execute, instruction hierarchy) have only outside sources; checking a package the agent suggests (slopsquatting); designing tools for the agent (ACI, where /setup/mcp-wiring covers wiring others''
-  servers, not designing one); guardrails taught the way his 10-16 ruling defines them; asking only before what can''t be undone (/patterns/permission-modes covers modes, not where approvals belong). No
+  servers, not designing one); guardrails taught the way the 10-16 ruling defines them; asking only before what can''t be undone (/patterns/permission-modes covers modes, not where approvals belong). No
   hands-on station touches this discipline.'
 - 'Laptop gaps, all already in the logs or on disk and never read: tool calls the person rejected (toolDenialKind user-rejected, 157 in 14 days on one laptop), commands marked sandboxed, which plugin or
   MCP server made each tool call (attribution fields), refusals that come back as a tool result (B18). Also not read: secrets in plain files the agent can open, package installs the agent ran, git hooks,
@@ -791,12 +791,12 @@ checker_changes:
 - Safety was one v13 practice (harness-9) with two never-swept cues. It is now four practices under the field's own names (least privilege, sandboxing, human-in-the-loop, guardrails) plus one unnamed (checking
   plugins, MCP servers and dependencies), and one builder practice (Dual LLM, plan-then-execute, instruction hierarchy merged).
 - 'New challenges the field names: prompt injection, lethal trifecta, jailbreaking, slopsquatting, approval fatigue and YOLO mode. One unnamed challenge was added (tools made for people), pending a ruling.'
-- 'Hooks follow his 10-16 norm everywhere: a guard for fixed rules and hard gates, never the definition of ''done''.'
+- 'Hooks follow the 10-16 norm everywhere: a guard for fixed rules and hard gates, never the definition of ''done''.'
 - 'Checker: give-the-agent-tools-made-for-it, L4 level: replaced ''with checks that keep it working'' with ''with a test the agent can''t edit that keeps it working'', and added the matching ruling line.
   Reason: SCOPE ruling ''L4 needs demonstrable building that changes how the agent runs, AND evals it can''t edit (10-09, 10-13)''; every other practice''s L4 level already carried this and this one did
   not.'
 - 'Checker: enforce-fixed-rules-in-code, laptop_evidence: added that 221 of the 237 refusals in the backpressure check are checks on ''done'', which belong to verification. Reason: citing them as guard
-  evidence here would credit the misuse his 10-16 ruling names (''not for defining done'').'
+  evidence here would credit the misuse the 10-16 ruling names (''not for defining done'').'
 - 'Checker: verified with no change needed: term, grade and source of all 6 challenges and 7 practices against the vocabulary entries; handled_by and handles agree both ways and with the vocabulary ''Fixed
   by'' lists; no tool name or virtue in any practice name; every SCOPE term for this discipline is present (merged ones listed in what_you_do); every learn ref is in the materials index or is a vocabulary
   source URL (the four playbook pages were opened and teach what is claimed); crosswalk holds harness-1, 2, 4, 7, 8, 9, 10 and all 18 of their cues (hn-tool-named, hn-second-tool, hn-own-rig, hn-local-model,

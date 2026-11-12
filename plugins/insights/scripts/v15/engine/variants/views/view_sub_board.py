@@ -1,6 +1,6 @@
 """The substrate as a board: where each problem and practice gets stuck, and who fixes it.
 
-His 11-03: "What does 'where the chain breaks' even mean? … too mechanical", then "come with a better way to represent
+11-03: "What does 'where the chain breaks' even mean? … too mechanical", then "come with a better way to represent
 this data". So no columns of ticks. Each column says, in words, where an item stops on its way from "the substrate
 describes it" to "you can open the proof"; rows are the disciplines; each item is a named card in the column where it
 stopped. Click a card: its story opens under that row, in five plain sentences.

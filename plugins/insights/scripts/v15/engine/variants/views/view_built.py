@@ -1,17 +1,17 @@
 """What you've built: what the person built for their agent, and whether it got used in the last 30 days.
 
-Why it looks like this (his 11-11 on the tab before it: "really hard to read"; on the new Review: "go further… on this
+Why it looks like this (11-11 on the tab before it: "really hard to read"; on the new Review: "go further… on this
 view as well"). Every kind of thing was a long text list, with words like "Depth 3 · progressive disclosure" and a
 legend paragraph to decode them, and the rule-file line said "1632 instruction files of yours", which counted copies and
-files his tools generate. Now, in the Review's visual language:
+files their tools generate. Now, in the Review's visual language:
   1. at a glance: one tile per kind they have, a big number with what it counts and a meter of how many got used
   2. per kind: one plain line of what it is, then the things sorted by use, the top 8 first, the unused folded in one group;
      a skill shows how far it goes as four plain steps (reads one file → opens more files when needed → runs code →
      tested automatically) instead of "Depth N"
   3. hooks as a picture: a session's life as a line, each hook pinned at the moment it fires, with how often it did
-  4. rule files counted only where the count holds: the busiest projects the setup read mapped (setup-map.json), since
-     elsewhere the scan can't yet tell files they wrote from copies and generated ones (memory/scanner/issues/
-     cached-plugin-copies-counted-as-their-rule-files.md)
+  4. rule files counted once and told in one sentence (things.rule_files_said), the same as the Your level tab: all of
+     theirs, then how many sit in the projects the setup read looked at; the projects it read are listed under it
+     (memory/scanner/issues/cached-plugin-copies-counted-as-their-rule-files.md)
 What a kind counts, and its list, are board.py's (engine/board.py rows, `list`: one entry per thing, copies counted
 once), so a number and its list never disagree; nothing here decides whose a thing is.
 
@@ -62,6 +62,11 @@ KINDS = [
     ("workflows", "cap-workflows", ("workflow you saved", "workflows you saved"), "Workflows",
      "Scripts that spread one job over many sub-agents.", ""),
 ]
+# the thing (things.THINGS id) each kind of build is the page's mention of; `data-thing` / `data-count` / `data-state` on a
+# tile or a section carry it, so test_tabs_agree can compare what each tab prints for one thing (workflows: no thing)
+KIND_THING = {"skills": "skills-commands", "commands": "skills-commands", "rules": "rule-files", "agents": "own-subagents",
+              "hooks": "hooks", "plugins": "plugins", "tools": "mcp-built", "programs": "agent-programs", "evals": "evals",
+              "memory": "memory"}
 USED_WORD = {"skills": "used", "commands": "used", "agents": "launched", "hooks": "ran", "plugins": "in use",
              "tools": "called", "programs": "ran the agent", "evals": "ran", "memory": "read", "workflows": "used"}
 # a skill's step, from board.skill_depth: how far it goes when it is used. Never a level of the person.
@@ -222,15 +227,6 @@ def _items(row, kind):
     return items
 
 
-def _in_use(x):
-    """In use in the window: the board's own flag where it gave one (a skill: a name an installed skill also has was loaded,
-    whoever's it was, and counts as in use, as on the Review's card), else a use counted. An eval folder that changed
-    counts as in use too: it is listed with "changed, no run recorded", never under "not used"."""
-    if "changed" in x:
-        return bool(x.get("uses")) or bool(x.get("changed"))
-    return x.get("used") is not False if "used" in x else bool(x.get("uses"))
-
-
 def _short(path):
     home = os.path.expanduser("~")
     path = str(path or "")
@@ -241,18 +237,6 @@ def _masked_names(kind, items):
     stem = {"skills": "skill", "commands": "command", "agents": "sub-agent", "hooks": "hook", "plugins": "plugin",
             "tools": "tool", "programs": "project", "evals": "evals", "memory": "memory", "workflows": "workflow"}[kind]
     return {id(x): f"own-{stem}-{i + 1}" for i, x in enumerate(items)}
-
-
-def _rule_files(ctx):
-    """Rule files where the count holds: every project the setup read mapped (things.mapped_projects, the list the Review's
-    grid walks too), each with how many load in every session, how many in their folder, and how many docs it opens when
-    needed. A project with no rule file of theirs stays on the list and says so. None when the map isn't there."""
-    m = ctx.get("setup_map") if isinstance(ctx.get("setup_map"), dict) else None
-    if not m:
-        return None
-    projects = level_things.mapped_projects(m, ctx.get("setup_read"))
-    u = (m.get("user") or {}).get("totals") or {}
-    return {"projects": projects, "user": int(u.get("always_files") or 0) + int(u.get("scoped_files") or 0)}
 
 
 _plural = wording.plural
@@ -266,13 +250,12 @@ def _kinds(ctx):
     for kind, rid, label, title, what, unit in KINDS:
         row = rows.get(rid) or {}
         if kind == "rules":
-            rf = _rule_files(ctx)
-            n = sum(p["always"] + p["scoped"] for p in rf["projects"]) if rf else 0
-            if not n:
+            c = level_things.rule_files(rows)   # the same count, scope and sentence as the Your level tab
+            if not c["total"]:
                 continue
-            sessions = sum(int(p["sessions"] or 0) for p in rf["projects"])
-            out.append((kind, row, rf, n, None, f"<b>{_n(sessions)}</b> {wording.noun(sessions, 'session')} ran with them" if sessions else "",
-                        f"rule {wording.noun(n, 'file')} in your {level_things.projects_noun(rf['projects'])}"))
+            out.append((kind, row, c, c["total"], None,
+                        f"<b>{_n(c['sessions'])}</b> {wording.noun(c['sessions'], 'session')} ran with them" if c["sessions"] else "",
+                        f"rule {wording.noun(c['total'], 'file')} of yours"))
             continue
         if kind == "programs":
             progs = level_things.programs_rows(rows)
@@ -291,7 +274,7 @@ def _kinds(ctx):
         n = len(items) if row.get("list") is not None or items else (row.get("items") or 0)
         if not n:
             continue
-        used = sum(1 for x in items if _in_use(x))
+        used = sum(1 for x in items if level_things.in_use(x))
         if kind == "evals":
             used = sum(1 for x in items if x.get("uses"))
             line = level_things.evals_said(row)
@@ -304,12 +287,20 @@ def _kinds(ctx):
     return out
 
 
+def _hook(kind, row, n, items=None):
+    """Invisible attributes naming the thing a tile or section is about, the board's state for it and the count it prints.
+    A program tile is several board rows (one state each), so it carries the count only."""
+    state = f' data-state="{row["state"]}"' if row.get("state") and kind != "programs" else ""
+    said = f' data-said="{html.escape(level_things.rule_files_said(items))}"' if kind == "rules" and isinstance(items, dict) else ""
+    return f' data-thing="{KIND_THING.get(kind, "")}" data-kind="{kind}" data-count="{n}"{state}{said}'
+
+
 def _tiles(ctx, kinds):
     tiles = []
     for kind, row, items, n, used, line, label in kinds:
         meter = (f'<span class="meter" role="img" aria-label="{used} of {n} {USED_WORD[kind]} this month">'
                  f'<i style="width:{max(2, round(100 * used / n)) if used else 0}%"></i></span>') if used is not None and n else '<span class="gap"></span>'
-        tiles.append(f'<a class="tile" href="#built-{kind}"><span class="bt-num">{_n(n)}</span><span class="lab">{label}</span>'
+        tiles.append(f'<a class="tile" href="#built-{kind}"{_hook(kind, row, n, items)}><span class="bt-num">{_n(n)}</span><span class="lab">{label}</span>'
                      f'{meter}<span class="used">{line}</span></a>')
     return f'<div class="tiles">{"".join(tiles)}</div>'
 
@@ -365,7 +356,7 @@ def _list(ctx, kind, items, unit):
         return f'<ul class="{cls}">' + "".join(_item(esc, kind, x, names[id(x)], unit, masked, with_step) for x in xs) + "</ul>"
     if kind == "workflows":
         return ul(items)
-    used = sorted([x for x in items if _in_use(x)],
+    used = sorted([x for x in items if level_things.in_use(x)],
                   key=lambda x: (x.get("uses") is None, -(x.get("uses") or 0), str(x["name"])))
     idle = sorted([x for x in items if x not in used], key=lambda x: str(x["name"]))
     out = ul(used[:TOP]) if used else ""
@@ -414,23 +405,29 @@ def _hooks(ctx, items):
             'A dashed one is set up there and didn\'t run.</p>')
 
 
-def _rules(ctx, rf):
+def _rules(ctx, c):
+    """The one sentence (things.rule_files_said) and, under it, the projects the setup read looked at: their rule files as
+    things.rule_files counts them (by project root), and what each project's map adds (docs opened when needed, sessions)."""
     esc, masked = ctx["esc"], bool(ctx.get("masked"))
+    m = ctx.get("setup_map") if isinstance(ctx.get("setup_map"), dict) else None
+    projects = level_things.mapped_projects(m, ctx.get("setup_read")) if m else []
+    counted = {x["root"]: x for x in c["by_project"]}
     rows = []
-    for i, p in enumerate(rf["projects"]):
+    for i, p in enumerate(projects):
         name = f"project-{i + 1}" if masked else p["label"]
-        where = [f'{p["always"]} load in every session' if p["always"] else "", f'{p["scoped"]} load in their folder' if p["scoped"] else ""]
+        mine = counted.get(p["root"]) or p
+        where = [f'{mine["always"]} load in every session' if mine["always"] else "",
+                 f'{mine["scoped"]} load in their folder' if mine["scoped"] else ""]
         about = (" · ".join(x for x in where if x) + (f' · {_plural(p["docs"], "doc")} opened when needed' if p["docs"] else "")
                  ) or "no rule file of yours"
         how = (f'<span class="u"><b>{_n(p["sessions"] or 0)}</b> {wording.noun(int(p["sessions"] or 0), "session")}</span>' if p["ranked"]
                else f'<span class="u zero">{esc(level_things.project_how(p))}</span>')
         rows.append(f'<li class="it"><span class="nm">{esc(name)}</span><span class="ab">{esc(about)}</span>{how}</li>')
-    user = f' Plus {_plural(rf["user"], "file")} in your user folder, read in every project.' if rf["user"] else ""
-    scope = ("Counted in your busiest projects only." if all(p["ranked"] for p in rf["projects"])
-             else "Counted in these projects only.")
-    return (f'<div class="rf"><ul class="lst">{"".join(rows)}</ul></div>'
-            f'<p class="note">{scope}{user} Elsewhere the scan can\'t yet tell rule files you '
-            'wrote from copies and files your tools generate, so it doesn\'t guess.</p>')
+    sessions = f"{_plural(c['sessions'], 'session')} ran where they load." if c["sessions"] else "No session in the last 30 days ran where they load."
+    table = f'<div class="rf"><ul class="lst">{"".join(rows)}</ul></div>' if rows else ""
+    return (f'<p class="note rf-said">{esc(level_things.rule_files_said(c))}. {esc(sessions)}</p>{table}'
+            '<p class="note">One file kept in several checkouts of a repo counts once, and copies Claude Code keeps of '
+            'plugins are not counted. The sessions beside each project are that project\'s own.</p>')
 
 
 def _programs(ctx, progs, row):
@@ -475,11 +472,16 @@ def _section(ctx, kind, row, items, n, unit, title, what, member):
     src = "" if member or not row.get("source") else (
         f'<details class="bt-fold"><summary>{CHEV}How we know</summary><p class="src">{ctx["esc"](row["source"])}</p></details>')
     count = "" if kind == "rules" else f'<span class="ct">{_n(n)}</span>'
-    return (f'<section class="kd" id="built-{kind}"><div class="kd-h"><h3>{title}</h3>{count}</div>'
+    return (f'<section class="kd" id="built-{kind}"{_hook(kind, row, n, items)}><div class="kd-h"><h3>{title}</h3>{count}</div>'
             f'<p class="kd-what">{what}</p>{body}{src}</section>')
 
 
 # ------------------------------------------------------------------ the rest
+
+def _row_hook(r):
+    """Invisible attributes naming a board row, its state and the calls the line prints (the made-by-others chips say calls)."""
+    return f' data-row="{r.get("id")}" data-state="{r.get("state")}" data-calls="{r.get("calls") or 0}"'
+
 
 def _also(ctx, rows, member):
     esc, out = ctx["esc"], []
@@ -498,16 +500,16 @@ def _also(ctx, rows, member):
     for r in rows.values():
         if r.get("state") == "uses others'":
             said = f'{r.get("name")}' + (f' · {_n(r["calls"])} {wording.unit_noun(r["calls"], r.get("unit") or "uses")} this month' if r.get("calls") else "")
-            (builtin if r.get("id") in board.BUILT_INTO_CLAUDE_CODE else others).append(said)
+            (builtin if r.get("id") in board.BUILT_INTO_CLAUDE_CODE else others).append((said, r))
     if others:
-        out.append('<div><b class="k">In use, made by others</b>' + "".join(f'<span class="c">{esc(x)}</span>' for x in others) + "</div>")
+        out.append('<div><b class="k">In use, made by others</b>' + "".join(f'<span class="c"{_row_hook(r)}>{esc(x)}</span>' for x, r in others) + "</div>")
     if builtin:
-        out.append('<div><b class="k">Built into Claude Code</b>' + "".join(f'<span class="c">{esc(x)}</span>' for x in builtin) + "</div>")
+        out.append('<div><b class="k">Built into Claude Code</b>' + "".join(f'<span class="c"{_row_hook(r)}>{esc(x)}</span>' for x, r in builtin) + "</div>")
     folds = []
     for state, word in (("not seen", "Not seen on this laptop"), ("can't tell", "Couldn't tell from the logs")):
         rs = [r for r in rows.values() if r.get("state") == state]
         if rs:
-            lis = "".join(f'<li><b>{esc(r.get("name"))}</b>: '
+            lis = "".join(f'<li{_row_hook(r)}><b>{esc(r.get("name"))}</b>: '
                           + esc(r.get("why") if state == "can't tell" and not ctx.get("masked") else GIVES.get(r.get("id"), "")) + "</li>"
                           for r in rs)
             folds.append(f'<details class="bt-fold none"><summary>{CHEV}{word} ({len(rs)})</summary><ul class="gv">{lis}</ul></details>')

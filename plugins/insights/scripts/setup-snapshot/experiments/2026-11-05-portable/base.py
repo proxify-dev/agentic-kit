@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """What any laptop can tell, read the same way on every laptop: the base the rewritten checks stand on (2026-11-05).
 
-His ask: "if something can't be detected by heuristics on somebody else's machine then we're doomed". The 155 checks
-the kept practices need were written on his laptop; the review in the practices page found most of them tuned to him or
+The ask: "if something can't be detected by heuristics on somebody else's machine then we're doomed". The 155 checks
+the kept practices need were written on one laptop; the review in the practices page found most of them tuned to him or
 guessing. Each check is rewritten in checks_*.py on top of this file, which allows only two kinds of evidence:
 
   1. What Claude Code writes the same way for everyone (session logs, history.jsonl, sub-agent meta files, settings).
@@ -92,7 +92,7 @@ def _prune_cache(folder):
     """Delete the cache files no run will read again: every one last written more than CACHE_HOURS ago (a state file's
     build time is never later than its write time, so it has expired too), and the temp files a stopped run left.
     Both caches are keyed on the code, so each version of the tool writes a new pair (~1.7 GB on a laptop with a busy
-    month of logs) and, until 11-11, none was ever deleted: 24 GB on the builder's laptop after one week of changes,
+    month of logs) and, until 11-11, none was ever deleted: 24 GB on one laptop after one week of changes,
     and one more pair per release on every member's. Only names this cache writes are touched."""
     cutoff = time.time() - CACHE_HOURS * 3600
     try:
@@ -229,7 +229,7 @@ def _read_file(args):
                 out["commands"].append({**base, "name": name.strip(), "args": args[:300], "src": "transcript"})
                 continue
             if st.startswith("<command-message>"):
-                # the other shape of a command record (skills and plugin commands; 254 of 465 on his laptop): <command-message> first, <command-name>
+                # the other shape of a command record (skills and plugin commands; 254 of 465 on one laptop): <command-message> first, <command-name>
                 # after it, then the isMeta expansion read above. The person's own typing only: not a headless run (entrypoint sdk-*), not
                 # a command a plugin or a hook started (origin kind other than human). Same fields as the first shape, `shape` tells them apart.
                 i0 = st.find("<command-name>")
@@ -645,7 +645,7 @@ class Laptop:
         return memo[d]
 
     def authorship(self, path):
-        """{commits, theirs, yours}. yours follows the one ownership rule (ownership.py, his ruling 11-05): theirs unless
+        """{commits, theirs, yours}. yours follows the one ownership rule (ownership.py, the ruling 11-05): theirs unless
         a receipt says installed (marketplace, skills lock); git only makes it a teammate's (most commits someone
         else's). Untracked files are theirs too. A link is followed first; a folder counts every commit under it."""
         real = os.path.realpath(path)
@@ -795,7 +795,7 @@ class Laptop:
         """Is this rule file scoped: does it sit BELOW the root of the project it belongs to, or is it a `.claude/rules`
         file? A file at its project's root (CLAUDE.md, AGENTS.md, .claude/CLAUDE.md) is that project's always-loaded
         file wherever the session started. Why (11-11): Claude Code records a repo's root file as `nested_memory`
-        when the session was started above the repo (the home folder), and a tester with one rule file per repo read
+        when the session was started above the repo (the home folder), and a person with one rule file per repo read
         "rules scoped to where they apply". The project: the git root around the file; in no repo, the deepest folder
         a session started in that holds it (the home folder is never a project, as in `repos`)."""
         real = os.path.realpath(path)

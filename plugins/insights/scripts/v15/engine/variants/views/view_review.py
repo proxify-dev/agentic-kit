@@ -1,6 +1,6 @@
 """The page's first tab: the person's setup at a glance, with the depth one click away.
 
-Why it looks like this (his 11-11, on the written review this tab used to be): "Users get lost when they see it… too
+Why it looks like this (11-11, on the written review this tab used to be): "Users get lost when they see it… too
 much to read… be more creative." It was a long lede, then one card per project with two long paragraphs. Now the first
 screen answers four questions a non-engineer can take in within seconds, each as a picture before any sentence:
   1. Where am I?            the level mark and a four-step ladder, each step with how many of its things are in place
@@ -555,7 +555,7 @@ def _hero(ctx, projects):
             unit = "part"
         cls = "you" if k == lvl else "below" if k < lvl else "could" if k == could else "above"
         dots = "".join(f'<i class="dot{" met" if j < have else ""}"></i>' for j in range(of))
-        steps.append(f'<li class="{cls}" title="{k}: {esc(view_mylevel.MEANING[k])}"><span class="bar" style="--h:{heights[k]}px">{dots}</span>'
+        steps.append(f'<li class="{cls}" data-level="{k}" data-have="{have}" data-of="{of}" data-unit="{unit}" title="{k}: {esc(view_mylevel.MEANING[k])}"><span class="bar" style="--h:{heights[k]}px">{dots}</span>'
                      f'<b>{k}</b>' + (f'<small>{have} of {plural(of, unit)}</small>' if of else "") + "</li>")
     said = f"Your level: {lvl}, {view_mylevel.MEANING[lvl]}. See how it was read."
     return ('<section class="lv" aria-label="Your level">'
@@ -725,12 +725,13 @@ def _picture(ctx, c):
         own, used = int(f["own"]), int(f.get("own_used") or 0)
         shown = min(own, 300)
         dots = "".join(f'<i class="{"on" if j < used else ""}"></i>' for j in range(shown))
-        pic = (f'<div class="dots" role="img" aria-label="{plural(own, 'skill or command you wrote', 'skills and commands you wrote')}, {used} used in the last 30 days">{dots}</div>'
+        pic = (f'<div class="dots" data-thing="skills-commands" data-count="{own}" data-used="{used}" role="img" aria-label="{plural(own, 'skill or command you wrote', 'skills and commands you wrote')}, {used} used in the last 30 days">{dots}</div>'
                f'<div class="key"><span><i class="dot on"></i><span>Used in the last 30 days: <b>{used}</b></span></span>'
                f'<span><i class="dot"></i><span>Not used: <b>{own - used}</b></span></span></div>')
         return f"Your agent picks from {plural(own, 'skill or command you wrote', 'skills and commands you wrote')}, and used {used} of them this month", pic
     if cid == "unused-setup" and f.get("others"):
-        pic = (f'<div class="big"><b>{_n(f["others"])}</b><span>skills, commands and plugins from others, called '
+        pic = (f'<div class="big" data-thing="use-others-tools" data-count="{f["others"]}" data-calls="{f.get("others_calls") or 0}">'
+               f'<b>{_n(f["others"])}</b><span>skills, commands and plugins from others, called '
                f'{plural(f.get("others_calls") or 0, "time")} in 30 days</span></div>')
         return "Plugins and skills you don't use still sit in every session", pic
     head = (CARD_SAYS.get(cid) or {}).get("head") or _clip(c.get("cost") or c.get("saw") or c.get("do"), 120)

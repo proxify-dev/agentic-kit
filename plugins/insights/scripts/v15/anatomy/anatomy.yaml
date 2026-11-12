@@ -317,10 +317,10 @@ disciplines:
 
 left_out:
   - what: How well someone writes a prompt or hands over a task
-    why: too broad, and a scan can't judge it (his 11-09); the built-in parts (done-conditions, spec files) live in Loop engineering
+    why: too broad, and a scan can't judge it (11-09); the built-in parts (done-conditions, spec files) live in Loop engineering
   - what: Ask without hinting the answer you want
     why: no signal; a call question
   - what: Commit in small, revertible steps
     why: plain git habit, not agentic
   - what: Building agents into a product
-    why: its own track, needs his ruling
+    why: its own track, needs the ruling
