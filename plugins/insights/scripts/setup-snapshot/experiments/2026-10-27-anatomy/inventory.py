@@ -16,6 +16,11 @@ The home config (~/.claude, ~/.claude.json, ~/CLAUDE.md, the plugin store) is al
 Hard rules kept by the code
   * Only writes the --out file, and only after the secret self-check passes.
   * Runs only read-only git (GIT_OPTIONAL_LOCKS=0, no fsmonitor), du, crontab -l. Never a project script or package manager.
+  * Four steps whose output no reader of a run uses are SWITCHED OFF since 2026-11-12 and run only when their variable is "1":
+    AGENTIC_SETUP_WORKTREE_SIZES (du -sk per linked worktree), AGENTIC_SETUP_WORKTREE_DIRTY (git status per linked worktree),
+    AGENTIC_SETUP_WORKTREE_MERGED (merge-base / rev-list per linked worktree), AGENTIC_SETUP_IGNORE_CHECK (git check-ignore on a
+    file git has no commit on). The proof that nothing reads them: memory/scanner/issues/inventory-spent-minutes-on-answers-nothing-read.md.
+    Their fields stay in the output as null (or absent) when off.
   * Settings, MCP and plugin JSON are parsed. `env`, `headers` and any key named like token/key/secret/pass/auth/cookie/xox
     become {name, value_len}. Free text (commands, matched lines) goes through scrub(). Commit ids are cut to 12 chars.
   * Skips node_modules, .git internals, build/dist, caches, binaries, files over 2 MB. `.env*` files are never opened.
@@ -88,6 +93,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import stat
 import sys
 import time
 from collections import Counter, defaultdict
@@ -231,6 +237,12 @@ def self_check(obj) -> list[str]:
 
 def read_text(p: Path, limit: int = MAX_FILE, note: bool = True) -> str | None:
     """File text, or None. `note=False` for bulk source scans, where skipped big/binary files are not worth listing."""
+    data = read_bytes_noted(p, limit, note)
+    return data.decode("utf-8", "replace") if data is not None else None
+
+
+def read_bytes_noted(p: Path, limit: int = MAX_FILE, note: bool = True) -> bytes | None:
+    """What read_text reads before it decodes: the bytes, or None (and a note in could_not_read) when the file cannot be read."""
     try:
         st = p.stat()
         if st.st_size > limit:
@@ -250,7 +262,7 @@ def read_text(p: Path, limit: int = MAX_FILE, note: bool = True) -> str | None:
         if note:
             cnr(p, "skipped: binary")
         return None
-    return data.decode("utf-8", "replace")
+    return data
 
 
 def read_json(p: Path):
@@ -294,6 +306,20 @@ def count_lines(text: str) -> int:
 GIT = shutil.which("git")
 GIT_ENV = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", "GIT_TERMINAL_PROMPT": "0", "GIT_PAGER": "cat", "LC_ALL": "C"}
 GIT_BUDGET = {"left": 40.0}  # seconds of git time for per-file history lookups, all targets together
+
+
+def _switch(var: str) -> bool:
+    return os.environ.get(var) == "1"
+
+
+# Steps switched off on 2026-11-12 (the rule in setup-snapshot/CLAUDE.md: a step that should stop running is switched off, never deleted). Why:
+# on a laptop with 218 linked worktrees they were about 140 s of process time and 50 s of wall time of a 3.5 minute step, and the
+# fields they fill have no reader in `run.py pre`, in the page, the engine, the board, the share summary or the briefs
+# (memory/scanner/issues/inventory-spent-minutes-on-answers-nothing-read.md). Set the variable to "1" to run one again.
+WORKTREE_SIZES = _switch("AGENTIC_SETUP_WORKTREE_SIZES")   # du -sk per linked worktree -> items[].size_kb, summary.total_kb
+WORKTREE_DIRTY = _switch("AGENTIC_SETUP_WORKTREE_DIRTY")   # git status per linked worktree -> items[].dirty_files, summary.dirty
+WORKTREE_MERGED = _switch("AGENTIC_SETUP_WORKTREE_MERGED") # merge-base / rev-list per worktree -> merged, merged_into, ahead_of_default
+IGNORE_CHECK = _switch("AGENTIC_SETUP_IGNORE_CHECK")       # git check-ignore on a file with no commits -> a field git_info drops
 
 
 def git(args: list[str], cwd: Path | str, timeout: float = 15) -> subprocess.CompletedProcess | None:
@@ -406,6 +432,18 @@ def identity_from_repos(repo_roots: list[Path]):
 _hist_cache: dict[tuple[Path, str | tuple[str, ...]], dict | None] = {}
 
 
+def _load_file_history():
+    here = os.path.dirname(os.path.abspath(__file__))
+    spec = importlib.util.spec_from_file_location("file_history", os.path.join(here, "..", "2026-11-02-evidence", "file_history.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# the history of a repo asked about many paths, read with one git call (the same git as every other call here)
+HISTORIES = _load_file_history().Histories(lambda args, cwd, timeout: git(args, cwd, timeout))
+
+
 def history(root: Path, rel: str | tuple[str, ...], budgeted: bool = True) -> dict | None:
     """The commits that touched `rel`, a path inside root, or any of several (a tuple). `budgeted=False` runs outside
     GIT_BUDGET, for a lookup made once per thing found rather than once per file."""
@@ -415,11 +453,15 @@ def history(root: Path, rel: str | tuple[str, ...], budgeted: bool = True) -> di
     res = None
     if not budgeted or GIT_BUDGET["left"] > 0:
         t = time.monotonic()
-        r = git(["log", "--format=%aI%x09%ae%x09%an", "--", *((rel,) if isinstance(rel, str) else rel)], root, 15)
+        # a repo asked about many paths is read once (file_history.py), with the answer `git log -- <path>` gives; a path it
+        # cannot answer, or a repo it cannot read, goes to git one path at a time, as before
+        batched = HISTORIES.rows(root, rel)
+        r = None if batched is not None else git(["log", "--format=%aI%x09%ae%x09%an", "--", *((rel,) if isinstance(rel, str) else rel)], root, 15)
         if budgeted:
             GIT_BUDGET["left"] -= time.monotonic() - t
-        if r is not None and r.returncode == 0:
-            rows = [ln.split("\t") + ["", ""] for ln in r.stdout.splitlines() if ln]
+        if batched is not None or (r is not None and r.returncode == 0):
+            rows = [[w, e, n.partition("\t")[0], ""] for w, e, n in batched] if batched is not None else \
+                [ln.split("\t") + ["", ""] for ln in r.stdout.splitlines() if ln]
             res = {
                 "commits": len(rows),
                 "first_commit": rows[-1][0][:10] if rows else None,
@@ -445,7 +487,7 @@ def git_info(path: Path) -> dict:
         info["error"] = "git log unavailable"
         return info
     info.update(h)
-    if h["commits"] == 0:
+    if h["commits"] == 0 and IGNORE_CHECK:
         r = git(["check-ignore", "-q", "--", rel], root, 5)
         info["ignored"] = bool(r is not None and r.returncode == 0)
     return info
@@ -631,13 +673,16 @@ def walk_target(root: Path) -> Walk:
                     continue
                 if name.lower() in TEST_DIRS:
                     w.test_dirs.append(p)
-                gitp = p / ".git"
-                if gitp.is_file():
+                try:   # one stat for "is there a .git, and is it a file or a folder" (is_file() then is_dir() were two)
+                    git_mode = os.stat(os.path.join(e.path, ".git")).st_mode
+                except OSError:
+                    git_mode = 0
+                if stat.S_ISREG(git_mode):
                     if _gitfile_is_worktree(p):
                         w.linked_worktrees.append(p)
                         continue
                     w.git_repos.append(p)  # submodule: keep walking
-                elif gitp.is_dir():
+                elif stat.S_ISDIR(git_mode):
                     w.git_repos.append(p)
                 stack.append((e.path, depth + 1, in_skill_here, in_mcp_here))
                 continue
@@ -1103,6 +1148,10 @@ def _ownership():
     spec = importlib.util.spec_from_file_location("ownership", os.path.join(here, "..", "2026-11-02-evidence", "ownership.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    fh = importlib.util.spec_from_file_location("file_history", os.path.join(here, "..", "2026-11-02-evidence", "file_history.py"))
+    fm = importlib.util.module_from_spec(fh)
+    fh.loader.exec_module(fm)
+    fm.speed_up_ownership(mod)   # `git cat-file -e` once per file and repo becomes one open process per repo
     return mod
 
 
@@ -1951,7 +2000,7 @@ def collect_worktrees(repo_candidates: list[Path], targets: list[Path], du_budge
                     it["created_approx"] = iso(gitp.stat().st_mtime)[:10]
                 except OSError:
                     pass
-            if sha and not it["is_main"] and default_refs:
+            if sha and not it["is_main"] and default_refs and WORKTREE_MERGED:
                 merged_into, rcs = None, []
                 for r in default_refs:
                     rr = git(["merge-base", "--is-ancestor", sha, r], repo_cwd, 10)
@@ -1972,10 +2021,10 @@ def collect_worktrees(repo_candidates: list[Path], targets: list[Path], du_budge
                 return it, None, None, []
             left = deadline - time.monotonic()
             # the main checkout is not sized: du would also count every worktree nested inside it
-            size = du_kb(p, min(12.0, left)) if left > 0 and not it["is_main"] else None
+            size = du_kb(p, min(12.0, left)) if WORKTREE_SIZES and left > 0 and not it["is_main"] else None
             deps = find_deps(p, main)
             dirty = None
-            if time.monotonic() < deadline + 8 and not it["bare"]:
+            if WORKTREE_DIRTY and time.monotonic() < deadline + 8 and not it["bare"]:
                 so = git_out(["status", "--porcelain"], p, 10)
                 dirty = len(so.splitlines()) if so is not None else None
             return it, size, dirty, deps
@@ -1983,21 +2032,24 @@ def collect_worktrees(repo_candidates: list[Path], targets: list[Path], du_budge
         with cf.ThreadPoolExecutor(max_workers=8) as ex:
             for it, size, dirty, deps in ex.map(heavy, items):
                 it["size_kb"], it["dirty_files"], it["deps"] = size, dirty, deps
-        skipped = sum(1 for it in items if it["exists"] and not it["is_main"] and it["size_kb"] is None)
+        skipped = sum(1 for it in items if it["exists"] and not it["is_main"] and it["size_kb"] is None) if WORKTREE_SIZES else None
         if skipped:
             cnr(main, f"du skipped for {skipped} worktrees (time cap {du_budget:.0f}s or timeout)")
         linked = [i for i in items if not i["is_main"]]
+        # a count of a step that did not run is null, never 0: 0 would read as "none merged", "none dirty", "no bytes"
         summary = {
-            "linked": len(linked), "merged": sum(1 for i in linked if i.get("merged")),
-            "unmerged": sum(1 for i in linked if i.get("merged") is False), "merged_unknown": sum(1 for i in linked if i.get("merged") is None), "locked": sum(1 for i in linked if i["locked"]),
+            "linked": len(linked), "merged": sum(1 for i in linked if i.get("merged")) if WORKTREE_MERGED else None,
+            "unmerged": sum(1 for i in linked if i.get("merged") is False) if WORKTREE_MERGED else None,
+            "merged_unknown": sum(1 for i in linked if i.get("merged") is None) if WORKTREE_MERGED else None, "locked": sum(1 for i in linked if i["locked"]),
             "prunable": sum(1 for i in linked if i["prunable"]), "detached": sum(1 for i in linked if i["detached"]),
-            "merged_with_dirty_files": sum(1 for i in linked if i.get("merged") and (i.get("dirty_files") or 0) > 0),
-            "total_kb": sum(i["size_kb"] or 0 for i in linked), "size_unknown": skipped,
+            "merged_with_dirty_files": (sum(1 for i in linked if i.get("merged") and (i.get("dirty_files") or 0) > 0)
+                                        if WORKTREE_MERGED and WORKTREE_DIRTY else None),
+            "total_kb": sum(i["size_kb"] or 0 for i in linked) if WORKTREE_SIZES else None, "size_unknown": skipped,
             "own_node_modules": sum(1 for i in linked if any(d["kind"] == "node_modules" and d["link"] == "dir" for d in i["deps"])),
             "linked_node_modules": sum(1 for i in linked if any(d["kind"] == "node_modules" and d["link"] == "symlink" for d in i["deps"])),
             "own_venv": sum(1 for i in linked if any(d["kind"] == ".venv" and d["link"] == "dir" for d in i["deps"])),
             "linked_venv": sum(1 for i in linked if any(d["kind"] == ".venv" and d["link"] == "symlink" for d in i["deps"])),
-            "dirty": sum(1 for i in linked if (i.get("dirty_files") or 0) > 0),
+            "dirty": sum(1 for i in linked if (i.get("dirty_files") or 0) > 0) if WORKTREE_DIRTY else None,
         }
         repos.append({"repo": str(main), "common_dir": common, "default_refs": default_refs, "summary": summary, "items": items})
     return repos
@@ -2090,8 +2142,22 @@ def scan_launch_text(text: str) -> tuple[list[dict], dict]:
     return hits, dict(counts)
 
 
+# every word scan_launch_text looks for before it reads a line (LAUNCH_QUICK and SCHEDULER), lower-case
+_LAUNCH_WORDS = (b"claude", b"anthropic", b"codex", b"gemini", b"cursor-agent", b"aider", b"opencode",
+                 b"crontab", b"launchctl", b"schtasks", b"systemd-run")
+
+
 def scan_script(p: Path) -> tuple[list[dict], dict]:
-    text = read_text(p, note=False)
+    data = read_bytes_noted(p, note=False)
+    if not data:
+        return [], {}
+    # a plain-ASCII file that names none of those words (in any case) gives ([], {}) without decoding it and running the regexes
+    # over all of it; a file with any other byte is read the long way
+    if data.isascii():
+        low = data.lower()
+        if not any(w in low for w in _LAUNCH_WORDS):
+            return [], {}
+    text = data.decode("utf-8", "replace")
     return scan_launch_text(text) if text else ([], {})
 
 
@@ -2220,8 +2286,9 @@ def ci_entry(p: Path) -> dict | None:
     text = read_text(p)
     if not text:
         return None
+    # a file that never says it has no line that does: look at its lines only when it has one
     mentions = [{"line": i + 1, "text": scrub(ln.strip(), 160)} for i, ln in enumerate(text.splitlines())
-                if re.search(r"(?i)claude|anthropic", ln) and len(ln) < 2000][:6]
+                if re.search(r"(?i)claude|anthropic", ln) and len(ln) < 2000][:6] if re.search(r"(?i)claude|anthropic", text) else []
     hits, counts = scan_launch_text(text)
     if not mentions and not counts:
         return None
