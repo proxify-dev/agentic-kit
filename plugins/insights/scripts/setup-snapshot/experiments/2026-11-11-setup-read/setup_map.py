@@ -637,7 +637,8 @@ def pick_projects(run, ctx, n, inv, anat, scan):
     """[(root, {typed_sessions, ...})]: anatomy_scan's pick; when it is missing, the same count from chats.jsonl; sessions
     started in a folder above the repos (a start folder that is not a repo) leave the rest to the repos the inventory
     found below it; a session started in HOME names no repo, so the repos it worked in (worked-in.json: files it edited,
-    commits it made, wherever it started) rank by sessions, and only then the repos whose own root file was edited last."""
+    commits it made, wherever it started) rank by sessions, and only then the repos whose own root file was edited last
+    (those carry `picked_by: "rule-files"`: the pages say "busiest" only for a list ranked by sessions or work)."""
     picked = []
     if scan and scan.get("projects"):
         picked = [(p["root"], {k: p[k] for k in ("typed_sessions", "sessions") if k in p}) for p in scan["projects"]]
@@ -689,7 +690,7 @@ def pick_projects(run, ctx, n, inv, anat, scan):
                 roots[proj] = max(roots.get(proj, ""), x.get("mtime") or "")
         if _home_start(run, ctx):
             for r, _ in sorted(roots.items(), key=lambda kv: kv[1], reverse=True)[:n - len(picked)]:
-                picked.append((r, {"found_under": "~"}))
+                picked.append((r, {"found_under": "~", "picked_by": "rule-files"}))   # not ranked by sessions: the pages say so
     return picked
 
 

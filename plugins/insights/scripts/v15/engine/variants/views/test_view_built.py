@@ -58,15 +58,15 @@ MAP = {"projects": [{"root": "~/shop", "typed_sessions": 120, "totals": {"always
 class Built(unittest.TestCase):
     def test_at_a_glance_a_tile_per_kind_they_have(self):
         out = page(FULL, setup_map=MAP)
-        tiles = re.findall(r'<a class="tile" href="#built-(\w+)"><span class="bt-num">([\d,]+)</span><span class="lab">([^<]+)', out)
-        self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "commands you wrote"),
-                                 ("rules", "6", "rule files in your 2 busiest projects"), ("agents", "1", "sub-agents you defined"),
+        tiles = re.findall(r'<a class="tile" href="#built-(\w+)"[^>]*><span class="bt-num">([\d,]+)</span><span class="lab">([^<]+)', out)
+        self.assertEqual(tiles, [("skills", "13", "skills you wrote"), ("commands", "1", "command you wrote"),
+                                 ("rules", "6", "rule files in your 2 busiest projects"), ("agents", "1", "sub-agent you defined"),
                                  ("hooks", "4", "hooks you set up")])
         self.assertIn("<b>12</b> used this month", out)    # used, and a name an installed skill also has: not idle
         self.assertIn("<b>3</b> ran this month", out)
         self.assertIn("<b>129</b> sessions ran with them", out)
         for kind in ("skills", "commands", "rules", "agents", "hooks"):   # a tile opens its section
-            self.assertIn(f'<section class="kd" id="built-{kind}">', out)
+            self.assertIn(f'<section class="kd" id="built-{kind}"', out)
         self.assertNotIn('href="#built-evals"', out)                     # nothing of theirs: no tile
 
     def test_a_kind_lists_its_things_by_use_and_folds_the_unused(self):

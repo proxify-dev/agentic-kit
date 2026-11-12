@@ -21,6 +21,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ENGINE = os.path.join(HERE, "..", "..")
 sys.path.insert(0, ENGINE)
 import share_payload  # noqa: E402
+import things as level_things  # noqa: E402
+import wording  # noqa: E402  the one plural
 
 ORDER = 45
 TITLE = "Get your agentic engineering level confirmed"
@@ -99,6 +101,8 @@ CSS = """
 .v-share .sh-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;margin-top:28px}
 .v-share .sh-cols h4{font-size:14px;font-weight:600;margin:0 0 8px;color:#15172F}
 .v-share .sh-cols p{margin:0 0 10px;color:#475467}
+.v-share ul.sh-old{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13px;color:#344054}
+.v-share ul.sh-old small{display:block;color:#667085;font-size:12px}
 .v-share .sh-chips{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0}
 .v-share .sh-chips li{padding:3px 10px;border-radius:999px;background:#F2F4F7;color:#344054;font-size:12px}
 .v-share .sh-foot{margin-top:28px;color:#667085;font-size:12px}
@@ -115,10 +119,34 @@ SIGN_NAME = {"endless-sessions": "Sessions that only compact automatically", "se
              "rules-only-grow": "Rule files that only grow"}
 
 
+# the five lines of the summary that still come from the practice read (share_payload: practices, built_areas,
+# evals_shown, call_questions, certainty). The page's level and parts come from the read of things and of the files, so
+# these can differ from the Review and Your level tabs: each says so, in the same words.
+OLDER_NOTE = "from the older read; may differ from this page"
+SURE_WORD = {"high": "Very sure", "medium": "Fairly sure", "low": "Not very sure yet"}
+
+
+def older_lines(esc, sh, disc):
+    """The five lines that come from the older read, each with the same note (empty when the page shows the older read itself)."""
+    if sh.get("level_model") != "things":
+        return ""
+    areas = [disc.get(a, a) for a in sh.get("built_areas") or []]
+    qs = [g for g in sh.get("call_questions") or [] if g]
+    sure = SURE_WORD.get((sh.get("certainty") or {}).get("level"), "Not read")
+    n_seen = sum(1 for p in (sh.get("practices") or {}).values() if p.get("rung") in RUNG_CLASS)
+    lines = [("One line for each habit", f"{len(sh.get('practices') or {})} habits, {n_seen} seen"),
+             ("The areas you built in", ", ".join(areas) or "none"),
+             ("Evals on what you built", "shown" if sh.get("evals_shown") else "not shown"),
+             ("Questions left for your call", str(len(qs))),
+             ("How sure the reading is", sure)]
+    return ('<h4 class="sh-h">Lines from the older read</h4><ul class="sh-old">'
+            + "".join(f"<li><b>{esc(k)}</b>: {esc(v)}<small>{esc(OLDER_NOTE)}</small></li>" for k, v in lines) + "</ul>")
+
+
 def part_word(g, ran):
     """One word for a part's verdict, the same rule the level uses: shown only when the code proved the structure, the
     agent read it as shown and its quote was found."""
-    if g.get("structure") and g.get("judged") == "shown" and g.get("quote_ok"):
+    if level_things.part_state(g)[0] == "shown":   # things.part_state owns "a part is shown"
         return "r3", "Shown"
     if not ran or (g.get("judged") == "can't tell" and not g.get("structure")):
         return "r0", "Couldn't read"
@@ -138,15 +166,14 @@ def new_lines(esc, sent):
                     for g in sr.get("parts") or [] for c, w in [part_word(g, sr.get("ran"))])
     signs = [SIGN_NAME.get(i, i.replace("-", " ")) for i in (sr.get("holds") or []) + (sr.get("cards") or [])]
     try:
-        import things as level_things
         names, order = {t["id"]: t["name"] for t in level_things.THINGS}, list(level_things.STATE_RANK)
     except Exception:  # noqa: BLE001 - without the list the ids show as they are
         names, order = {}, []
     by_state = {}
     for tid, t in (sent.get("things") or {}).items():
-        by_state.setdefault(t.get("state"), []).append(names.get(tid, tid.replace("-", " ")))
+        by_state.setdefault(t.get("state"), []).append((tid, names.get(tid, tid.replace("-", " "))))
     groups = "".join(f'<div><h4>{esc(st[:1].upper() + st[1:])}</h4><ul class="sh-chips">'
-                     + "".join(f"<li>{esc(n)}</li>" for n in ns) + "</ul></div>"
+                     + "".join(f'<li data-thing="{esc(tid)}" data-state="{esc(st)}">{esc(n)}</li>' for tid, n in ns) + "</ul></div>"
                      for st, ns in sorted(by_state.items(), key=lambda kv: order.index(kv[0]) if kv[0] in order else 99))
     out = []
     if parts:
@@ -286,8 +313,8 @@ def render(ctx):
 </div>
 <div class="sh-warn">{icon("warn")}<p><b>Don't send this page or your agentic-setup folder.</b> They hold your project names, file paths and pieces of your prompts. Only the summary below is made to leave your laptop.</p></div>
 <section class="sh-sum" aria-labelledby="sh-sum-h"><h3 id="sh-sum-h">The summary, in plain words</h3>
-<p>This is everything in it{f", read from {days} days of your logs" if days else ""}.</p>
-{fresh}<div class="sh-cols">
+<p>This is everything in it{f", read from {wording.plural(days, 'day')} of your logs" if days else ""}.</p>
+{fresh}{older_lines(esc, sh, disc)}<div class="sh-cols">
  <div><h4>Kinds of things you built</h4><ul class="sh-chips">{chips(sh.get("built_kinds") or [])}</ul></div>
  <div><h4>Kinds of things you use</h4><ul class="sh-chips">{chips(sh.get("uses_kinds") or [])}</ul></div>
 </div>

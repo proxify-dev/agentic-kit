@@ -20,9 +20,11 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.normpath(os.path.join(HERE, "..", "..")))
-import things as level_things  # noqa: E402  which level read is in use, and its things
+import things as level_things  # noqa: E402  which level read is in use, its things, and the one count of each number
+import wording  # noqa: E402  the one plural and noun
+from wording import plural  # noqa: E402
 sys.path.insert(0, HERE)
-import view_mylevel  # noqa: E402  the same state rule and level names as the Your level tab: the two tabs never disagree
+import view_mylevel  # noqa: E402  the same level names as the Your level tab: the two tabs never disagree
 
 ORDER = 0
 TITLE = "A review of your setup"
@@ -478,24 +480,22 @@ def _st(state, word=None):
 
 # ------------------------------------------------------------------ 1. the level
 
-def _things_met(pt):
-    """Per level: (things in place, things). In place = theirs (used or idle); at L1 what others made counts too, since
-    using it is that level's point."""
-    out = {}
-    for t in pt.get("things") or []:
-        if not isinstance(t, dict) or t.get("level") not in view_mylevel.MEANING:
-            continue
-        met = t.get("state") in level_things.PRESENT or (t.get("level") == "L1" and t.get("state") == level_things.USES_OTHERS)
-        have, of = out.get(t["level"], (0, 0))
-        out[t["level"]] = (have + met, of + 1)
-    return out
+def _mapped(ctx):
+    """Every project the setup read mapped: the one list (things.mapped_projects) the Built tab's rule files walk too."""
+    return level_things.mapped_projects(ctx.get("setup_map"), ctx.get("setup_read"))
+
+
+def _noun(ctx):
+    """"3 busiest projects" or "busiest project", or without "busiest" where a slot was filled another way."""
+    m = _mapped(ctx)
+    return level_things.projects_noun(m) if m else "busiest project"
 
 
 def _and(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def _why(lvl, pt, projects):
+def _why(lvl, pt, projects, noun="busiest project"):
     """One sentence, at most WHY_WORDS words, from the data: in how many projects each part shows (the Your level tab's
     rule), then what the level adds. "" when it would not fit."""
     read = _read_projects(projects)
@@ -508,7 +508,7 @@ def _why(lvl, pt, projects):
         bits = []
         for cnt, names in sorted(groups.items(), reverse=True):
             if n == 1:
-                where = "show in your busiest project" if cnt else "not yet"
+                where = f"show in your {noun}" if cnt else "not yet"
             elif not bits:
                 where = (f"show in all {n} projects" if cnt == n else f"show in {cnt} of {n} projects" if cnt
                          else f"show in none of {n} projects")
@@ -542,16 +542,21 @@ def _hero(ctx, projects):
         return ""
     esc = ctx["esc"]
     could = pt.get("could_be") if pt.get("could_be") in view_mylevel.MEANING and pt.get("could_be") != lvl else None
-    met = _things_met(pt) if which == "things" else {}
-    why = _why(lvl, pt, projects)
+    met = level_things.things_met(pt) if which == "things" else {}
+    why = _why(lvl, pt, projects, _noun(ctx))
     heights = {"L1": 34, "L2": 52, "L3": 70, "L4": 88}
     steps = []
     for k in sorted(view_mylevel.MEANING):
         have, of = met.get(k, (0, 0))
+        unit = "thing"
+        if k == "L3" and (pt.get("setup_read") or {}).get("parts"):
+            # L3 is decided by the parts of the setup read, not by the six things: show what decides it (things.py parts_count)
+            have, _, of = level_things.parts_count(pt["setup_read"]["parts"])
+            unit = "part"
         cls = "you" if k == lvl else "below" if k < lvl else "could" if k == could else "above"
         dots = "".join(f'<i class="dot{" met" if j < have else ""}"></i>' for j in range(of))
-        steps.append(f'<li class="{cls}" title="{k}: {esc(view_mylevel.MEANING[k])}"><span class="bar" style="--h:{heights[k]}px">{dots}</span>'
-                     f'<b>{k}</b>' + (f'<small>{have} of {of}</small>' if of else "") + "</li>")
+        steps.append(f'<li class="{cls}" data-level="{k}" data-have="{have}" data-of="{of}" data-unit="{unit}" title="{k}: {esc(view_mylevel.MEANING[k])}"><span class="bar" style="--h:{heights[k]}px">{dots}</span>'
+                     f'<b>{k}</b>' + (f'<small>{have} of {plural(of, unit)}</small>' if of else "") + "</li>")
     said = f"Your level: {lvl}, {view_mylevel.MEANING[lvl]}. See how it was read."
     return ('<section class="lv" aria-label="Your level">'
             f'<div class="lv-id"><div class="lv-mark" aria-hidden="true">{esc(lvl)}</div><div>'
@@ -559,7 +564,7 @@ def _hero(ctx, projects):
             f'<h3 class="lv-name">{esc(view_mylevel.MEANING[lvl])}</h3>'
             + (f'<p class="lv-why">{esc(why)}</p>' if why else "") + "</div></div>"
             f'<a class="lad" href="#mylevel" aria-label="{esc(said)}"><ol>{"".join(steps)}</ol>'
-            f'<span class="lad-foot"><span>{"Things in place, per level" if met else "The four levels"}</span>'
+            f'<span class="lad-foot"><span>{"In place, per level (L3 counts the parts of your setup)" if met else "The four levels"}</span>'
             f'<span class="rv-link">How it was read{_icon("arrow")}</span></span></a></section>')
 
 
@@ -580,7 +585,7 @@ def _receipt(ctx, i, p, pid, state, note, store):
         words, _ = SHAPE.get(store.get("shape"), SHAPE["empty"])
         files = store.get("files")
         out.append(f'<p class="rc-shape">{_shape_svg(store.get("shape"), "")}<span>{esc(words)}'
-                   + (f' · {_n(files)} note{"s" if files != 1 else ""}' if isinstance(files, int) else "")
+                   + (f' · {plural(files, "note")}' if isinstance(files, int) else "")
                    + f' · <code>{esc(store.get("path") or "")}</code></span></p>')
     # a quote the code did not find in the file is never shown: the verdict then rests on the sentence alone
     if g.get("quote_ok") and q.get("text"):
@@ -617,10 +622,10 @@ def _knows(ctx, projects):
                     + "".join(cells) + "</div>" + "".join(receipts) + "</div>")
     if not rows:
         return ""
-    n = len(projects)
+    n, noun = len(projects), _noun(ctx)
     head = '<div class="kn-head" aria-hidden="true"><span>Project</span>' + "".join(f"<span>{w}</span>" for _, w in PARTS) + "</div>"
     return ('<section class="rv-sec"><h3>What your agent knows</h3>'
-            f'<p class="rv-sub">Before you type a word, in {"each of your " + str(n) + " busiest projects" if n > 1 else "your busiest project"}. '
+            f'<p class="rv-sub">Before you type a word, in {"each of your " + noun if n > 1 else "your " + noun}. '
             'Click a cell to see the line it rests on.</p>'
             f'<div class="kn">{head}{"".join(rows)}</div></section>')
 
@@ -694,7 +699,7 @@ def _figures(c):
         if m and f:
             f["sessions"] = int(m.group(1).replace(",", ""))
     if c.get("id") == "unused-setup" and not f:
-        m = re.search(r"(\d+) of the (\d+) skills you wrote were not loaded", saw)
+        m = re.search(r"(\d+) of the (\d+) skills(?: and commands| or command)? you wrote were not loaded", saw)
         if m:
             f = {"own": int(m.group(2)), "own_used": int(m.group(2)) - int(m.group(1))}
     return f
@@ -709,24 +714,25 @@ def _picture(ctx, c):
         shown = min(total, 240)
         cells = "".join(f'<i class="{"own" if j < own else ""}"></i>' for j in range(shown))
         k = f["tokens"] / 1000
-        fine = (f'About {k:.0f}k tokens' + (f', the median of {_n(f["sessions"])} sessions' if f.get("sessions") else "")
+        fine = (f'About {k:.0f}k tokens' + (f', the median of {plural(f["sessions"], "session")}' if f.get("sessions") else "")
                 + f'. A page is {WORDS_PER_PAGE} words.')
-        pic = (f'<div class="pages" role="img" aria-label="{total} pages, {own} of them your own rules">{cells}</div>'
-               f'<div class="key"><span><i class="own"></i><span>Your own rules: <b>about {own} page{"s" if own != 1 else ""}</b></span></span>'
+        pic = (f'<div class="pages" role="img" aria-label="{plural(total, 'page')}, {own} of them your own rules">{cells}</div>'
+               f'<div class="key"><span><i class="own"></i><span>Your own rules: <b>about {plural(own, 'page')}</b></span></span>'
                f'<span><i></i><span>Claude Code\'s instructions, tools and skills: <b>about {total - own}</b></span></span></div>'
-               f'<p class="fine">{fine}' + (f' Showing the first {shown} pages.' if shown < total else "") + "</p>")
-        return f"Your agent reads about {total} pages before you type a word", pic
+               f'<p class="fine">{fine}' + (f' Showing the first {plural(shown, 'page')}.' if shown < total else "") + "</p>")
+        return f"Your agent reads about {plural(total, 'page')} before you type a word", pic
     if cid == "unused-setup" and f.get("own"):
         own, used = int(f["own"]), int(f.get("own_used") or 0)
         shown = min(own, 300)
         dots = "".join(f'<i class="{"on" if j < used else ""}"></i>' for j in range(shown))
-        pic = (f'<div class="dots" role="img" aria-label="{own} skills you wrote, {used} used in the last 30 days">{dots}</div>'
+        pic = (f'<div class="dots" data-thing="skills-commands" data-count="{own}" data-used="{used}" role="img" aria-label="{plural(own, 'skill or command you wrote', 'skills and commands you wrote')}, {used} used in the last 30 days">{dots}</div>'
                f'<div class="key"><span><i class="dot on"></i><span>Used in the last 30 days: <b>{used}</b></span></span>'
                f'<span><i class="dot"></i><span>Not used: <b>{own - used}</b></span></span></div>')
-        return f"Your agent picks from {own} skills you wrote, and used {used} of them this month", pic
+        return f"Your agent picks from {plural(own, 'skill or command you wrote', 'skills and commands you wrote')}, and used {used} of them this month", pic
     if cid == "unused-setup" and f.get("others"):
-        pic = (f'<div class="big"><b>{_n(f["others"])}</b><span>plugins and skills from others, called {_n(f.get("others_calls") or 0)} '
-               f'time{"s" if f.get("others_calls") != 1 else ""} in 30 days</span></div>')
+        pic = (f'<div class="big" data-thing="use-others-tools" data-count="{f["others"]}" data-calls="{f.get("others_calls") or 0}">'
+               f'<b>{_n(f["others"])}</b><span>skills, commands and plugins from others, called '
+               f'{plural(f.get("others_calls") or 0, "time")} in 30 days</span></div>')
         return "Plugins and skills you don't use still sit in every session", pic
     head = (CARD_SAYS.get(cid) or {}).get("head") or _clip(c.get("cost") or c.get("saw") or c.get("do"), 120)
     num = _num_in(c.get("saw")) or _num_in(c.get("cost"))
@@ -793,7 +799,7 @@ def _change(ctx, sr, projects):
                 f'<ul>{"".join(_line(ctx, i + 2, c) for i, c in enumerate(shown))}</ul>'
                 + (f'<details class="cm-rest"><summary>{_chev()}Show {len(loose)} more from Claude Code\'s records</summary>'
                    f'<ul>{"".join(_line(ctx, i + 2 + len(shown), c) for i, c in enumerate(loose))}</ul></details>' if loose else "")
-                + (f'<p class="cm-left">{in_projects} more, each under its project in <a href="#review-projects">Each project</a>.</p>'
+                + (f'<p class="cm-left">{in_projects} more, each under its project <a href="#review-projects">further down this page</a>.</p>'
                    if in_projects else "") + "</div>")
     return ('<section class="rv-sec"><h3>Change this first</h3>'
             '<p class="rv-sub">Where a small change pays back most. The rest are in order below it.</p>'
@@ -961,7 +967,7 @@ def tree(ctx, md):
                     m = re.search(r"(\d[\d,]*)\s+(?:files|notes)", it["line"])
                     words = SHAPE[shape][0] if shape else ""
                     path = re.split(r"\s+(?:\(|—|-\s)", it["line"], 1)[0].strip()
-                    count = (f' · {esc(m.group(1))} note{"s" if m.group(1) != "1" else ""}'
+                    count = (f' · {esc(plural(int(m.group(1).replace(",", "")), "note"))}'
                              if m and shape != "single-file" else "")
                     mem.append(f'<div>{_shape_svg(shape) if shape else ""}<code>{esc(path)}</code>'
                                f'<span>{esc(words)}{count}</span></div>')
@@ -1048,7 +1054,7 @@ def _about(ctx):
     a = ctx.get("about") if isinstance(ctx.get("about"), dict) else {}
     esc = ctx["esc"]
     rows = [("Read for", a.get("who")),
-            ("Period", f'Last {a.get("days", 30)} days, to {a["to"]}' if a.get("to") else None),
+            ("Period", f'Last {plural(a.get("days", 30), "day")}, to {a["to"]}' if a.get("to") else None),
             ("This laptop", a.get("laptop")),
             ("How it was made", "Code mapped the files your agent loads. An agent then read them the way a colleague "
                                 "would, and code checked every quoted line against your file. Nothing left this laptop."),
@@ -1060,7 +1066,7 @@ def _about(ctx):
 def render(ctx):
     sr = ctx.get("setup_read")
     sr = sr if isinstance(sr, dict) else {}
-    projects = [p for p in sr.get("projects") or [] if isinstance(p, dict)]
+    projects = [e["read"] for e in _mapped(ctx) if e["read"]]
     out = [_hero(ctx, projects)]
     if not sr.get("ran"):
         outline = _outline_without_a_read(ctx, projects)
