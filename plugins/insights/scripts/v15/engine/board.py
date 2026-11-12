@@ -439,6 +439,16 @@ def own_instruction_files(f):
     return [x for x in files if x.get("origin") == "own" and not x.get("in_fixture_path")]
 
 
+def _loaded_elsewhere(f, files, home_claude):
+    """Sessions that did not start in the repo of a rule file of theirs but had it loaded by Claude Code itself (its nested-memory
+    records, inventory.json rules_reaching): a home-started session working in a repo. Working in a repo proves nothing about its
+    rules; a load record does. A lower bound: the busiest file's sessions, since one session can load several files."""
+    started = [repo + os.sep for repo, x in f.repos.items() if _n(x.get("typed_chats")) and any(_path(p).startswith(repo + os.sep) for p in files)]
+    mine = {_path(p) for p in files if not _path(p).startswith(home_claude) and not any(_path(p).startswith(r) for r in started)}
+    by_file = _l(_d(f.i.get("rules_reaching")).get("by_file"))
+    return max([_n(x.get("chats")) for x in by_file if isinstance(x, dict) and _path(x.get("what")) in mine], default=0)
+
+
 def r_instructions(f):
     full = own_instruction_files(f)
     repos = None
@@ -462,15 +472,20 @@ def r_instructions(f):
         for repo, x in f.repos.items():
             if any(_path(p).startswith(repo + os.sep) for p in every):
                 sessions += _n(x.get("typed_chats"))
+    loaded = _loaded_elsewhere(f, every, home_claude)
+    sessions += loaded
     names = [os.path.basename(p) for p in paths]
     if always is not None:
         source = ("anatomy.json: instruction_files (origin own by ownership.py, test fixtures left out); "
-                  "inventory.json: repos typed_chats (sessions in a repo holding one of them)")
+                  "inventory.json: repos typed_chats (sessions in a repo holding one of them), "
+                  "rules_reaching (rule files Claude Code loaded into a session started elsewhere)")
         where = f" in {len(repos)} project{'s' if len(repos) != 1 else ''}" if repos else ""
         why = (f"{len(rules)} instruction files of yours{where}: {always} load in every session where they sit, "
-               f"{len(rules) - always} load when Claude works in their folder; {sessions} sessions ran where they load")
+               f"{len(rules) - always} load when Claude works in their folder; {sessions} sessions ran where they load"
+               + (f" or had one loaded from elsewhere ({loaded})" if loaded else ""))
     else:
-        source = "cheap-artifacts.json: kind rules, own true; inventory.json: repos typed_chats (sessions in a repo holding one of them)"
+        source = ("cheap-artifacts.json: kind rules, own true; inventory.json: repos typed_chats (sessions in a repo holding one of them), "
+                  "rules_reaching (rule files Claude Code loaded into a session started elsewhere)")
         why = f"{len(rules)} instruction files of yours; {sessions} sessions ran where they load"
     return row("cap-instructions", build_state(len(rules), sessions), len(rules), sessions, "sessions", sorted(set(names)),
                source, why if rules else "no instruction file of yours found", repos=repos)

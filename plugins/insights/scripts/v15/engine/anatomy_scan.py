@@ -36,6 +36,7 @@ IMAGE = re.compile(r"\.(png|jpe?g|webp|gif)$", re.I)
 EDITS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 LOOK_TOOLS = re.compile(r"screenshot|browser|playwright|chrome", re.I)
 SESSIONS_DIR = re.compile(r"\.claude/projects\b")
+WORKED_REPOS = 40   # distinct repos sessions worked in that are asked of git; the busiest ones
 SCRIPT = re.compile(r"(/[^\s\"']+\.(?:mjs|cjs|js|ts|py|sh))")  # an absolute script path inside a hook's command
 
 
@@ -349,6 +350,15 @@ def main(argv):
         per = [r for r in pool.map(scan_file, files, chunksize=16) if r]
     t_logs = time.time() - t0
 
+    # the repos each session worked in (inventory.py writes it from the same pass over the logs): a session that started
+    # in the home folder, or in a folder above its repos, belongs to the repos it edited and committed in
+    try:
+        with open(os.path.join(a.run_dir, "worked-in.json")) as f:
+            worked = json.load(f)["sessions"]
+    except (OSError, ValueError, KeyError):
+        worked = {}
+    top_worked = {w for w, _ in Counter(w for v in worked.values() for w in v).most_common(WORKED_REPOS)}
+
     total, sessions = Counter(), Counter()
     by_repo, conditions, hooks, ran = defaultdict(Counter), defaultdict(list), Counter(), set()
     goal_sessions = goal_wake = rounds = 0
@@ -362,6 +372,11 @@ def main(argv):
             if v:
                 sessions[k] += 1
         repo = repo_of(r["cwd"])
+        also = {repo_of(w) for w in worked.get(os.path.basename(r["path"])[:-6], {}) if w in top_worked} - {repo}
+        for rp in also:
+            by_repo[rp]["worked_sessions"] += 1
+            if r["entry"] == "cli" and c.get("typed"):
+                by_repo[rp]["typed_sessions"] += 1
         if r["entry"] == "cli" and c.get("typed"):
             by_repo[repo]["typed_sessions"] += 1
         by_repo[repo]["sessions"] += 1
