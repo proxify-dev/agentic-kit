@@ -670,24 +670,26 @@ def refine_weeks(run_dir):
 def refined_over_time(pointer, run_dir):
     """His L4 (11-05, 'like a vim nerd'): they build their own tooling AND keep refining it. A laptop L4 also needs changes
     to things they built in at least MIN_REFINE_WEEKS different weeks (a trusted portable check). Fewer weeks: L3, could
-    be L4, ask on the call. The check not run or timed out: never a minus, the L4 stands and the page says so."""
+    be L4, ask on the call. The check not run or timed out: the same, L3 could be L4 with the reason said plainly, never L4:
+    what decides a level has to be seen (labs/v15/CLAUDE.md, the rule the setup read follows for L3). Before 11-12 this check
+    alone was read as met when it gave no answer, and it timed out in about 1 run in 10 under load."""
     if pointer.get("level") != "L4":
         return pointer
     weeks = refine_weeks(run_dir)
     p = dict(pointer)
     cond = {"test": f"keeps refining what they built: changes to it in at least {MIN_REFINE_WEEKS} different weeks",
-            "met": weeks is None or weeks >= MIN_REFINE_WEEKS,
-            "by": [f"{weeks} weeks" if weeks is not None else "not counted on this laptop (never a minus)"]}
+            "met": weeks is not None and weeks >= MIN_REFINE_WEEKS,
+            "by": [f"{weeks} weeks" if weeks is not None else "not counted this time (the check timed out or did not run)"]}
     p["trail"] = [({**t, "conditions": t["conditions"] + [cond]} if t.get("level") == "L4" else t) for t in p.get("trail") or []]
-    if weeks is not None and weeks < MIN_REFINE_WEEKS:
+    if not cond["met"]:
         p.update(level="L3", could_be="L4", decided_by=LEVEL_RULE["L3"])
         p["reasons"] = list(p.get("reasons") or []) + [
-            f"built at L4, but changes to what they built show in {weeks} week{'s' if weeks != 1 else ''} "
-            f"(L4 asks for {MIN_REFINE_WEEKS}): could be L4, ask on the call how they keep refining it"]
+            (f"built at L4, but changes to what they built show in {weeks} week{'s' if weeks != 1 else ''} "
+             f"(L4 asks for {MIN_REFINE_WEEKS}): could be L4, ask on the call how they keep refining it") if weeks is not None else
+            f"built at L4, but the weeks they changed what they built could not be counted this time (the check timed out or did not "
+            f"run; L4 asks for {MIN_REFINE_WEEKS}): could be L4, ask on the call how they keep refining it"]
     else:
-        p["reasons"] = list(p.get("reasons") or []) + [
-            f"keeps refining what they built: {weeks} weeks" if weeks is not None else
-            "refining over time not counted on this laptop: never a minus"]
+        p["reasons"] = list(p.get("reasons") or []) + [f"keeps refining what they built: {weeks} weeks"]
     return p
 
 
@@ -891,7 +893,7 @@ def run(run_dir, call_level=None):
                             board_areas(board))
     # the read from things (things.py, a trial): the same builds, evals and refining this file decided, never its own
     weeks = refine_weeks(run_dir)
-    builds = {**pointer["builds"], "weeks": weeks, "weeks_ok": weeks is None or weeks >= MIN_REFINE_WEEKS}
+    builds = {**pointer["builds"], "weeks": weeks, "weeks_ok": weeks is not None and weeks >= MIN_REFINE_WEEKS}
     bars = {x["id"]: x.get("enough") or {} for x in (S.get("signals") or {}).get("signals") or [] if x.get("id")}
     pointer_things = level_things.pointer(run_dir, board, setup_read(run_dir), builds, bars)
     pointer = setup_read_gate(refined_over_time(pointer, run_dir), run_dir)
