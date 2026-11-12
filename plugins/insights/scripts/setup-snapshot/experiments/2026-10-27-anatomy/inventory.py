@@ -2528,8 +2528,10 @@ def main(argv=None):
     lock_files = [HOME / ".agents" / ".skill-lock.json", HOME / ".claude" / "skills-lock.json"] + [f for w in walks.values() for f in w.locks]
     load_locks([f for f in lock_files if f.is_file()])
     global RECEIPTS
+    # the repos found below a project folder (clones of other people's code) are looked in for a copy of someone else's file
     RECEIPTS = OWNERSHIP.load_receipts(roots=[str(f.parent) for w in walks.values() for f in w.locks]
-                                       + [str(p) for _, _, p in claude_dirs if p])
+                                       + [str(p) for _, _, p in claude_dirs if p],
+                                       clones=[r["path"] for w in walks.values() for r in w.nested_repos])
 
     # 5. artifacts
     with section("artifacts"):
