@@ -140,6 +140,7 @@ CSS = """
 .v-built .names{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .v-built .names span{font-size:12px;color:#475467;background:#FFFFFF;border:1px solid #EAECF0;border-radius:6px;padding:2px 8px}
 .v-built .note{font-size:13px;color:#667085;margin-top:10px !important;max-width:80ch}
+.v-built .note.start{margin:0 0 16px !important;color:#344054}
 
 /* hooks: a session's life */
 .v-built .hk{background:#FFFFFF;border:1px solid #EAECF0;border-radius:16px;padding:24px 20px 20px;overflow-x:auto}
@@ -472,6 +473,22 @@ def _also(ctx, rows, member):
     return '<section class="also">' + "".join(out) + "".join(folds) + "</section>"
 
 
+def _start_note(wf):
+    """When most sessions start in a folder that is not a project (the home folder, say), the repos were found from where the
+    work happened; when none could be, a zero on this page is "couldn't see", not "didn't build" (11-11: sessions that start in the home folder
+    and work across 6 repos read "built 0"). "" when most sessions start in a project or the run did not say."""
+    wf = wf if isinstance(wf, dict) else {}
+    total, outside, repos = (int(wf.get(k) or 0) for k in ("typed_sessions", "start_outside_repo", "repos_worked_in"))
+    if not total or outside * 2 <= total:
+        return ""
+    why = f"most of your sessions start in a folder that isn't a project ({outside} of {total})"
+    if repos:
+        return (f"This page follows the work, not the folder: it found {repos} project{'' if repos == 1 else 's'} from the files "
+                f"your agent edited and the commits it made there, because {why}.")
+    return (f"A zero below means we couldn't see it, not that you built nothing: {why}, and we couldn't tell from them which "
+            "project the work happened in.")
+
+
 def render(ctx):
     ctx = {**ctx, "esc": ctx.get("esc") or html.escape}
     rows = _rows(ctx)
@@ -479,7 +496,8 @@ def render(ctx):
         return '<p class="empty">not in this run</p>'
     member = ctx.get("member")
     kinds = _kinds(ctx)
-    out = []
+    start = _start_note((ctx.get("inventory") or {}).get("work_found"))
+    out = [f'<p class="note start">{ctx["esc"](start)}</p>'] if start else []
     if kinds:
         out.append(_tiles(ctx, kinds))
     else:
