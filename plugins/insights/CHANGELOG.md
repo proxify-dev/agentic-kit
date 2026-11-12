@@ -11,6 +11,28 @@ You get a new version only when it is released: each entry below is one release,
 brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3 and 0.4.1 were never sent out; their
 changes arrived in the version after them.
 
+## 0.6.7 — 2026-11-12
+
+### What changes for you
+
+- **A copy of someone else's skill is no longer counted as yours** (#34). Before, a skill or instruction file that was a copy of someone else's work (unpacked into a cache, a backups folder or a fixtures folder, with no install receipt) was listed under what you wrote. Now it is listed as installed when three things hold: its bytes equal the file at the head of a clone whose commits are mostly other people's, the copy is newer than that file, and you never edited it in a session. A skills lock in another folder also counts as a receipt. Anything that fails a proof stays yours. Your "what you wrote" counts can go down, and a laptop whose only own thing was such a copy reads Level 1 where it read Level 2.
+- **"What you've built" shows where each thing you built stands** (#35). Each of your most used skills, sub-agents, plugins, hooks and evals gets one line: the step it sits on, in words (six steps, from a note to tested by evals; a step needs every step below it), what it did in the last 30 days counted by code, and the one change that would move it up. Code places what it can prove; the per-project AI reader places the rest, with a quoted line that code checks. A hook of your own plugin is shown from its source and counted once.
+- **The scan is much faster on a laptop with many sessions** (#36). On one such laptop it took about 13 minutes where it took about 38, and far fewer checks run out of time (4 of 157, where 92 did). No answer changed because of the code, and the level and the counts are the same.
+
+### Known limits
+
+- A full scan still takes many minutes: the inventory and the commit check take about 7 minutes together and are next. On a busy laptop a few checks still run out of time.
+- Advice never changes a level.
+- The craft reading adds AI cost: the AI reading for three large projects cost about $2.60, against about $1.80 before. One run's AI part is about 350k tokens on a large setup, against a target of about 200k.
+- Only a clone's current head is matched when a copy is checked, not its older versions, and a copy made with its original timestamps kept is not caught.
+- What a sub-agent did inside its own run is not counted yet, only its runs. A hook started through a launcher script is judged by the launcher's text.
+- Folders without git are not read as projects.
+- Folders of generated files that each hold a rule file still count as separate rule files.
+- Share still sends the older read's lines until the receiving side accepts the new fields.
+- Every threshold is a guess until it is checked against levels confirmed on calls.
+
+Pull requests: #34, #35, #36.
+
 ## 0.6.6 — 2026-11-12
 
 ### What changes for you
