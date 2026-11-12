@@ -507,6 +507,7 @@ class Laptop:
             list(ex.map(self.declared_checks, self.repos))
         for r in self.repos:
             self.declared_rx(r)
+        self.seed_clone_check()
         self.instruction_files()
         self.grep_many(patterns)
         if self._cache:   # atomic: several runs may share the cache
@@ -578,8 +579,18 @@ class Laptop:
         counts once), or the repos up to 3 levels below a folder that isn't one. From their sessions, never a list."""
         if self._repos is None:
             found = []
+            from concurrent.futures import ThreadPoolExecutor
+            cwds = {s.get("cwd") for s in self.sessions.values()}
+            with ThreadPoolExecutor(8) as ex:   # one `git rev-parse` per start folder (60 s one after another, a thousand folders): git runs in its own process, so threads overlap them
+                list(ex.map(lambda d: self.git("rev-parse", "--path-format=absolute", "--git-common-dir", cwd=d),
+                            [d for d in cwds if d and os.path.isdir(d) and os.path.realpath(d) not in (self.home, os.path.realpath(self.claude))
+                             and not os.path.realpath(d).startswith(os.path.realpath(self.claude) + os.sep)]))
+            done = set()      # a folder is looked at once however many sessions started in it: its answer is the same (11,000 sessions, 1,200 folders; the walks took 60 s)
             for s in self.sessions.values():
                 cwd = s.get("cwd")
+                if cwd in done:
+                    continue
+                done.add(cwd)
                 if not cwd or not os.path.isdir(cwd) or os.path.realpath(cwd) in (self.home, os.path.realpath(self.claude)):
                     continue
                 if os.path.realpath(cwd).startswith(os.path.realpath(self.claude) + os.sep):
@@ -701,6 +712,19 @@ class Laptop:
         memo[key] = m.owner(path, rc, authorship=auth, written_in_logs=self.written_in_logs, blob_authorship=blob_authorship)["owner"]
         return memo[key]
 
+    LISTINGS = (("ls-files", "--cached", "--others", "--exclude-standard"), ("ls-files", "--cached"), ("ls-files", "-s"),
+                ("ls-files", "--others", "--exclude-standard"))   # the file lists the checks ask of every repo, spelled as they ask (the memo is keyed on the words)
+
+    def warm_listings(self, workers=8):
+        """Ask every repo for each file list the checks' shared builders read, side by side, so the builders find them in the memo. They
+        asked for them one repo after another (checks_4's `_tracked`: 180 `git ls-files` one at a time, 46 s) or in separate groups of
+        threads. The same questions with the same answers; only the order, and how many run at once, change. Not saved with the cache."""
+        from concurrent.futures import ThreadPoolExecutor
+        self.repos
+        jobs = [(a, r) for r in self.repos for a in self.LISTINGS]
+        with ThreadPoolExecutor(workers) as ex:
+            list(ex.map(lambda j: self.git(*j[0], cwd=j[1]), jobs))
+
     def written_in_logs(self, folder):
         """True when a Write/Edit/MultiEdit/NotebookEdit in the person's own session logs (the window, sub-agents too)
         created or changed a file under folder: their agent wrote it. ownership.py asks this before it calls a skill
@@ -728,9 +752,40 @@ class Laptop:
         if not top:
             return {"commits": 0, "theirs": 0}
         rel = os.path.relpath(real, top).replace(os.sep, "/")
+        if rel == "." and os.path.isdir(real):
+            n, mine = self._repo_totals(top)
+            return {"commits": n, "theirs": mine}
         idx = self._authors(top)
         log = [a for p, al in idx.items() if rel == "." or p.startswith(rel + "/") for a in al] if os.path.isdir(real) else idx.get(rel, [])
         return {"commits": len(log), "theirs": sum(1 for a in log if self.is_mine(a))}
+
+    def _repo_totals(self, top):
+        """(entries, the person's entries) over the whole repo's author lists: the numbers authorship_counts gives for the repo's root, counted
+        once per distinct author line instead of once per entry (is_mine on a repo with 500,000 entries took most of a second)."""
+        memo = self.__dict__.setdefault("_totals_memo", {})
+        if top not in memo:
+            from collections import Counter
+            who, n, mine = {}, 0, 0
+            for al in self._authors(top).values():
+                n += len(al)
+                for a, c in Counter(al).items():
+                    if a not in who:
+                        who[a] = self.is_mine(a)
+                    if who[a]:
+                        mine += c
+            memo[top] = (n, mine)
+        return memo[top]
+
+    def seed_clone_check(self):
+        """Tell ownership.py rule 4 which repos are mostly someone else's (a clone of an upstream project) from the author lists prewarm read,
+        so it asks git about a file's version only in those repos, not in every repo on the laptop. The answer is the one rule 4 would
+        compute for each repo when it reached it; only the order of the two questions changes."""
+        m, rc = self._ownership()
+        for root in rc.repo_roots:
+            if root not in rc._mostly_others:
+                a = self.authorship_counts(root)
+                rc._mostly_others[root] = bool(a["commits"] and 2 * a["theirs"] < a["commits"])
+        m.warm_objects(rc)   # the object names of those repos, read once here so every worker forked later has them
 
     def session_folders(self):
         return sorted({s["cwd"] for s in self.sessions.values() if s.get("cwd")})
