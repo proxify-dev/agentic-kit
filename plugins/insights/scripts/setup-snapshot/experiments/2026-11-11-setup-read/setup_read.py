@@ -70,7 +70,7 @@ GIT_TIMEOUT, GIT_FILES, GIT_BUDGET = 4, 12, 20   # seconds per file, files per p
 BRIEF_TREE_WORDS, PAGE_TREE_WORDS = 1200, 900
 MAX_QUOTE_FILE = 2_000_000
 MARK = "## The setup read"
-PARTS = (("rules", "Rules that reach the agent"), ("corrections", "Corrections that stick"),
+PARTS = (("rules", "Instructions the agent starts with"), ("corrections", "Corrections that stick"),
          ("memory", "Memory across sessions"))
 JUDGED = ("shown", "partly", "not shown", "can't tell")
 
@@ -81,15 +81,15 @@ session starts here, how that knowledge is organised, and whether it would hold 
 
 The outline at the end was drawn by code. It shows structure and judges nothing. Read-only. Open what you need to
 judge the three parts below and no more than this: the always-loaded files; up to {scoped} scoped files; up to {docs}
-docs behind pointers (the ones a rule file sends the agent to most plainly); the memory index and {notes} notes; the
-SKILL.md of up to {skills} skills. `git log` on at most {logs} files, the main rule file first. When the outline lists
+docs they link to (the ones an `AGENTS.md` sends the agent to most plainly); the memory index and {notes} notes; the
+SKILL.md of up to {skills} skills. `git log` on at most {logs} files, the main `AGENTS.md` first. When the outline lists
 nothing for a part, judge it from the outline and open nothing.
 
 Judge three parts, each `shown`, `partly`, `not shown` or `can't tell`:
 
-1. `rules`: the agent finds its rules without being told.
+1. `rules`: the agent starts with the instructions it needs, without being told.
    - shown: the always-loaded files hold facts the agent can't work out from the code, each short and with its
-     reason; rules for one area sit in that area (a subfolder file, a path-scoped rule), not in one file for
+     reason; instructions for one area sit in that area (an `AGENTS.md` in a subfolder; extra: a `.claude/rules/` file with `paths:`), not in one file for
      everything; deeper detail sits behind pointers that say when to open it, or in skills that load when the task
      matches.
    - partly: one decent file with no layering, or layers that are a dump of docs.
@@ -126,6 +126,10 @@ Then the review the page opens on, written to the person as "you":
 
 Judge the content, not that a file exists. A long file is not a deep one. Text an agent generated and nobody shaped
 is not the person's design. Never write the person's name.
+
+Word it plainly. The instruction file the agent reads at the start of every session is called `AGENTS.md` (`CLAUDE.md` is
+its known synonym: say "`AGENTS.md` (or `CLAUDE.md`)" the first time, then `AGENTS.md`). A file in `.claude/rules/` is a separate,
+extra mechanism: name it `.claude/rules/` and keep it apart. Never call either of them a "rule file" or "rules".
 
 Add one key, `setup_read`, to the JSON object you write to {out}:
 
@@ -272,10 +276,10 @@ def brief(run, home=None, proxify=None):
 def rules_structure(p):
     t = p.get("totals") or {}
     a, s, d = t.get("always_files", 0), t.get("scoped_files", 0), t.get("on_demand_files", 0)
-    said = (f"{a} always-loaded file{'s' if a != 1 else ''}, {s} scoped, {d} doc{'s' if d != 1 else ''} behind pointers"
+    said = (f"{a} file{'s' if a != 1 else ''} read at the start of every session, {s} for part of the project, {d} doc{'s' if d != 1 else ''} they link to"
             + (f" ({t.get('max_depth', 0)} layer{'s' if t.get('max_depth', 0) != 1 else ''} deep)" if d else ""))
     if not a:
-        return False, "no always-loaded rule file of theirs in this project (" + said + ")"
+        return False, "no AGENTS.md of yours at the top of this project, and no .claude/rules/ file that always loads (" + said + ")"
     ok = s >= 1 or d >= RULES_ON_DEMAND_MIN
     return ok, said if ok else said + ": one layer, nothing scoped to a folder and too little behind pointers"
 
@@ -317,7 +321,7 @@ def correction_files(p, user, root, home):
 def corrections_structure(p, user, root, home):
     files = correction_files(p, user, root, home)
     if not files:
-        return False, "no rule file or skill of theirs here"
+        return False, "no AGENTS.md or skill of yours here"
     best, in_git, t0 = None, 0, time.monotonic()
     for f in files[:GIT_FILES]:
         if time.monotonic() - t0 > GIT_BUDGET:
@@ -330,7 +334,7 @@ def corrections_structure(p, user, root, home):
         if best is None or key > best[0]:
             best = (key, f, h)
     if best is None:
-        return False, "their rule files and skills are not in git, so their history can't be read"
+        return False, "your AGENTS.md files and skills are not in git, so their history can't be read"
     _, f, h = best
     name = os.path.relpath(f, root) if f.startswith(root + os.sep) else "~/" + os.path.relpath(f, home)
     said = (f"{name} changed in {h['weeks']} different week{'s' if h['weeks'] != 1 else ''}, "
@@ -599,11 +603,11 @@ def card_starting_context(chats, an, home):
               f"{plural(skills, 'skill')} {'were' if skills != 1 else 'was'} found" if skills else ""]
     around = " and ".join(x for x in around if x)
     saw = (f"Your sessions start with about {tokens(med)} tokens in context before the first task (the median of "
-           f"{plural(len(starts), 'session')}). Your own rule files are about {tokens(rules)} of that"
+           f"{plural(len(starts), 'session')}). Your own `AGENTS.md` files are about {tokens(rules)} of that"
            + (f"; {around} on this laptop." if around else "."))
     if share >= START_RULES_SHARE:
-        do = ("Your rule files are a large part of it. Keep in the always-loaded file only what every task needs; move "
-              "the rest into docs it points to, or into rule files in the folders they apply to.")
+        do = ("Your `AGENTS.md` files are a large part of it. Keep in the `AGENTS.md` at the top only what every task needs; move "
+              "the rest into docs it links to, or into an `AGENTS.md` in the folder it applies to.")
     else:
         do = ("Type /context at the start of a session to see what fills it. Then switch off the MCP servers and plugins "
               "this project doesn't use (/mcp, /plugin), or set them up in the one project that needs them.")
@@ -687,9 +691,9 @@ def card_rules_only_grow(inv, own, home):
             "saw": f"{name} loads in every session and has only ever grown: {plural(words, 'word')} after {plural(commits, 'change')}, "
                    f"none of which made it shorter{more}.",
             "cost": "Every line loads on every turn. The longer the file, the less weight each line carries, and the "
-                    "agent starts passing over rules you care about.",
+                    "agent starts passing over instructions you care about.",
             "do": f"Read {name} top to bottom. Delete what the agent gets right without being told, and move what "
-                  "only one area needs into a rule file in that folder."}
+                  "only one area needs into an `AGENTS.md` in that folder."}
 
 
 def cards(run, inv, m, hold, home):
@@ -746,7 +750,7 @@ def clean_quote(q):
     return {"path": text(q.get("path"), 200), "line": line if isinstance(line, int) else None, "text": text(q.get("text"), 300)}
 
 
-PART_SAYS = {"rules": "rules that reach the agent", "corrections": "corrections that stick",
+PART_SAYS = {"rules": "instructions the agent starts with", "corrections": "corrections that stick",
              "memory": "memory that carries across sessions"}
 
 

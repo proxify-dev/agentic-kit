@@ -114,7 +114,7 @@ def pre(run, proxify=False):
     step("   anatomy: each discipline's parts — its own code checks, and one brief per most active project", ["-I", ANATOMY, run])
     # A member's run: each project's brief holds only the review of its agent-facing files (the member's page has no
     # part-by-part view, and its questions were most of what a reader spent). Proxify's own run keeps the questions.
-    reviewed = soft_step("   setup map: the outline of your rule files, memory, skills and agents, and what points to what",
+    reviewed = soft_step("   setup map: the outline of your AGENTS.md files, memory, skills and agents, and what points to what",
                          ["-I", os.path.join(SETUP_READ, "setup_map.py"), run]) and \
         soft_step("   setup read: the review of those files, " + ("added to each project's brief" if proxify else "one brief per project"),
                   ["-I", os.path.join(SETUP_READ, "setup_read.py"), "brief", run] + (["--proxify"] if proxify else []))

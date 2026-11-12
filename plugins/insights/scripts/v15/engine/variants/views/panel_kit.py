@@ -36,7 +36,7 @@ import substrate_kit as S  # noqa: E402
 esc = lambda s: html.escape("" if s is None else str(s))  # noqa: E731
 PLAYBOOK = "https://agentic.proxify.io"
 LEVELS = ("L1", "L2", "L3", "L4")
-KIND_NAME = {"p": "Practice", "c": "Problem", "t": "Term"}
+KIND_NAME = {"p": "Practice", "c": "Problem", "t": "Term", "m": "Map item"}
 
 
 def link(kind, id_, text, cls=""):
@@ -410,6 +410,57 @@ def payload(ctx):
     return out
 
 
+def text(x):
+    """One piece of panel text: a string (`code` between backticks is shown as code), a number the page prints from the code
+    (has .html()), a {"code": ...} dict, or a list of those."""
+    if isinstance(x, (list, tuple)):
+        return "".join(text(p) for p in x)
+    if isinstance(x, dict):
+        return _item(x)
+    if hasattr(x, "html"):
+        return x.html()
+    return re.sub(r"`([^`]+)`", r"<code>\1</code>", esc(x))
+
+
+def _item(x):
+    """A panel list item: text, or {"label", "code", "note", "href", "e"}: a bold label, code in its own font, a quiet note, a
+    link, and `e` = the id of the thing it names (`data-e`), so a test can find it."""
+    if not isinstance(x, dict):
+        return text(x)
+    label = f"<b>{esc(x['label'])}</b> " if x.get("label") else ""
+    code = f"<code>{esc(x['code'])}</code>" if x.get("code") else ""
+    note = f" · {text(x['note'])}" if x.get("note") else ""
+    out = f"{label}{code}{note}" if (x.get("code") or x.get("label")) else text(x.get("text"))
+    if x.get("href"):
+        out = f'<a href="{esc(x["href"])}">{out}</a>'
+    return f'<span data-e="{esc(x["e"])}">{out}</span>' if x.get("e") else out
+
+
+def _section(s):
+    kind, items = s.get("kind") or "bullets", s.get("items") or []
+    if kind == "text":
+        return "".join(f"<p>{text(i)}</p>" for i in items)
+    if kind == "code":  # lines quoted from the code: file:line and the line itself
+        return "".join(f'<p class="kp-src"><code>{esc(i[1])}</code><span>{esc(i[0])}</span></p>' for i in items)
+    return f'<ul class="kp-ul">{"".join(f"<li>{_item(i)}</li>" for i in items)}</ul>'
+
+
+def panel(spec):
+    """One panel from plain data, for a view whose items are not in the substrate (the system map). spec = {"kicker", "title",
+    "badges": [(icon, word, tone)], "sections": [{"title", "kind": bullets | text | code, "items": [...]}]}. Nothing is worked
+    out here: the model hands over every line."""
+    badges = "".join(C.pill(i, w, t) for i, w, t in spec.get("badges") or [])
+    secs = [x for x in spec.get("sections") or [] if x.get("items")]
+    body = "".join(_sec(x["title"], _section(x), "lead" if n == 0 else "") for n, x in enumerate(secs))
+    return _head(esc(spec.get("kicker")), spec["title"], badges) + body
+
+
+def panels_script(panels):
+    """The page's panel data when it has no substrate behind it: {"m": {key: panel html}}."""
+    return ('<script type="application/json" id="kp-data">'
+            + json.dumps({"m": {k: panel(v) for k, v in panels.items()}}, ensure_ascii=False).replace("</", "<\\/") + "</script>")
+
+
 def data_script(ctx):
     return ('<script type="application/json" id="kp-data">' + json.dumps(payload(ctx), ensure_ascii=False).replace("</", "<\\/") + "</script>")
 
@@ -499,6 +550,9 @@ a.kp-chip:hover,a.kp-chip:focus-visible{color:#272594;background:#F5F5FF;box-sha
 .kp a.kp-card{color:#15172F}.kp a.kp-chip{color:#344054}.kp a.kp-chip:hover,.kp a.kp-chip:focus-visible{color:#272594}
 .kp a.pl{color:#15172F}.kp a.pl:hover{color:#3C3ED4}
 .kp-row a.pl::after{content:none}.kp-row a.pl:hover{background:none;box-shadow:none}.kp-row:hover a.pl{color:#3C3ED4}
+.kp code{font:400 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#15172F;overflow-wrap:anywhere}
+.kp-src{display:grid;gap:2px;padding:8px 12px;margin:0 0 8px;border-radius:8px;background:#F9FAFB}
+.kp-src span{font-size:12px;color:#667085}
 .kp-tip{position:fixed;z-index:70;max-width:280px;padding:8px 12px;border-radius:8px;background:#15172F;color:#FFFFFF;font:400 12px/1.5 Inter,system-ui,sans-serif;
   box-shadow:0 8px 24px rgba(16,24,40,.28);pointer-events:none;opacity:1;transition:opacity .12s}
 .kp-tip[hidden]{display:block!important;opacity:0;visibility:hidden}
@@ -518,7 +572,7 @@ window.kpOpen=function(kind,id){var h=(D[kind]||{})[id];
 window.kpOpenHtml=function(html){show(html);remember()};
 window.kpClose=function(){if(el.hidden)return;el.hidden=true;scrim.hidden=true;hideTip();document.dispatchEvent(new Event('kp-close'));
   if(from&&document.contains(from)){try{from.focus({preventScroll:true})}catch(e){}}from=null};
-function closeToView(){window.kpClose();var v=window.kpView&&window.kpView();if(v&&/^#?[pct][/]/.test(location.hash)&&history.replaceState)history.replaceState(null,'','#'+v)}
+function closeToView(){window.kpClose();var v=window.kpView&&window.kpView();if(v&&/^#?[pctm][/]/.test(location.hash)&&history.replaceState)history.replaceState(null,'','#'+v)}
 el.querySelector('.kp-x').addEventListener('click',closeToView);
 scrim.addEventListener('click',closeToView);
 body.addEventListener('scroll',function(){top.classList.toggle('scrolled',body.scrollTop>4)},{passive:true});

@@ -40,16 +40,16 @@ TREE_FILES = 40  # files drawn in one project's tree; the rest is a count
 WORDS_PER_PAGE, WORDS_PER_TOKEN = 500, 0.75  # a printed page; English words per token
 WHY_WORDS = 20   # the hero's one sentence
 
-PARTS = (("rules", "Rules"), ("corrections", "Corrections"), ("memory", "Memory"))
-PART_NAME = {"rules": "Rules that reach the agent where they apply", "corrections": "Corrections that stick",
+PARTS = (("rules", "Instructions"), ("corrections", "Corrections"), ("memory", "Memory"))
+PART_NAME = {"rules": "Instructions that reach the agent where they apply", "corrections": "Corrections that stick",
              "memory": "Memory the next session reads"}
-PART_WORD = {"rules": "rules", "corrections": "corrections", "memory": "memory"}
+PART_WORD = {"rules": "instructions", "corrections": "corrections", "memory": "memory"}
 # a state as the page says it: an icon and a word; colour (the class) only adds
 STATE = {"shown": ("shown", "Shown"), "partly": ("partly", "Partly"), "notshown": ("none", "Not shown"),
          "unread": ("unread", "Can't tell")}
 # a habit Claude Code's records show, when the step that found it gave no cost or step of its own
 HOLD_COST = ("A session that runs until it compacts on its own loses its early decisions each time: the agent keeps "
-             "working from a summary of a summary, and the rules you wrote get followed less.")
+             "working from a summary of a summary, and the instructions you wrote in your `AGENTS.md` get followed less.")
 HOLD_DO = ("Give each task its own session. When one runs long, type `/compact` with what to keep, or `/clear` and "
            "start again from a short handoff note.")
 
@@ -89,13 +89,13 @@ LOADS = {"always": ("Always loaded", "always"), "scoped": ("Loads in its folder"
 # line each. The card's own sentences (what was counted, what it costs, the full step) open under "What we saw".
 CARD_SAYS = {
     "starting-context": {"do": "Switch off the tools and plugins this project doesn't use.",
-                         "do_rules": "Cut the rule file every session loads down to what every task needs.",
-                         "pays": "All of it is read again on every turn: a lighter start costs less and keeps your rules in focus."},
+                         "do_rules": "Cut the `AGENTS.md` every session loads down to what every task needs.",
+                         "pays": "All of it is read again on every turn: a lighter start costs less and keeps your instructions in focus."},
     "unused-setup": {"do": "Move out the skills you don't use, or sharpen their one-line description.",
                      "do_others": "Uninstall what you didn't use this month; it comes back the day you need it.",
                      "pays": "Fewer, clearer choices, so the agent picks the skill you meant."},
-    "rules-only-grow": {"head": "A rule file every session loads only ever grows, so each rule weighs less",
-                        "do": "Cut what the agent gets right unasked; move one area's rules into that folder.",
+    "rules-only-grow": {"head": "An `AGENTS.md` that every session loads only ever grows, so each line in it weighs less",
+                        "do": "Cut what the agent gets right unasked; move what only one area needs into an `AGENTS.md` in that folder.",
                         "pays": "A short file is one the agent actually follows."},
     "session-scope": {"head": "Long sessions make your agent forget what you decided early on",
                       "do": "Give each task its own session, and hand over with a short note when one runs long.",
@@ -716,8 +716,8 @@ def _picture(ctx, c):
         k = f["tokens"] / 1000
         fine = (f'About {k:.0f}k tokens' + (f', the median of {plural(f["sessions"], "session")}' if f.get("sessions") else "")
                 + f'. A page is {WORDS_PER_PAGE} words.')
-        pic = (f'<div class="pages" role="img" aria-label="{plural(total, 'page')}, {own} of them your own rules">{cells}</div>'
-               f'<div class="key"><span><i class="own"></i><span>Your own rules: <b>about {plural(own, 'page')}</b></span></span>'
+        pic = (f'<div class="pages" role="img" aria-label="{plural(total, 'page')}, {own} of them from your own AGENTS.md files">{cells}</div>'
+               f'<div class="key"><span><i class="own"></i><span>Your own AGENTS.md files: <b>about {plural(own, 'page')}</b></span></span>'
                f'<span><i></i><span>Claude Code\'s instructions, tools and skills: <b>about {total - own}</b></span></span></div>'
                f'<p class="fine">{fine}' + (f' Showing the first {plural(shown, 'page')}.' if shown < total else "") + "</p>")
         return f"Your agent reads about {plural(total, 'page')} before you type a word", pic

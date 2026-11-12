@@ -70,7 +70,7 @@ For EACH practice listed there, one row:
 - rung: the highest rung whose ladder text the digest's evidence matches. L2 = they do it by hand (the "by hand" counts
   at the end of the digest: only the list "What they do by hand" can show an L2, and a number under "What Claude Code or
   the model did unasked" is never the person's habit, however large); L3 = a setup of theirs does it (their files,
-  skills, agents, standing rules); L4 = they built
+  skills, agents, standing instructions); L4 = they built
   something that does it and changes how the agent runs (their hook, program, plugin, gateway), with whatever that
   practice's own L4 text asks for (often a test or eval: the digest's eval folders say which ran and how the runner
   keeps the agent out). Use only artifacts marked as theirs; installed things others wrote are L1 use.
@@ -107,7 +107,7 @@ the same message as the subagent above, call the **Agent** tool once per brief, 
 > holds a key, a token or a password. Where the brief asks questions, a "yes" always needs a path:line quote, and
 > "yes" always means the thing the question describes is there. Finish with one line: what you judged each part.
 
-Each reader reviews the project's agent-facing files (rule files, memory, skills) from an outline the scan drew, and
+Each reader reviews the project's agent-facing files (AGENTS.md files, memory, skills) from an outline the scan drew, and
 writes the review the page opens on: what the agent starts with there, what works, what to change first. The laptop's
 L3 rests on that review, each reading backed by a line quoted from the person's own file. A member's brief asks for
 that review and nothing else. On Proxify's own run (`AGENTIC_SETUP_PROXIFY=1` set before `pre`) the brief also holds
