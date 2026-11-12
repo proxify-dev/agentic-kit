@@ -140,7 +140,6 @@ BUILTIN_COMMANDS = frozenset({
 # own.rule_file), never from the text: the ruling 11-04, nothing tuned to one person's tools.
 SUBAGENT_TALK_RX = re.compile(r"(?i)\bsub-?agents?\b|\bdelegat\w*|\bteammates?\b|\bAgent tool\b|\bparallel agents?\b")
 INSTRUCTION_NAMES = ("CLAUDE.md", "AGENTS.md", "CLAUDE.local.md", "GEMINI.md")
-START = time.time() - 30 * 86400  # set in main() from --days
 GITENV = dict(os.environ, GIT_OPTIONAL_LOCKS="0", GIT_TERMINAL_PROMPT="0")
 
 
@@ -156,6 +155,8 @@ def load_module(name, path):
     return m
 
 
+clock = load_module("clock", os.path.join(HERE, "clock.py"))   # the one place the calendar clock is read
+START = clock.now() - 30 * 86400  # set in main() from --days
 ANATOMY = os.path.join(EXP, "2026-10-27-anatomy", "inventory.py")
 LOGS = os.path.join(EXP, "2026-11-02-problems", "logs.py")
 IDENTITY = os.path.join(HERE, "identity.py")
@@ -516,7 +517,7 @@ def read_log_limited(args):
     """read_log with a time limit: the record, or {"timed_out": path}. Where the system has SIGALRM (macOS, Linux) it
     stops a loop in the middle of one line; elsewhere (Windows) the check between lines still ends a slow log."""
     global _DEADLINE
-    _DEADLINE = time.time() + SESSION_SECONDS
+    _DEADLINE = time.monotonic() + SESSION_SECONDS
 
     def stop(*_):
         raise SessionTooLong()
@@ -577,7 +578,7 @@ def read_log(args):
         return None
     with fh:
         for n, line in enumerate(fh):
-            if _DEADLINE and n % 200 == 0 and time.time() > _DEADLINE:
+            if _DEADLINE and n % 200 == 0 and time.monotonic() > _DEADLINE:
                 raise SessionTooLong()
             if r["ep"] is None and b'"entrypoint":"' in line:
                 j = line.find(b'"entrypoint":"')
@@ -874,7 +875,7 @@ def read_log(args):
 
 
 def scan_logs(days, root=PROJECTS):
-    start = time.time() - days * 86400
+    start = clock.now() - days * 86400
     mains = [p for p in glob.glob(os.path.join(root, "*", "*.jsonl")) if os.path.getmtime(p) >= start]
     helpers = [p for p in glob.glob(os.path.join(root, "*", "*", "subagents", "*.jsonl")) if os.path.getmtime(p) >= start]
     jobs = [(p, start, False) for p in mains] + [(p, start, True) for p in helpers]
@@ -1748,7 +1749,7 @@ def slash_history(days, transcript=None, typed_sessions=None):
       history.jsonl  written by the terminal only, and keyed by the session you were in before a /clear. Used only for a name
                      the logs never record in the window (/resume and /exit leave no transcript record).
     transcript: {session id: (Counter(command), project, Counter(bare))} from the typed sessions. Each row says its source."""
-    start = (time.time() - days * 86400) * 1000
+    start = (clock.now() - days * 86400) * 1000
     per = defaultdict(Counter)            # (session) -> command -> times
     per_bare, proj_of = defaultdict(Counter), {}
     total, read = 0, True
@@ -2405,7 +2406,7 @@ def eval_file_matches(latest_start, own_evals, roots, script_calls, is_theirs):
     data file its call names, or one its text names. A script that never mentions claude launched nothing.
     Whitespace is normalised and the key is a prefix of the prompt (prompt_key), as the scheduler match does it; a file that
     is not theirs by ownership.py (an installed skill's evals, a teammate's tests) never counts."""
-    remaining, seen, budget, t_end = set(latest_start), set(), EVAL_SCAN_BYTES, time.time() + EVAL_SCAN_SECONDS
+    remaining, seen, budget, t_end = set(latest_start), set(), EVAL_SCAN_BYTES, time.monotonic() + EVAL_SCAN_SECONDS
     remaining = {k for k in remaining if not k.startswith(SKILL_LOADED_PREFIX)}      # Claude Code's own text, never a prompt of theirs
 
     def candidates():
@@ -2426,7 +2427,7 @@ def eval_file_matches(latest_start, own_evals, roots, script_calls, is_theirs):
                     yield g, True
 
     for path, read_by_script in candidates():
-        if not remaining or budget <= 0 or time.time() > t_end:
+        if not remaining or budget <= 0 or time.monotonic() > t_end:
             break
         real = os.path.realpath(path)
         if real in seen:
@@ -3207,8 +3208,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     T = {}
-    t0 = time.time()
-    start = t0 - a.days * 86400
+    t0 = time.monotonic()
+    start = clock.now() - a.days * 86400
     global START, WRITTEN_DIRS
     START = start
 
@@ -3221,7 +3222,7 @@ def main(argv=None):
         # read the logs again on every run: a session list left in the run folder by an earlier run was built by older
         # code from older logs (11-09: a person's rerun after a fix kept their old empty list). Reuse only on --chats.
         load_module("logs", LOGS).main(["--days", str(a.days), "--out", chats_path])
-    T["chats"] = round(time.time() - t0, 1)
+    T["chats"] = round(time.monotonic() - t0, 1)
     typed = [json.loads(x) for x in open(chats_path).readlines()[1:]]
     cwd_count = Counter(c.get("cwd") for c in typed)
     roots = Counter()   # typed sessions per scan folder (see scan_folder)
@@ -3230,9 +3231,9 @@ def main(argv=None):
         if f:
             roots[f] += n
 
-    t = time.time()
+    t = time.monotonic()
     recs, n_main, n_help, logs_timed_out = scan_logs(a.days)
-    T["logs"] = round(time.time() - t, 1)
+    T["logs"] = round(time.monotonic() - t, 1)
     WRITTEN_DIRS = sorted({d for r in recs for d in r.get("written_dirs", ())})
     written_path = os.path.join(a.out, "written-dirs.json")   # the anatomy scan asks the same ownership question
     with open(written_path, "w") as f:
@@ -3289,7 +3290,7 @@ def main(argv=None):
     in_repo = {r: f for f, rs in below.items() for r in rs}
     agg, rd, wr = aggregate(recs, {c["chat"] for c in typed}, typed_times(chats_path), SchedulerStarts())
 
-    t = time.time()
+    t = time.monotonic()
     # who "the person" is: every email their git config knows (identity.py), never "whoever commits most here";
     # the most frequent author is kept for the page only, so a teammate's work is never credited to them
     seen_here = [*roots, *below_all, *[r for r in from_work if r not in roots and r not in below_all]]
@@ -3327,10 +3328,10 @@ def main(argv=None):
         repos.append({"repo": f"temporary folders ({len(temp)})", "typed_chats": sum(r["typed_chats"] for r in temp),
                       "headless_runs": sum(r["headless_runs"] for r in temp), "commits_in_window": 0, "theirs_in_window": 0,
                       "by_name": dict(Counter({r["repo"][6:]: r["headless_runs"] for r in temp}).most_common(8))})
-    T["repos"] = round(time.time() - t, 1)
+    T["repos"] = round(time.monotonic() - t, 1)
 
     # programs the agent runs, resolved and attributed
-    t = time.time()
+    t = time.monotonic()
     # the repos this person's sessions ran in, and the ones found below their start folders; never a folder of one laptop's
     scan_roots = [r["repo"] for r in repos if r["typed_chats"] or r["headless_runs"] or r.get("worked_chats") or "found_under" in r]
     scan_roots += own_marketplace_folders()   # their own plugins: read wherever the sessions ran
@@ -3357,14 +3358,14 @@ def main(argv=None):
                 src = next((c for c in cand if os.path.isfile(c)), None)
             if src and repo_root(os.path.dirname(src)):
                 row["author"] = authorship(src, me, repo_root(os.path.dirname(src)))
-    T["resolve"] = round(time.time() - t, 1)
+    T["resolve"] = round(time.monotonic() - t, 1)
 
-    t = time.time()
+    t = time.monotonic()
     evals = find_evals(scan_roots, me, start)
-    T["evals"] = round(time.time() - t, 1)
+    T["evals"] = round(time.monotonic() - t, 1)
 
     # always-loaded instruction files: home + each repo root, size in words now and over time
-    t = time.time()
+    t = time.monotonic()
     always = [os.path.join(HOME, ".claude", "CLAUDE.md"), os.path.join(HOME, "CLAUDE.md")]
     for rr in scan_roots:
         for nm in INSTRUCTION_NAMES:
@@ -3377,7 +3378,7 @@ def main(argv=None):
                 always.append(os.path.join(cwd, nm))
     instr = [x for x in (words_history(p, me) for p in dict.fromkeys(always) if os.path.isfile(p)) if x]
     instr.sort(key=lambda x: -x["words_now"])
-    T["instructions"] = round(time.time() - t, 1)
+    T["instructions"] = round(time.monotonic() - t, 1)
 
     plans_dir = os.path.join(HOME, ".claude", "plans")
     plan_files = glob.glob(os.path.join(plans_dir, "*.md"))
@@ -3392,7 +3393,7 @@ def main(argv=None):
         _, err = proc.communicate()
         if proc.returncode:
             print("anatomy inventory failed:", (err or "")[-400:], file=sys.stderr)
-    T["anatomy_wait"] = round(time.time() - t0, 1)
+    T["anatomy_wait"] = round(time.monotonic() - t0, 1)
     A = json.load(open(anat_path)) if os.path.exists(anat_path) else {}
     files_part = compact_anatomy(A, me, scan_roots, rd, wr)
     hook_runs = attribute_hook_runs(agg.pop("hook_runs_typed"), agg.pop("hook_runs_headless"), A, me)
@@ -3444,11 +3445,11 @@ def main(argv=None):
         d["referenced_by"] = who_mentions(os.path.basename(d["path"]), files_part["plugins"], scan_roots)
     sched = schedule_logs(scan_roots, start)
 
-    t = time.time()
+    t = time.monotonic()
     own_plugins = {x.get("name") for x in A.get("artifacts") or [] if x.get("kind") == "plugin_manifest" and x.get("origin") == "own"} | \
         {str(p.get("key", "")).partition("@")[0] for p in files_part.get("plugins") or [] if isinstance(p, dict) and p.get("owner") == "theirs"}
     skill_depth = skill_depth_facts(A, recs, start, me, scan_roots, own_plugins - {""})
-    T["skill_depth"] = round(time.time() - t, 1)
+    T["skill_depth"] = round(time.monotonic() - t, 1)
 
     probes = {}
     pdir = os.path.join(os.path.dirname(os.path.abspath(a.out)), "problems-2026-11-02")
@@ -3532,7 +3533,7 @@ def main(argv=None):
     open(os.path.join(a.out, "inventory.json"), "w").write(js)
     md = digest(inv)
     open(os.path.join(a.out, "inventory.md"), "w").write(md)
-    print(f"inventory: {len(js) // 1000} kB json, {len(md.split())} words in inventory.md, {time.time() - t0:.0f}s {T} -> {a.out}")
+    print(f"inventory: {len(js) // 1000} kB json, {len(md.split())} words in inventory.md, {time.monotonic() - t0:.0f}s {T} -> {a.out}")
     return 0
 
 

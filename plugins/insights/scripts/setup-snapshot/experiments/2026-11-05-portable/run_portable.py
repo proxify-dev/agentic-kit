@@ -49,14 +49,14 @@ def run_prewarm_hooks(lt):
 
 
 def one(k):
-    t = time.time()
+    t = time.monotonic()
     try:
         got = base.CHECKS[k](LT)
         v = got.get("value")
         return {"pid": k[0], "L": k[1], "i": k[2], "value": v, "status": "cant_tell" if v is None else "counted",
-                "secs": round(time.time() - t, 2), "evidence": (got.get("evidence") or [])[:3], "note": got.get("note")}
+                "secs": round(time.monotonic() - t, 2), "evidence": (got.get("evidence") or [])[:3], "note": got.get("note")}
     except Exception as e:
-        return {"pid": k[0], "L": k[1], "i": k[2], "value": None, "status": "error", "secs": round(time.time() - t, 2),
+        return {"pid": k[0], "L": k[1], "i": k[2], "value": None, "status": "error", "secs": round(time.monotonic() - t, 2),
                 "note": f"{type(e).__name__}: {e}"[:300]}
 
 
@@ -125,23 +125,23 @@ def main():
     ap.add_argument("--budget", type=float, default=5.0, help="seconds one check may take; over it, it is not proven")
     ap.add_argument("--days", type=int, default=30)
     a = ap.parse_args()
-    t0 = time.time()
+    t0 = time.monotonic()
     load_checks()
     LT = base.Laptop(days=a.days)
     pats = json.load(open(os.path.join(HERE, "grep-patterns.json"))) if os.path.exists(os.path.join(HERE, "grep-patterns.json")) else []
     LT.prewarm([p.encode() for p in pats])
     run_prewarm_hooks(LT)
-    t_shared = time.time() - t0
+    t_shared = time.monotonic() - t0
     keys = sorted(base.CHECKS)
     out = {}
     workers = 8
     # the whole run is bounded: every check could use its full budget, 8 at a time, plus one budget of slack
-    deadline = time.time() + a.budget * (-(-len(keys) // workers) + 1)
+    deadline = time.monotonic() + a.budget * (-(-len(keys) // workers) + 1)
     with multiprocessing.get_context("fork").Pool(workers) as pool:
         pending = {k: pool.apply_async(one, (k,)) for k in keys}
         for k, res in pending.items():
             try:
-                out[k] = res.get(timeout=max(0.0, deadline - time.time()))
+                out[k] = res.get(timeout=max(0.0, deadline - time.monotonic()))
                 if out[k]["status"] == "counted" and out[k]["secs"] > a.budget:   # answered, but too slow to count on
                     out[k].update(status="timeout", value=None,
                                   note=f"not proven on other laptops yet: took {out[k]['secs']:.0f}s, over the {a.budget:.0f}s budget")
@@ -150,7 +150,7 @@ def main():
                           "note": f"not proven on other laptops yet: over the {a.budget:.0f}s budget"}
         pool.terminate()
     rows = [out[k] for k in keys]
-    meta = {"days": a.days, "checks": len(rows), "shared_secs": round(t_shared, 1), "total_secs": round(time.time() - t0, 1),
+    meta = {"days": a.days, "checks": len(rows), "shared_secs": round(t_shared, 1), "total_secs": round(time.monotonic() - t0, 1),
             "budget_secs": a.budget, "by_status": {s: sum(1 for r in rows if r["status"] == s) for s in ("counted", "cant_tell", "timeout", "error")},
             "sessions": len(LT.sessions), "repos": len(LT.repos), "logs": logs_held(LT, a.days)}
     os.makedirs(a.run_dir, exist_ok=True)

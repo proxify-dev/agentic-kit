@@ -23,6 +23,11 @@ import sys
 import yaml
 
 HERE = os.environ.get("SUBSTRATE_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import importlib.util  # noqa: E402
+_spec = importlib.util.spec_from_file_location("clock", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..",
+                                                                    "setup-snapshot", "experiments", "2026-11-02-evidence", "clock.py"))
+clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read
+_spec.loader.exec_module(clock)
 OUT = os.environ.get("SUBSTRATE_MAP") or os.path.expanduser("~/.cache/setup-snapshot/v15-map.html")
 ORDER = ["context", "prompt", "verification", "harness", "orchestration"]
 ANCHORED = {"standard", "emerging"}  # 11-02 rule: only these terms may anchor a practice or challenge
@@ -225,7 +230,7 @@ def analyse():
     head = git("log", "-1", "--format=%h %cs")
     subs = git("log", "-1", "--format=%h %cs", "--", "substrate")
     return {
-        "built": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "built": datetime.datetime.fromtimestamp(clock.now()).strftime("%Y-%m-%d %H:%M"),
         "root": HERE, "branch": git("rev-parse", "--abbrev-ref", "HEAD"), "head": head, "substrate_commit": subs,
         "version": "v15.0-draft", "status": read_status(),
         "disciplines": discs, "challenges": challenges, "practices": practices,

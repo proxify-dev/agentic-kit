@@ -25,6 +25,10 @@ import time
 from collections import Counter
 from datetime import datetime
 from multiprocessing import Pool
+import importlib.util  # noqa: E402
+_spec = importlib.util.spec_from_file_location("clock", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "2026-11-02-evidence", "clock.py"))
+clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read
+_spec.loader.exec_module(clock)
 
 # Apps a person types into (VS Code, desktop, JetBrains) drive Claude Code through the Agent SDK, so Claude Code
 # writes the person's own message as promptSource "sdk", like a script's. In their sessions "sdk" is the person.
@@ -226,7 +230,7 @@ def main(argv=None):
     ap.add_argument("--root", default=os.path.expanduser("~/.claude/projects"))
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
-    start = time.time() - a.days * 86400
+    start = clock.now() - a.days * 86400
     files = [p for p in glob.glob(os.path.join(a.root, "*", "*.jsonl")) if os.path.getmtime(p) >= start]
     with Pool(max(1, (os.cpu_count() or 2) - 1)) as pool:
         chats = [c for c in pool.map(read_chat, [(p, start) for p in files], chunksize=8) if c]
@@ -241,7 +245,7 @@ def main(argv=None):
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w") as f:
         f.write(json.dumps({"meta": {"days": a.days, "root": a.root, "files_read": len(files), "chats": len(chats),
-                                     "made": time.time()}}) + "\n")
+                                     "made": clock.now()}}) + "\n")
         for c in chats:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
     print(f"{len(chats)} chats, {sum(len(c['msgs']) for c in chats)} typed messages, "

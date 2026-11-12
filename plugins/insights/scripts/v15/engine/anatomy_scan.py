@@ -23,6 +23,10 @@ import sys
 import time
 from collections import Counter, defaultdict
 from multiprocessing import Pool
+import importlib.util  # noqa: E402
+_spec = importlib.util.spec_from_file_location("clock", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "setup-snapshot", "experiments", "2026-11-02-evidence", "clock.py"))
+clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read
+_spec.loader.exec_module(clock)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import anatomy_model as M  # noqa: E402
@@ -380,12 +384,12 @@ def main(argv):
         return 0
     A = yaml.safe_load(open(a.anatomy))
     os.makedirs(a.run_dir, exist_ok=True)
-    t0 = time.time()
-    cutoff = time.time() - a.days * 86400
+    t0 = time.monotonic()
+    cutoff = clock.now() - a.days * 86400
     files = [f for f in glob.glob(os.path.join(LOGS, "*", "*.jsonl")) if os.path.getmtime(f) >= cutoff]
     with Pool(max(2, (os.cpu_count() or 4) - 1)) as pool:
         per = [r for r in pool.map(scan_file, files, chunksize=16) if r]
-    t_logs = time.time() - t0
+    t_logs = time.monotonic() - t0
 
     # the repos each session worked in (inventory.py writes it from the same pass over the logs): a session that started
     # in the home folder, or in a folder above its repos, belongs to the repos it edited and committed in
@@ -418,7 +422,7 @@ def main(argv):
         rounds += c.get("stop_blocks", 0) >= 2
     by_repo, active = most_active(per, a.projects, worked, top_worked)
 
-    t1 = time.time()
+    t1 = time.monotonic()
     found, gits, readers = {}, {}, {"tools": [], "hooks": []}
     for root in active:
         for fid, paths in finders(root, conditions[root], ran).items():
@@ -428,7 +432,7 @@ def main(argv):
         readers["tools"] += t
         readers["hooks"] += h
     sched = scheduler()
-    t_git = time.time() - t1
+    t_git = time.monotonic() - t1
 
     all_conditions = [x for root in conditions for x in conditions[root]]
     timeboxed = [x for x in all_conditions if TIMEBOX.search(x)]
@@ -465,7 +469,7 @@ def main(argv):
         "home_override": {"value": sum(g["home_override"] for g in gits.values()), "evidence": ["files that point HOME at another folder"]},
     }
     meta = {"days": a.days, "logs": len(files), "secs_logs": round(t_logs, 1), "secs_git": round(t_git, 1),
-            "anatomy": os.path.abspath(a.anatomy), "at": time.strftime("%Y-%m-%d %H:%M")}
+            "anatomy": os.path.abspath(a.anatomy), "at": time.strftime("%Y-%m-%d %H:%M", time.localtime(clock.now()))}
     projects = [{"root": r, "slug": slug(r), "typed_sessions": 0, "sessions": 0, **by_repo[r]} for r in active]
     json.dump({"meta": meta, "projects": projects, "checks": checks, "files": found},
               open(os.path.join(a.run_dir, "anatomy-scan.json"), "w"), indent=1)

@@ -17,7 +17,7 @@ import re
 import subprocess
 import time
 from base import check
-from fixture import fixture
+from fixture import NOW, fixture
 
 RETIRE = "retire-setup-that-no-longer-earns-its-place"
 COMPACT = "compact-on-purpose"
@@ -608,7 +608,7 @@ def _sess(fx, cwd, ep="claude-vscode", **kw):
 
 
 def _noon(days_ago):
-    return (int(time.time() // 86400) - days_ago) * 86400 + 43200
+    return (int(NOW // 86400) - days_ago) * 86400 + 43200
 
 
 def _commit_at(fx, repo, files, by, t, message="change", delete=()):
@@ -712,13 +712,13 @@ def _(fx):
     _sess(fx, "~/work/shop").typed("clean up the setup")
     fx.commit("~/work/shop", {"keep.txt": "k"}, by="teammate")
     fx.commit("~/work/shop", {".claude/skills/team/SKILL.md": "t"}, by="teammate")
-    _commit_at(fx, "~/work/shop", {}, "work", time.time() - 3600, "drop old setup",
+    _commit_at(fx, "~/work/shop", {}, "work", NOW - 3600, "drop old setup",
                delete=[".claude/skills/old/SKILL.md", ".claude/agents/rev.md", "notes/a.md", ".claude/commands/ship.md", "plug/agents/helper.md",
                        "src/hooks/useAuth.js", "docs/agents/overview.md", "docs/commands/run.md"])
     # the trap: app code in a hooks/ folder and doc pages in agents/ and commands/ folders are not setup; a teammate deleting their
     # own skill is not credited; the person's home email counts too
-    _commit_at(fx, "~/work/shop", {}, "teammate", time.time() - 1800, "teammate cleanup", delete=[".claude/skills/team/SKILL.md"])
-    _commit_at(fx, "~/work/shop", {}, "home", time.time() - 900, "drop guard", delete=[".claude/hooks/guard.sh"])
+    _commit_at(fx, "~/work/shop", {}, "teammate", NOW - 1800, "teammate cleanup", delete=[".claude/skills/team/SKILL.md"])
+    _commit_at(fx, "~/work/shop", {}, "home", NOW - 900, "drop guard", delete=[".claude/hooks/guard.sh"])
     return {"value": 5}   # old skill, rev agent, ship command, the plugin's helper agent (work email) + guard hook (home email)
 
 
@@ -1789,7 +1789,7 @@ def commit_before_first_edit(lt):
 
 @fixture(COMMIT, "L2", 0)
 def _(fx):
-    T = time.time() - 3 * 86400
+    T = NOW - 3 * 86400
     plan = [("a", "work", "before", "claude-vscode"), ("b", "work", "after", "claude-vscode"), ("c", "teammate", "before", "claude-vscode"),
             ("d", "work", "before", "sdk-cli"), ("e", "work", "byhand", "claude-vscode"), ("f", "home", "before", "claude-desktop")]
     for name, who, when, ep in plan:
@@ -1825,7 +1825,7 @@ def commits_during_edit_sessions(lt):
 
 @fixture(COMMIT, "L2", 1)
 def _(fx):
-    T = time.time() - 3 * 86400
+    T = NOW - 3 * 86400
     plan = [("a", "work", "between", "claude-vscode"), ("b", "work", "after", "claude-vscode"), ("c", "teammate", "between", "claude-vscode"),
             ("d", "work", "between", "sdk-cli"), ("e", "work", "byhand", "claude-vscode"), ("f", "home", "between", "claude-desktop")]
     for name, who, when, ep in plan:
@@ -2092,7 +2092,7 @@ def typed_while_another_session(lt):
 
 @fixture(PARALLEL, "L2", 0)
 def _(fx):
-    T = time.time() - 2 * 86400
+    T = NOW - 2 * 86400
     a = _sess(fx, "~/work/shop", start=T); b = _sess(fx, "~/work/shop", ep="claude-desktop", start=T)
     c = _sess(fx, "~/work/shop", start=T); h = _sess(fx, "~/work/shop", ep="sdk-cli", start=T)
     a.t = T + 10; a.typed("one")
@@ -2153,7 +2153,7 @@ def sessions_in_worktrees(lt):
 
 @fixture(PARALLEL, "L2", 1)
 def _(fx):
-    T = time.time() - 2 * 86400
+    T = NOW - 2 * 86400
     fx.repo("~/code/shop", {"README.md": "x"})
     fx._git(fx.p("~/code/shop"), "worktree", "add", "-q", fx.p("~/code/shop-feature"), "-b", "feature")
     fx.repo("~/code/other", {"README.md": "x"}); fx.repo("~/code/solo", {"README.md": "x"})

@@ -318,9 +318,9 @@ def corrections_structure(p, user, root, home):
     files = correction_files(p, user, root, home)
     if not files:
         return False, "no rule file or skill of theirs here"
-    best, in_git, t0 = None, 0, time.time()
+    best, in_git, t0 = None, 0, time.monotonic()
     for f in files[:GIT_FILES]:
-        if time.time() - t0 > GIT_BUDGET:
+        if time.monotonic() - t0 > GIT_BUDGET:
             break
         h = history(f)
         if not h:

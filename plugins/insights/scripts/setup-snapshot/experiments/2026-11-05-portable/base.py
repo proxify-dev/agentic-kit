@@ -38,6 +38,9 @@ from datetime import datetime
 HERE = os.path.dirname(os.path.abspath(__file__))
 IDENTITY = os.path.join(os.path.dirname(HERE), "2026-11-02-evidence", "identity.py")
 OWNERSHIP = os.path.join(os.path.dirname(HERE), "2026-11-02-evidence", "ownership.py")   # the one ownership rule (his, 11-05)
+_spec = importlib.util.spec_from_file_location("clock", os.path.join(os.path.dirname(HERE), "2026-11-02-evidence", "clock.py"))
+clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read (AGENTIC_SETUP_NOW fixes it)
+_spec.loader.exec_module(clock)
 
 
 def _code_sig():
@@ -94,7 +97,7 @@ def _prune_cache(folder):
     Both caches are keyed on the code, so each version of the tool writes a new pair (~1.7 GB on a laptop with a busy
     month of logs) and, until 11-11, none was ever deleted: 24 GB on one laptop after one week of changes,
     and one more pair per release on every member's. Only names this cache writes are touched."""
-    cutoff = time.time() - CACHE_HOURS * 3600
+    cutoff = clock.real() - CACHE_HOURS * 3600
     try:
         names = os.listdir(folder)
     except OSError:
@@ -293,7 +296,7 @@ class Laptop:
     def __init__(self, home=None, days=30, now=None, cache=True, system_root=None):
         self.home = os.path.realpath(home or os.path.expanduser("~"))
         self.claude = os.path.join(self.home, ".claude")
-        self.days, self.now = days, now or time.time()
+        self.days, self.now = days, now or clock.now()
         self.start = self.now - days * 86400
         self.system_root = system_root   # where managed settings live; None = the real system paths
         self._cache = cache
@@ -329,7 +332,7 @@ class Laptop:
         main, side = self._files()
         # one cache per home, window and code, reused for CACHE_HOURS
         cpath = self._cache_base() + ".pkl"
-        if self._cache and os.path.exists(cpath) and time.time() - os.path.getmtime(cpath) < CACHE_HOURS * 3600:
+        if self._cache and os.path.exists(cpath) and clock.real() - os.path.getmtime(cpath) < CACHE_HOURS * 3600:
             with open(cpath, "rb") as f:
                 self.__dict__.update(pickle.load(f))
             self.load_state()
@@ -486,7 +489,7 @@ class Laptop:
         if self._cache and os.path.exists(p):
             with open(p, "rb") as f:
                 st = pickle.load(f)
-            if time.time() - (st.get("_state_t0") or 0) < CACHE_HOURS * 3600:
+            if clock.real() - (st.get("_state_t0") or 0) < CACHE_HOURS * 3600:
                 self.__dict__.update(st)
                 if self._repos is not None:   # a folder deleted since the state was saved (a removed worktree, a temp
                     self._repos = [r for r in self._repos if os.path.isdir(r)]   # folder) is no repo of theirs any more
@@ -510,7 +513,7 @@ class Laptop:
             tmp = self._state_path() + f".{os.getpid()}.tmp"
             with open(tmp, "wb") as f:
                 st = {k: self.__dict__.get(k) for k in self.STATE if self.__dict__.get(k) is not None}
-                st["_state_t0"] = self.__dict__.get("_state_t0") or time.time()   # kept across saves: age is from the build
+                st["_state_t0"] = self.__dict__.get("_state_t0") or clock.real()   # kept across saves: age is from the build
                 pickle.dump(st, f)
             os.replace(tmp, self._state_path())
 
