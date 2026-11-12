@@ -63,7 +63,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
-from multiprocessing import Pool
+from multiprocessing import Pool, parent_process
 from pathlib import Path
 
 # Apps a person types into (VS Code, desktop, JetBrains) drive Claude Code through the Agent SDK, so Claude Code
@@ -513,10 +513,20 @@ class SessionTooLong(BaseException):   # not an Exception: no `except Exception`
     pass
 
 
+def parent_gone():
+    """True in a pool worker whose parent process has died (killed on a time limit, say): nobody is waiting for its answer, so it
+    stops instead of running on, alone, until its log ends. False in the main process and while the parent lives. (11-12: a worker
+    kept a core at 100% for almost two hours after the test that started the scan was killed on its limit.)"""
+    p = parent_process()
+    return p is not None and not p.is_alive()
+
+
 def read_log_limited(args):
     """read_log with a time limit: the record, or {"timed_out": path}. Where the system has SIGALRM (macOS, Linux) it
     stops a loop in the middle of one line; elsewhere (Windows) the check between lines still ends a slow log."""
     global _DEADLINE
+    if parent_gone():
+        return {"timed_out": args[0]}
     _DEADLINE = time.monotonic() + SESSION_SECONDS
 
     def stop(*_):
@@ -578,7 +588,7 @@ def read_log(args):
         return None
     with fh:
         for n, line in enumerate(fh):
-            if _DEADLINE and n % 200 == 0 and time.monotonic() > _DEADLINE:
+            if _DEADLINE and n % 200 == 0 and (time.monotonic() > _DEADLINE or parent_gone()):
                 raise SessionTooLong()
             if r["ep"] is None and b'"entrypoint":"' in line:
                 j = line.find(b'"entrypoint":"')
