@@ -5,7 +5,7 @@
 #
 # state, strongest first:
 #   proven   ran on real input AND passed an independent check
-#   ran      ran on real input (so far: his laptop only); no independent check yet
+#   ran      ran on real input (so far: one laptop only); no independent check yet
 #   paper    built, never run on real input
 #   missing  not built
 checked: 2026-11-02 23:59
@@ -55,7 +55,7 @@ capabilities:
     live: tally
     today: An AI reader per discipline turns the inventory into one row per practice (level + why + where it was seen); a second AI tries to knock each row down.
     proof: "Two loops, each re-audited by 5 fresh Opus auditors. Loop 2: 83% of 112 claims right or right with a thin reason, 15% wrong; practice levels 85% right or nearly (25 of 33 with a thin reason). The old checks were 14% hold, 46% wrong. Bar (wrong ≤ 5%) not met."
-    missing: "Problem verdicts default to the old checks, which pool all repos and read typed sessions only; levels miss evidence in files nobody opened (his gateway). Costs 1.4M tokens per person. Next shape waits on you: setup-snapshot/memory/problems/v15-evidence-rebuild-audit.md."
+    missing: "Problem verdicts default to the old checks, which pool all repos and read typed sessions only; levels miss evidence in files nobody opened (their gateway). Costs 1.4M tokens per person. Next shape waits on you: setup-snapshot/memory/problems/v15-evidence-rebuild-audit.md."
     where: ../setup-snapshot/experiments/2026-11-02-evidence/evidence.workflow.js
 
   - id: not-read
@@ -64,7 +64,7 @@ capabilities:
     state: ran
     live: states
     today: Every practice ends in one of three states — seen · looked, not found · not read — so a gap is never a guess.
-    proof: "Loop 2 audit: 1 practice he does still shown without a level (design the context you send: his gateway's cache-aware request shaping, in a file nobody opened). The old checks: 26."
+    proof: "Loop 2 audit: 1 practice he does still shown without a level (design the context you send: their gateway's cache-aware request shaping, in a file nobody opened). The old checks: 26."
     missing: Same audit bar as above.
     where: engine/engine.py
 
@@ -176,7 +176,7 @@ capabilities:
     state: missing
     today: Every number so far is from one laptop — yours, the hardest case (you built your own session-search and memory tools).
     proof: —
-    missing: two testers' laptops next, then 5–10 approved members.
+    missing: two other people's laptops next, then 5–10 approved members.
     where: STATUS.md (Next)
 
   - id: cost

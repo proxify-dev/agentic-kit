@@ -5,12 +5,12 @@ Skills, rules, plugins and commits count as theirs only when git says they wrote
 be right first. `git config --global user.email` alone is not enough:
   - `--global` ignores [include] and [includeIf] files, where many people keep their email (seen 2026-10-22:
     one person had no global email at all, only includes);
-  - people split work and personal by folder with [includeIf "gitdir:~/work/"] (a tester's global email was her
-    personal one; her work email, on every commit and skill she made, applied only under her work folder).
+  - people split work and personal by folder with [includeIf "gitdir:~/work/"] (a person's global email was their
+    personal one; their work email, on every commit and skill they made, applied only under their work folder).
 
 So: the global config files and every file they include (conditional or not), each repo's own config, and
 then the authors of commits that carry a Claude co-author line (whoever commits with Claude is the one at the
-keyboard), when their name matches one the config holds. Nobody is asked: git config settles it (his ruling
+keyboard), when their name matches one the config holds. Nobody is asked: git config settles it (the ruling
 2026-11-05, "we can infer it from git config"). An email seen only on Claude commits under another name is listed
 as not counted, never credited.
 

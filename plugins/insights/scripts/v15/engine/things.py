@@ -2,8 +2,8 @@
 """The level read from plain things (a trial, 11-11), beside the read from practices (engine.level_pointer).
 
 Why: the practice read gave each of 33 practices four rungs, and the rungs that should not exist got filled. On 11-11 a
-tester's page showed "tools made for the agent" at L3 (his ruling: building tools is L4), plan mode as "agree the
-approach first" at L3 (it is a built-in), and the model's own sub-agent calls as her habit. His rulings place THINGS at
+one page showed "tools made for the agent" at L3 (the ruling: building tools is L4), plan mode as "agree the
+approach first" at L3 (it is a built-in), and the model's own sub-agent calls as the person's habit. The rulings place THINGS at
 levels, so this read does too: each thing has one home level and a name he would say out loud.
 
     L1  uses Claude Code and what ships with it or what others made
@@ -39,8 +39,8 @@ L2_HABITS_FOR_L2 = 2             # of the four L2 things, counted as the person'
 DEFAULT_BAR = {"n": 3, "chats": 3}  # a habit, for a count the signal map (substrate signals.yaml) gives no bar
 MIN_DAYS_FOR_L1 = 7              # days with sessions before "uses Claude Code on real work" is said (certainty's floor for a fair read)
 # L4, in this read's own terms: evals on what they built, plus this many of the other four kinds of built thing, each
-# built AND used in the window. It stays strict on purpose: one built thing plus an eval folder once read a tester L4,
-# and his answer was "we can't give L4 away like that" (11-05). It does not borrow the practice read's "builds in 3
+# built AND used in the window. It stays strict on purpose: one built thing plus an eval folder once read L4,
+# and the answer was "we can't give L4 away like that" (11-05). It does not borrow the practice read's "builds in 3
 # areas": the board can only ever name two areas, so a laptop with all five L4 things in use read L3 (11-11).
 L4_BUILT_KINDS = 3
 L4_KINDS = ("hooks", "mcp-built", "plugins", "agent-programs")   # the four kinds beside evals

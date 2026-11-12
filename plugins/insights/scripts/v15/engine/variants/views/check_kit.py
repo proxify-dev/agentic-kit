@@ -1,4 +1,4 @@
-"""How a verdict was reached, shown the same way on every view (his 11-03, dev mode: "I need to see how it got
+"""How a verdict was reached, shown the same way on every view (11-03, dev mode: "I need to see how it got
 there… imagine if overfitting or words like this will only work on my own machine").
 
 Reads a finding's `check` record (written by labs/setup-snapshot/experiments/2026-11-02-cheap/problems.py):

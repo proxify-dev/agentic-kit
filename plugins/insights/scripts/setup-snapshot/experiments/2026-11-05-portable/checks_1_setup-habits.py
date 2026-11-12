@@ -1488,7 +1488,7 @@ def _(fx):
     return {"value": 2}
 
 
-@check("lead-a-team-of-agents", "L2", 1)   # a dynamic workflow is multi-agent orchestration (his ruling 11: L2), re-homed 11-06 from isolate-side-work
+@check("lead-a-team-of-agents", "L2", 1)   # a dynamic workflow is multi-agent orchestration (the ruling 11: L2), re-homed 11-06 from isolate-side-work
 def workflow_runs(lt):
     """Workflow runs the person asked for: a workflow_keyword_request attachment (Claude Code's record of the workflow keyword in
     their message) in a session they worked in, followed in the same turn (before their next message) by a Workflow tool call. Value =

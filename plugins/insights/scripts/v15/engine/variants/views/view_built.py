@@ -1,9 +1,9 @@
 """What you've built: what the person built for their agent, and whether it got used in the last 30 days.
 
-Why it looks like this (his 11-11 on the tab before it: "really hard to read"; on the new Review: "go further… on this
+Why it looks like this (11-11 on the tab before it: "really hard to read"; on the new Review: "go further… on this
 view as well"). Every kind of thing was a long text list, with words like "Depth 3 · progressive disclosure" and a
 legend paragraph to decode them, and the rule-file line said "1632 instruction files of yours", which counted copies and
-files his tools generate. Now, in the Review's visual language:
+files their tools generate. Now, in the Review's visual language:
   1. at a glance: one tile per kind they have, a big number with what it counts and a meter of how many got used
   2. per kind: one plain line of what it is, then the things sorted by use, the top 8 first, the unused folded in one group;
      a skill shows how far it goes as four plain steps (reads one file → opens more files when needed → runs code →

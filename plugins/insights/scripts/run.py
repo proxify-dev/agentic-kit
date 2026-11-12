@@ -9,7 +9,7 @@ frame.py keeps the page it replaces in archive/ there).
                                   (which practices were seen and at which step, as ids and levels; no file names, no text)
 
 The page is the member's copy, opening on "Your level": the level the laptop reads, said to the member, with none of
-Proxify's internal views (his 11-11 ask; the 11-11 morning default shipped the full page, internal tabs and all).
+Proxify's internal views (11-11 ask; the 11-11 morning default shipped the full page, internal tabs and all).
 --proxify or AGENTIC_SETUP_PROXIFY=1 builds the full page (substrate, call sheet, internal level read) for Proxify staff;
 give it to `pre` too, so the readers' briefs keep the part-by-part questions that page shows (a member's brief asks
 only for the review of their agent-facing files).

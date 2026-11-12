@@ -1,6 +1,6 @@
 """The page's first tab: the person's setup at a glance, with the depth one click away.
 
-Why it looks like this (his 11-11, on the written review this tab used to be): "Users get lost when they see it… too
+Why it looks like this (11-11, on the written review this tab used to be): "Users get lost when they see it… too
 much to read… be more creative." It was a long lede, then one card per project with two long paragraphs. Now the first
 screen answers four questions a non-engineer can take in within seconds, each as a picture before any sentence:
   1. Where am I?            the level mark and a four-step ladder, each step with how many of its things are in place

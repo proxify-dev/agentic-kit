@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Whose is a file the setup uses: theirs, unless something on the laptop says it was installed.
 
-His ruling 2026-11-05: "it's probably theirs if they're not installed via the skills lock or something". The old
-default was "not yours unless git proves it", and it lost one tester's own work four times (10-22 a second git email,
+The ruling 2026-11-05: "it's probably theirs if they're not installed via the skills lock or something". The old
+default was "not yours unless git proves it", and it lost one person's own work four times (10-22 a second git email,
 10-23 skills linked in from her team repo, 11-04 the folder a chat started in, 11-05 skills/memory/settings with no
 id). Each fix taught the scan one more folder layout. Installs leave a receipt; nothing else needs guessing.
 
