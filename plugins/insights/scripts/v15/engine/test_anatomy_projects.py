@@ -60,6 +60,12 @@ class MostActiveProjectCase(unittest.TestCase):
         self.assertEqual(by_repo[self.repos["bot"]]["sessions"], 5)
         self.assertNotEqual(active[0], self.repos["bot"])
 
+    def test_a_desktop_app_session_counts_for_the_repos_it_worked_in(self):
+        sid = os.path.basename(self.per[0]["path"])[:-6]   # the first log is a desktop-app session in desk
+        by_repo, _ = anatomy_scan.most_active(self.per, 3, {sid: {self.repos["term"]: 2}}, {self.repos["term"]})
+        self.assertEqual(by_repo[self.repos["term"]]["typed_sessions"], 2)   # its own terminal session and this one
+        self.assertEqual(by_repo[self.repos["term"]]["worked_sessions"], 1)
+
     def test_person_session_rule(self):
         for entry in ("cli", "claude-desktop", "claude-vscode", "claude-jetbrains", None):   # None: too old to name one
             self.assertTrue(anatomy_scan.person_session(entry), entry)

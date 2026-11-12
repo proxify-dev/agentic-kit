@@ -41,6 +41,14 @@ class PickFromChatsCase(unittest.TestCase):
         picked = setup_map.pick_projects(self.run, setup_map.Ctx(self.home), 3, {}, {}, None)
         self.assertEqual(picked, [(self.repos["desk"], {"typed_sessions": 3}), (self.repos["term"], {"typed_sessions": 1})])
 
+    def test_a_desktop_app_session_started_in_home_counts_for_the_repo_it_worked_in(self):
+        with open(os.path.join(self.run, "chats.jsonl"), "a") as fh:
+            fh.write(json.dumps({"chat": "s1", "cwd": self.home, "ep": "claude-desktop"}) + "\n")
+        with open(os.path.join(self.run, "worked-in.json"), "w") as fh:
+            json.dump({"sessions": {"s1": {self.repos["term"]: 3}}}, fh)
+        picked = dict(setup_map.pick_projects(self.run, setup_map.Ctx(self.home), 3, {}, {}, None))
+        self.assertEqual(picked[self.repos["term"]], {"typed_sessions": 2})   # its own terminal session and this one
+
 
 if __name__ == "__main__":
     unittest.main()
