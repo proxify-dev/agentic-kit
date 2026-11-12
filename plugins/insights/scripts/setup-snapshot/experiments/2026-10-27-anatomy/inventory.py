@@ -52,6 +52,12 @@ Output (JSON). Every list item carries `scope` (home | ancestor | project | fold
   plugins{enabled[], dir_loaded[], marketplaces[]}   enabled[]: {key, enabled, scope(s), version, install_path, marketplace,
                         marketplace_source, marketplace_is_own, contents{skills[], agents[], commands[], hooks_events[], mcp_servers[]}}
   mcp_servers[]   {name, transport, source, scope, command?, entry?, args_count, url_host?, env[{name,value_len}], headers[...]}
+  mcp_built[]     MCP servers built into the person's own repos, whether or not any client is set up for them (collect_mcp_built):
+                        {name (the repo), repo, project, routes[], transport: http|stdio|null, signals{dependency[{file, package}],
+                        handler[], route[], doc[], test[]} (paths), evidence[] (every file above but the manifests),
+                        origin: own|installed|mixed|third_party, origin_evidence, git{commits, last_commit, user_commits}}. Two
+                        kinds of signal at least, and a handler or an SDK dependency with a route; origin by ownership.py
+                        (classify_origin), the evidence files asked about as one.
   settings        {files[{path, scope, bytes, mtime, top_level_keys[]}], backups[{path, mtime}], notable[{file, scope, key, value}],
                    counts[{file, permissions_allow, ...}], env_keys[{file, name, value_len}]}
   worktrees[]     one item per git repo (common dir): {repo, default_refs[], summary{linked, merged, unmerged, locked, prunable,
@@ -392,18 +398,21 @@ def identity_from_repos(repo_roots: list[Path]):
             Identity.names.add(n.strip().lower())
 
 
-_hist_cache: dict[tuple[Path, str], dict | None] = {}
+_hist_cache: dict[tuple[Path, str | tuple[str, ...]], dict | None] = {}
 
 
-def history(root: Path, rel: str) -> dict | None:
+def history(root: Path, rel: str | tuple[str, ...], budgeted: bool = True) -> dict | None:
+    """The commits that touched `rel`, a path inside root, or any of several (a tuple). `budgeted=False` runs outside
+    GIT_BUDGET, for a lookup made once per thing found rather than once per file."""
     key = (root, rel)
     if key in _hist_cache:
         return _hist_cache[key]
     res = None
-    if GIT_BUDGET["left"] > 0:
+    if not budgeted or GIT_BUDGET["left"] > 0:
         t = time.monotonic()
-        r = git(["log", "--format=%aI%x09%ae%x09%an", "--", rel], root, 15)
-        GIT_BUDGET["left"] -= time.monotonic() - t
+        r = git(["log", "--format=%aI%x09%ae%x09%an", "--", *((rel,) if isinstance(rel, str) else rel)], root, 15)
+        if budgeted:
+            GIT_BUDGET["left"] -= time.monotonic() - t
         if r is not None and r.returncode == 0:
             rows = [ln.split("\t") + ["", ""] for ln in r.stdout.splitlines() if ln]
             res = {
@@ -434,6 +443,24 @@ def git_info(path: Path) -> dict:
     if h["commits"] == 0:
         r = git(["check-ignore", "-q", "--", rel], root, 5)
         info["ignored"] = bool(r is not None and r.returncode == 0)
+    return info
+
+
+def files_info(paths) -> dict:
+    """git_info for several files of one repo taken as one thing: the commits that touched any of them. One lookup per
+    thing found (an MCP server built into a repo), so it runs even when the per-file budget is spent: with no history
+    read, ownership.py reads the thing as theirs, and on a real laptop the budget was gone before this step, so a clone
+    of someone else's server read as theirs."""
+    reals = [Path(os.path.realpath(p)) for p in paths]
+    root = git_root(reals[0]) if reals else None
+    if root is None:
+        return {"in_git": False}
+    info: dict = {"in_git": True, "repo": str(root)}
+    h = history(root, tuple(sorted({os.path.relpath(r, root) for r in reals if _under(r, root)})), budgeted=False)
+    if h is None:
+        info["error"] = "git log unavailable"
+        return info
+    info.update(h)
     return info
 
 
@@ -518,6 +545,10 @@ class Walk:
         self.memory_md: list[Path] = []
         self.vaults: list[Path] = []
         self.mcp_files: list[Path] = []
+        self.mcp_code: list[Path] = []       # code whose name, or a folder above it, says mcp: a server's handler, maybe
+        self.mcp_docs: list[Path] = []       # docs named mcp: one may call the thing an MCP server
+        self.dep_files: list[Path] = []      # dependency manifests (package.json, composer.json, pyproject.toml, ...)
+        self.route_files: list[Path] = []    # where HTTP routes are registered (routes/api.php, urls.py, router.ts)
         self.plugin_roots: list[Path] = []
         self.marketplace_files: list[Path] = []
         self.ci: list[Path] = []
@@ -543,7 +574,7 @@ def walk_target(root: Path) -> Walk:
     w = Walk(root)
     t0 = time.monotonic()
     deadline = t0 + WALK_BUDGET_S
-    stack: list[tuple[str, int, bool]] = [(str(root), 0, False)]
+    stack: list[tuple[str, int, bool, bool]] = [(str(root), 0, False, False)]
     if (root / ".git").is_dir():
         w.git_repos.append(root)
     while stack:
@@ -551,7 +582,7 @@ def walk_target(root: Path) -> Walk:
             w.truncated = True
             cnr(root, f"walk stopped early: {w.dirs} dirs, {w.entries} entries, {time.monotonic() - t0:.0f}s (budget {WALK_BUDGET_S:.0f}s)")
             break
-        d, depth, in_skill = stack.pop()
+        d, depth, in_skill, in_mcp = stack.pop()
         try:
             entries = list(os.scandir(d))
         except OSError as e:
@@ -561,6 +592,7 @@ def walk_target(root: Path) -> Walk:
         dp = Path(d)
         names = {e.name for e in entries}
         in_skill_here = in_skill or "SKILL.md" in names
+        in_mcp_here = in_mcp or _says_mcp(dp.name)   # a repo named foo-mcp-server too (its files, capped)
         for e in entries:
             w.entries += 1
             name = e.name
@@ -602,7 +634,7 @@ def walk_target(root: Path) -> Walk:
                     w.git_repos.append(p)  # submodule: keep walking
                 elif gitp.is_dir():
                     w.git_repos.append(p)
-                stack.append((e.path, depth + 1, in_skill_here))
+                stack.append((e.path, depth + 1, in_skill_here, in_mcp_here))
                 continue
             if not is_file:
                 continue
@@ -610,6 +642,7 @@ def walk_target(root: Path) -> Walk:
             sk = scaffold_kind(name, dp)
             if sk and not in_skill_here:
                 w.scaffold.append((p, sk))
+            note_mcp_candidate(w, p, name, ln, dp, in_mcp_here)
             kind = instruction_kind(name, dp.name, dp.parent.name)
             if kind:
                 if in_skill_here:
@@ -674,7 +707,7 @@ def prune_nested(t: Path, w: Walk):
     before = len(w.instructions) + len(w.skills) + len(w.scripts) + len(w.ci) + len(w.claude_dirs) + len(w.memory_dirs)
     w.instructions = [(p, k) for p, k in w.instructions if keep(p)]
     for name in ("skills", "claude_dirs", "memory_dirs", "memory_md", "vaults", "mcp_files", "plugin_roots", "marketplace_files",
-                 "ci", "scripts", "locks", "git_repos", "linked_worktrees", "test_dirs"):
+                 "ci", "scripts", "locks", "git_repos", "linked_worktrees", "test_dirs", "mcp_code", "mcp_docs", "dep_files", "route_files"):
         setattr(w, name, [p for p in getattr(w, name) if keep(p)])
     w.scaffold = [(p, k) for p, k in w.scaffold if keep(p)]
     after = len(w.instructions) + len(w.skills) + len(w.scripts) + len(w.ci) + len(w.claude_dirs) + len(w.memory_dirs)
@@ -1079,11 +1112,14 @@ def written_in_logs(folder):
     return any(d == w or d.startswith(w.rstrip("/") + "/") for d in WRITTEN_DIRS for w in want)
 
 
-def classify_origin(path: Path, name: str, kind: str) -> tuple[str, str, dict | None]:
+def classify_origin(path: Path, name: str, kind: str, files: list | None = None) -> tuple[str, str, dict | None]:
     """own | installed | mixed | third_party, by ownership.owner (the ruling 11-05): installed only on a receipt (a
     published marketplace's cache, a skills lock, account-synced skills), a teammate's only when git shows most commits
     are someone else's, and theirs otherwise. "Not in git" is theirs: until 11-05 it was "untracked" and the v15 scan
-    dropped it, which lost a person's own skills."""
+    dropped it, which lost a person's own skills.
+    `files`: a thing made of several files of one repo (an MCP server built into a repo: its handler, routes, docs,
+    tests) is judged as one, by the commits that touched any of them, as a skill folder is by every commit on the
+    folder; `path` is the one of them the receipts and the copy rule are checked against."""
     real = Path(os.path.realpath(path))
     link = f" (symlink to {real})" if path.is_symlink() else ""
     if "/skills/synced/" in path.as_posix():
@@ -1096,8 +1132,10 @@ def classify_origin(path: Path, name: str, kind: str) -> tuple[str, str, dict | 
     gi_box = {}
 
     def auth(p):
-        gi = git_info(Path(p))
-        gi_box["gi"] = gi
+        gi = files_info(files) if files and os.path.realpath(p) == str(real) else git_info(Path(p))
+        # the first call asks about this file; later ones ask about other repos (ownership.py's copy rule), whose
+        # answers must not stand in for it (one with no history read stopped the scan: no "commits")
+        gi_box.setdefault("gi", gi)
         if gi.get("in_git") and gi.get("commits"):
             return {"commits": gi["commits"], "theirs": gi.get("user_commits") or 0}
         return None
@@ -1436,6 +1474,233 @@ def collect_plugins(targets: list[Path]) -> dict:
 # ---------------------------------------------------------------- memory stores
 
 WIKILINK = re.compile(r"\[\[([^\]\n|#][^\]\n|#]*)(?:#[^\]\n|]*)?(?:\|[^\]\n]*)?\]\]")
+# ---------------------------------------------------------------- MCP servers built into their repos
+
+# A file is a candidate when its name, or a folder above it, carries "mcp" as a word (NotesMcpController.php, Mcp/,
+# foo-mcp-server/); never on the name alone: what the file says decides.
+MCP_TOKEN = re.compile(r"(?<![a-z0-9])mcp(?![a-z0-9])")
+_CAMEL = re.compile(r"([a-z0-9])([A-Z])|([A-Z]+)([A-Z][a-z])")
+MCP_CODE_EXT = {".php", ".py", ".js", ".mjs", ".cjs", ".ts", ".mts", ".tsx", ".jsx", ".go", ".rs", ".rb", ".cs", ".java", ".kt", ".swift", ".ex", ".exs"}
+MCP_DOC_EXT = {".md", ".mdx", ".rst", ".txt"}
+DEP_FILES = {"package.json", "composer.json", "pyproject.toml", "requirements.txt", "requirements-dev.txt", "go.mod", "cargo.toml", "gemfile"}
+ROUTE_FILE = re.compile(r"(?i)^(?:api|web|routes?|routers?|urls)\.(?:php|py|js|mjs|cjs|ts|mts|rb|go)$")
+ROUTE_DIRS = {"routes", "router", "routers"}
+# the files kept per kind and target, in walk order: a guard on time, not a threshold (a cap reached is noted)
+MCP_CAPS = {"mcp_code": 60, "mcp_docs": 20, "dep_files": 200, "route_files": 240}
+# an MCP package in a dependency manifest: the official SDKs and the common frameworks, by name
+MCP_PACKAGE = re.compile(r"(?i)modelcontextprotocol|fastmcp|(?:^|[/@_-])mcp(?:[-_/@\[]|$)")
+# a handler: it answers the protocol's tool methods (the method name as a case, a comparison or a key it dispatches on;
+# a client sends the same name as the method of its request, so the name alone is not enough), or it builds a server
+# with an SDK (the server side: an SDK's client is imported from the same package)
+MCP_HANDLER = re.compile(r"""(?:\b(?:case|when)\s+|[=!]==?\s*|\.equals\(\s*|\bin\s*[(\[{]\s*)['"]tools/(?:call|list)['"]|"""
+                         r"""['"]tools/(?:call|list)['"]\s*(?:=>|->|[=!]==?|:(?!:))|"""
+                         r"\bMcpServer\b|\bAddMcpServer\b|\bFastMCP\b|@modelcontextprotocol/sdk/server|\b(?:from|import)\s+mcp\.server\b|"
+                         r"PhpMcp\\Server|Laravel\\Mcp\\Server|mark3labs/mcp-go/server|\bNewMCPServer\(|\bmcp\.NewServer\(|\bimpl\s+ServerHandler\b")
+MCP_ROUTE_LINE = re.compile(r"(?i)Route::|\.(?:post|get|all|use|route|handle|mount)\s*\(|@(?:app|router|bp)\.|\bpath\(|HandleFunc|add_api_route|add_route|\.Mount\(")
+MCP_ROUTE_PATH = re.compile(r"""['"]((?:/|[\w{}:?.-]+/)?(?:[\w{}:?.-]+/)*mcp(?:/[\w{}:?.-]+)*/?)['"]""")
+MCP_DOC_SAYS = re.compile(r"(?i)\bMCP\b[^\n.]{0,60}\bserver\b|Model Context Protocol")
+MCP_TEST_SAYS = re.compile(r"tools/(?:call|list)|jsonrpc")
+MCP_READ_BUDGET = {"left": 8.0}   # seconds of reading candidate files, every target together (as GIT_BUDGET)
+
+
+def _says_mcp(name: str) -> bool:
+    """The name carries "mcp" as a word. Asked of every file and folder the walk meets, so the cheap test comes first."""
+    return "mcp" in name.lower() and bool(MCP_TOKEN.search(_tokens(name)))
+
+
+def _tokens(name: str) -> str:
+    """'NotesMcpController' -> 'notes_mcp_controller'; 'foo-mcp-server' stays as it is but lower."""
+    return _CAMEL.sub(lambda m: (m.group(1) + "_" + m.group(2)) if m.group(1) else (m.group(3) + "_" + m.group(4)), name).lower()
+
+
+def note_mcp_candidate(w: "Walk", p: Path, name: str, ln: str, dp: Path, in_mcp: bool):
+    """Keep the files collect_mcp_built will read, by name only, each list capped. Config files (.mcp.json) are not here:
+    those are servers set up, read elsewhere."""
+    ext = os.path.splitext(ln)[1]
+    if ln in DEP_FILES:
+        key = "dep_files"
+    elif ext in MCP_CODE_EXT and (in_mcp or _says_mcp(name)):
+        key = "mcp_code"
+    elif ext in MCP_DOC_EXT and (in_mcp or _says_mcp(name)):
+        key = "mcp_docs"
+    elif ext in MCP_CODE_EXT and (ROUTE_FILE.match(name) or dp.name.lower() in ROUTE_DIRS):
+        key = "route_files"
+    else:
+        return
+    if FIXTURE_RE.search(os.path.relpath(p, w.root).replace(os.sep, "/")):
+        return   # a vendored or example copy is never read, and would take the place of the repo's own files under the cap
+    lst = getattr(w, key)
+    if len(lst) < MCP_CAPS[key]:
+        lst.append(p)
+    else:
+        cnr(w.root, f"MCP servers built into the repo: more than {MCP_CAPS[key]} candidate files ({key}); the rest not read")
+
+
+def _mcp_dependencies(f: Path) -> list[str]:
+    """The MCP packages a dependency manifest names, by their names."""
+    ln = f.name.lower()
+    if ln in ("package.json", "composer.json"):
+        d = read_json(f)
+        if not isinstance(d, dict):
+            return []
+        names = []
+        for k in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies", "require", "require-dev"):
+            if isinstance(d.get(k), dict):
+                names += [str(x) for x in d[k]]
+        return [n for n in names if MCP_PACKAGE.search(n)]
+    text = read_text(f, 200_000, note=False) or ""
+    out = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if ln == "go.mod":
+            m = re.match(r"(?:require\s+)?(\S+)\s+v", line)
+            name = m.group(1) if m else ""
+        elif ln == "cargo.toml":
+            m = re.match(r"([\w-]+)\s*=", line)
+            name = m.group(1) if m else ""
+        elif ln == "gemfile":
+            m = re.match(r"gem\s+['\"]([^'\"]+)", line)
+            name = m.group(1) if m else ""
+        else:   # pyproject / requirements: "mcp>=1.2", "fastmcp", '"mcp[cli]",'
+            m = re.match(r"['\"]?([A-Za-z0-9][\w.-]*)", line)
+            name = m.group(1) if m and (ln.startswith("requirements") or line[0] in "\"'") else ""
+        if name and MCP_PACKAGE.search(name) and name not in out:
+            out.append(name)
+    return out
+
+
+def _route_paths(text: str) -> list[str]:
+    """The paths under /mcp a file registers as HTTP routes, trailing parameter segments dropped: '/mcp/notes/{token?}'
+    -> '/mcp/notes'."""
+    out = []
+    for line in text.splitlines():
+        if not MCP_ROUTE_LINE.search(line):
+            continue
+        for m in MCP_ROUTE_PATH.finditer(line):
+            path = "/" + m.group(1).strip("/")
+            path = re.sub(r"(/[{:<][^/]*)+$", "", path) or "/"
+            if path not in out:
+                out.append(path)
+    return out
+
+
+def _in_test_dir(rel: str) -> bool:
+    return any(part.lower() in TEST_DIRS for part in rel.split("/")[:-1]) or bool(re.search(r"(?i)(?:^|[._-])(?:test|spec)s?(?:[._-]|$)", os.path.basename(rel)))
+
+
+def collect_mcp_built(t: Path, w: "Walk") -> list[dict]:
+    """MCP servers built into the person's repos under this target, read from the files, never from names alone:
+      dependency  a manifest names an MCP SDK or framework (@modelcontextprotocol/sdk, mcp, fastmcp, php-mcp/*, mcp-go, rmcp)
+      handler     a code file named mcp (or inside a folder named mcp) that answers tools/call or tools/list, or builds a server with an SDK
+      route       an HTTP route registered under /mcp (in a routes file or in such a code file)
+      doc         a doc named mcp that calls the thing an MCP server
+      test        a test named mcp that posts tools/call, tools/list or JSON-RPC
+    One record per git repo with two kinds at least and code that serves: a handler, or a dependency with a route (an SDK
+    is a client's dependency as often as a server's). Whose it is: ownership.py
+    decides, as for every artifact (classify_origin), the evidence files asked about as one: the commits that touched any
+    of them (the manifests left out: everyone's). Files in fixture paths, vendor folders and plugin folders of theirs are
+    not read (a plugin's server counts by its config)."""
+    t0 = time.monotonic()
+    t_end = t0 + MCP_READ_BUDGET["left"]
+    plugin_prefixes = tuple(str(pr) + os.sep for pr in w.plugin_roots)
+
+    def rel_of(p: Path) -> str:
+        return os.path.relpath(p, t).replace(os.sep, "/")
+
+    def skip(p: Path) -> bool:
+        return str(p).startswith(plugin_prefixes) or bool(FIXTURE_RE.search(rel_of(p)))
+
+    by_repo: dict[Path, dict] = {}
+
+    def rec_for(p: Path) -> dict | None:
+        root = git_root(p) or t
+        r = by_repo.get(root)
+        if r is None:
+            r = by_repo[root] = {"name": root.name, "repo": str(root), "project": str(t), "routes": [], "transport": None,
+                                 "signals": {"dependency": [], "handler": [], "route": [], "doc": [], "test": []}, "evidence": []}
+        return r
+
+    def add(kind: str, p: Path, extra=None):
+        r = rec_for(p)
+        item = {"file": str(p), **extra} if extra else str(p)
+        if item not in r["signals"][kind]:
+            r["signals"][kind].append(item)
+        if kind != "dependency" and str(p) not in r["evidence"]:
+            r["evidence"].append(str(p))
+
+    def timed_out() -> bool:
+        if time.monotonic() > t_end:
+            cnr(t, "MCP servers built into the repo: candidate files stopped at the time budget")
+            return True
+        return False
+
+    for f in w.dep_files:
+        if timed_out():
+            break
+        if skip(f):
+            continue
+        for pkg in _mcp_dependencies(f):
+            add("dependency", f, {"package": pkg})
+    code = sorted((p for p in w.mcp_code if not skip(p)), key=lambda p: (_in_test_dir(rel_of(p)), len(str(p))))
+    for f in code:
+        if timed_out():
+            break
+        text = read_text(f, 400_000, note=False)
+        if not text:
+            continue
+        rel = rel_of(f)
+        if _in_test_dir(rel):
+            if MCP_TEST_SAYS.search(text):
+                add("test", f)
+            continue
+        if MCP_HANDLER.search(text):
+            add("handler", f)
+        for path in _route_paths(text):
+            add("route", f)
+            r = rec_for(f)
+            if path not in r["routes"]:
+                r["routes"].append(path)
+    for f in w.route_files:
+        if timed_out():
+            break
+        if skip(f):
+            continue
+        text = read_text(f, 400_000, note=False)
+        paths = _route_paths(text) if text and "mcp" in text.lower() else []
+        if paths:
+            add("route", f)
+            r = rec_for(f)
+            r["routes"] += [x for x in paths if x not in r["routes"]]
+    for f in w.mcp_docs:
+        if timed_out():
+            break
+        if skip(f):
+            continue
+        text = read_text(f, 400_000, note=False)
+        if text and MCP_DOC_SAYS.search(text):
+            add("doc", f)
+    MCP_READ_BUDGET["left"] -= time.monotonic() - t0
+
+    out = []
+    for root, r in by_repo.items():
+        kinds = [k for k, v in r["signals"].items() if v]
+        # code that serves: a handler, or an SDK the repo depends on with a route under /mcp. A dependency with a doc or a
+        # test is a client as often as a server (the SDKs hold both sides)
+        if len(kinds) < 2 or not (r["signals"]["handler"] or (r["signals"]["dependency"] and r["signals"]["route"])):
+            continue
+        r["transport"] = "http" if r["routes"] else ("stdio" if r["signals"]["handler"] else None)
+        # whose it is: ownership.py, about the handler (else the first evidence file), with the evidence files as one
+        main = (r["signals"]["handler"] or r["evidence"])[0]
+        files = [p for p in r["evidence"] if _under(Path(p), root)] or [main]
+        origin, ev, slim = classify_origin(Path(main), r["name"], "mcp_server", files=files)
+        r["origin"], r["origin_evidence"], r["git"] = origin, scrub(ev, 220), slim
+        r["signals"] = {k: v for k, v in r["signals"].items() if v}
+        out.append(r)
+    return out
+
+
 STORE_PRUNE = {".git", "node_modules", "__pycache__", ".venv", "venv"}
 INDEX_NAMES = {"memory.md", "readme.md", "index.md", "_index.md", "moc.md", "home.md"}
 VAULT_NAME = re.compile(r"(?i)^(?:vault|notes?|brain|wiki|kb|knowledge|second[-_ ]?brain|zettelkasten|journal|memory|memories)$")
@@ -2370,6 +2635,15 @@ def main(argv=None):
             if isinstance(d, dict):
                 for rec in mcp_records(d.get("mcpServers"), str(f), "home", None):
                     S.lists["mcp_servers"].append(rec)
+        # MCP servers built into their own repos: a product's endpoint no Claude Code config names (a
+        # JSON-RPC endpoint an external assistant calls read "none of yours")
+        # nothing reads this list yet, so a failure in it never costs the rest of the scan
+        for t, w in walks.items():
+            try:
+                for rec in collect_mcp_built(t, w):
+                    S.add("mcp_built", rec, key=rec["repo"])
+            except Exception as e:  # noqa: BLE001
+                cnr(t, f"MCP servers built into the repo: not read ({type(e).__name__}: {e})"[:200])
 
     # 9. memory stores
     with section("memory"):
@@ -2501,6 +2775,7 @@ def main(argv=None):
         "plugin_copies_dropped": sum(x["count"] for x in S.lists.get("plugin_copies_dropped") or []),
         "plugins_enabled": sum(1 for p in plugins["enabled"] if p["enabled"]),
         "mcp_servers": len(S.lists["mcp_servers"]),
+        "mcp_built": len(S.lists["mcp_built"]),
         "worktree_repos": [{"repo": r["repo"], **{k: r["summary"][k] for k in ("linked", "merged", "unmerged", "total_kb")}} for r in worktrees],
         "launchers": {"cron_entries": len(launchers["crontab"]["entries"]), "launchd_matching": len(launchers["launchd"]["matching"]),
                       "ci_files": len(launchers["ci"]), "scripts": len(launchers["scripts"])},
@@ -2521,6 +2796,7 @@ def main(argv=None):
         "summary": summary, "identity": identity,
         "instruction_files": S.lists["instruction_files"], "memory_stores": S.lists["memory_stores"], "hooks": S.lists["hooks"],
         "artifacts": arts, "plugins": plugins, "mcp_servers": S.lists["mcp_servers"], "mcp_notes": S.lists["mcp_notes"],
+        "mcp_built": S.lists["mcp_built"],
         "settings": {"files": S.lists["settings_files"], "backups": S.lists["settings_backups"], "notable": S.lists["settings_notable"],
                      "counts": S.lists["settings_counts"], "env_keys": S.lists["settings_env_keys"]},
         "worktrees": worktrees, "scaffolding": scaffolding, "launchers": launchers, "could_not_read": COULD_NOT_READ, "timings_s": TIMINGS,
