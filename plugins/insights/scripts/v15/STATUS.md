@@ -2,7 +2,7 @@
 
 Start here when picking this up. Branch `feat/v15`, worktree `w/v15`, local only, nothing pushed.
 
-## The goal (his words, 11-02)
+## The goal (as stated, 11-02)
 The setup tool is the top priority (the November priority list puts it first). To make it useful we first fix what
 levels are judged on: the practices. Build the substrate on **disciplines**, with named challenges and practices,
 so the same system gives **recommendations** on a call and from a laptop. "Make it v15."
@@ -11,9 +11,9 @@ so the same system gives **recommendations** on a call and from a laptop. "Make 
 
 | Layer | Files | Holds? |
 |---|---|---|
-| Entity model + rules | `README.md`, `inputs/SCOPE.md` | ✅ building blocks approved by him; ⚠️ the five discipline names are a draft awaiting his ruling |
+| Entity model + rules | `README.md`, `inputs/SCOPE.md` | ✅ building blocks approved by him; ⚠️ the five discipline names are a draft awaiting the ruling |
 | Substrate: 5 disciplines, 61 challenges, 33 practices, ladders, techniques, learning links, all 117 v13 practices/cues crosswalked | `substrate/*.yaml` | ✅ structure; ⚠️ never reviewed by the second reviewer |
-| How a level is read + recommendations | `levels.md` | ✅ from his rulings; draft |
+| How a level is read + recommendations | `levels.md` | ✅ from the rulings; draft |
 | Engine: evidence → rung → pointer → recommendations | `engine/engine.py` | ✅ logic |
 | Page (side pane, drawer, drill-down) + member view + interviewer sheet | `engine/render.py`, `engine/call_sheet.py` | ✅ design; shows whatever evidence it gets |
 | **Laptop evidence: inventory → reader → skeptic** (replaced the 10 detectors) | `../setup-snapshot/experiments/2026-11-02-evidence/`, `engine/laptop_evidence.py` | ⚠️ **2 loops, fresh Opus audits: loop 2 = 83% right or nearly, 15% wrong, 1 practice without a rung, 1 of 5 recommendations hold** (detectors: 14% hold, 46% wrong, 26 missed). Bar not met; stopped by rule. Why + next shape: `../setup-snapshot/memory/problems/v15-evidence-rebuild-audit.md` |
@@ -33,8 +33,8 @@ Terms, pitfalls, practices and the public pages built from them live here and no
 ## Next (proposed, waiting on his yes)
 Rebuild the evidence layer: **inventory** (code: every source on the machine, every number) → **reader** per
 discipline (AI: rung per practice with paths, counts, moments; marks not-read) → **skeptic** per discipline (refutes
-each row) → engine and page as now. Bar: a fresh independent audit finds ≥90% of claims hold on his machine. Then
-two testers' machines. Cost to watch: Sonnet readers on a compact inventory, ~150–250k tokens per person.
+each row) → engine and page as now. Bar: a fresh independent audit finds ≥90% of claims hold on one laptop. Then
+two other people's machines. Cost to watch: Sonnet readers on a compact inventory, ~150–250k tokens per person.
 
 ## Open rulings (his)
 - Rebuild the evidence layer as above?

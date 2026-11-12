@@ -6,7 +6,7 @@ discipline:
   scope_note: 'This discipline covers how work is handed over and the words used for it: the task, the approach agreed before any code, what finished looks like, how a miss is corrected, and the prompts
     a person keeps and reuses (saved prompts, skills, commands and sub-agent instructions they wrote). The vocabulary files goal drift under context; it is drafted here because most of its fix is in the
     hand-over. Out of scope: what loads into every session (prompt bloat and instruction stacking go to context), checking the result (verification), and running many agents (orchestration). Four terms
-    are dropped as model-level because a person can''t fix them: majority label / recency / common token bias, alignment tax, exaggerated safety, and lobotomized (model). His 10-27 ruling sets the tone:
+    are dropped as model-level because a person can''t fix them: majority label / recency / common token bias, alignment tax, exaggerated safety, and lobotomized (model). The 10-27 ruling sets the tone:
     ''everybody plans work… our focus shouldn''t be on plan driven strategies''. So no practice here reads a level from planning or plan mode alone.'
 challenges:
 - id: wish-not-task

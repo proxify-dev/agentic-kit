@@ -2793,7 +2793,7 @@
    },
    {
     "id": "enforce-fixed-rules-in-code",
-    "note": "L2 is null on purpose. Hooks are the best-covered technique in the playbook, but the same page teaches the misuse his 10-16 ruling rejects: hooks-playbook 'The Quality Gate' and 'If you've written it in CLAUDE.md and it matters, back it up with a hook', system-evolution 'Feedback Loops' (Stop hook so the agent cannot declare done), autonomous-tasks 'Back-pressure patterns', permission-modes ('stop hooks'). Those sections must be fixed before they are linked as learning. Missing: wiring a ready-made pre-commit secret scan, 'say what it blocked last time', and a test the agent cannot edit.",
+    "note": "L2 is null on purpose. Hooks are the best-covered technique in the playbook, but the same page teaches the misuse the 10-16 ruling rejects: hooks-playbook 'The Quality Gate' and 'If you've written it in CLAUDE.md and it matters, back it up with a hook', system-evolution 'Feedback Loops' (Stop hook so the agent cannot declare done), autonomous-tasks 'Back-pressure patterns', permission-modes ('stop hooks'). Those sections must be fixed before they are linked as learning. Missing: wiring a ready-made pre-commit secret scan, 'say what it blocked last time', and a test the agent cannot edit.",
     "L2": [],
     "L3": [
      {

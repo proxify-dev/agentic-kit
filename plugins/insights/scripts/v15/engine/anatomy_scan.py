@@ -293,7 +293,7 @@ SESSION_READ = re.compile(r"transcript_path|\.claude/projects")
 def session_readers(root):
     """Own files that read Claude Code's session logs (a hook's transcript_path, ~/.claude/projects): agents, skills and
     commands (L3: a tool of theirs reads past sessions) and hook scripts on end-of-session events (L4: every session is
-    read without them). The 11-09 signal test: 0.15 s on his laptop; a laptop without such tools reads 0."""
+    read without them). The 11-09 signal test: 0.15 s on one laptop; a laptop without such tools reads 0."""
     tools, hooks = [], []
     for f in ls(root):
         if not re.search(r"(^|/)(agents|skills|commands|hooks)/", f) or not re.search(r"\.(md|py|mjs|js|sh|ts)$", f):

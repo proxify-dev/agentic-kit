@@ -29,7 +29,7 @@
    "id": "prompt",
    "name": "Prompt engineering",
    "question": "How do you hand work to the agent: the task, the approach, and the words you use when it misses?",
-   "scope_note": "This discipline covers how work is handed over and the words used for it: the task, the approach agreed before any code, what finished looks like, how a miss is corrected, and the prompts a person keeps and reuses (saved prompts, skills, commands and sub-agent instructions they wrote). The vocabulary files goal drift under context; it is drafted here because most of its fix is in the hand-over. Out of scope: what loads into every session (prompt bloat and instruction stacking go to context), checking the result (verification), and running many agents (orchestration). Four terms are dropped as model-level because a person can't fix them: majority label / recency / common token bias, alignment tax, exaggerated safety, and lobotomized (model). His 10-27 ruling sets the tone: 'everybody plans work… our focus shouldn't be on plan driven strategies'. So no practice here reads a level from planning or plan mode alone.",
+   "scope_note": "This discipline covers how work is handed over and the words used for it: the task, the approach agreed before any code, what finished looks like, how a miss is corrected, and the prompts a person keeps and reuses (saved prompts, skills, commands and sub-agent instructions they wrote). The vocabulary files goal drift under context; it is drafted here because most of its fix is in the hand-over. Out of scope: what loads into every session (prompt bloat and instruction stacking go to context), checking the result (verification), and running many agents (orchestration). Four terms are dropped as model-level because a person can't fix them: majority label / recency / common token bias, alignment tax, exaggerated safety, and lobotomized (model). The 10-27 ruling sets the tone: 'everybody plans work… our focus shouldn't be on plan driven strategies'. So no practice here reads a level from planning or plan mode alone.",
    "challenges": [
     "wish-not-task",
     "does-more-than-asked",
@@ -1275,7 +1275,7 @@
     "Ask rules, refuse rules and hooks that can block, over the ways out (a send, a push, an upload, a deploy)"
    ],
    "detector": "problems.py",
-   "seen_in": "A tester with private data debugging in the same sessions as web reading and Slack, git and Drive sends: all the ways out sat behind her ask rules and a commit-blocking hook, so it did not show.",
+   "seen_in": "A person with private data debugging in the same sessions as web reading and Slack, git and Drive sends: all the ways out sat behind ask rules and a commit-blocking hook, so it did not show.",
    "discipline": "harness",
    "all_handlers": [
     "limit-what-the-agent-can-reach"
@@ -5296,7 +5296,7 @@
     },
     {
      "tool": "Claude Code",
-     "how": "Only for unattended runs (claude -p, Agent SDK, a loop script): a Stop hook or runner step that runs a check a script can decide and blocks the finish while it fails. Not as the definition of done in a session someone is watching (his ruling, 10-16).",
+     "how": "Only for unattended runs (claude -p, Agent SDK, a loop script): a Stop hook or runner step that runs a check a script can decide and blocks the finish while it fails. Not as the definition of done in a session someone is watching (the ruling, 10-16).",
      "laptop_signal": null
     },
     {
@@ -5786,7 +5786,7 @@
     },
     {
      "tool": "any",
-     "how": "A git pre-commit or pre-push hook they wrote to check the agent's commits (level pending his ruling)",
+     "how": "A git pre-commit or pre-push hook they wrote to check the agent's commits (level pending the ruling)",
      "laptop_signal": null
     },
     {
@@ -5810,7 +5810,7 @@
     }
    ],
    "rulings": [
-    "His hooks norm (10-16): hooks are for 'a cheap rule that must hold every time', 'a hard gate on what can't be undone', 'the right context at the right moment', and 'watching, logging, notifying'. They are not for 'defining done', not for 'blocking on something cheap to redo, like a failing test', and not for 'replacing a person who is already reviewing'. \"'If it matters, make it a hook' is wrong as a general rule… What counts is whether a hook was the right tool.\"",
+    "The hooks norm (10-16): hooks are for 'a cheap rule that must hold every time', 'a hard gate on what can't be undone', 'the right context at the right moment', and 'watching, logging, notifying'. They are not for 'defining done', not for 'blocking on something cheap to redo, like a failing test', and not for 'replacing a person who is already reviewing'. \"'If it matters, make it a hook' is wrong as a general rule… What counts is whether a hook was the right tool.\"",
     "Ruling 2: 'Setting up claude's behavior via hooks tooling or anything else, is mostly L4. Engineering the behavior of agents through scripting (plugins) is l4'.",
     "10-09: 'A plugin counts by what it does': an own plugin that alters the agent's runtime or behaviour counts as building; one that only bundles skills or commands is tooling.",
     "Git hook written to check the agent's work: pending ruling (v13 h10-git-hook)."

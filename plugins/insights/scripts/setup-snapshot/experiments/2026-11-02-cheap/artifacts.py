@@ -180,7 +180,7 @@ def main(run):
         w(f"  - {t(x['repo'])} '{cut(x['template'], 45)}' {x['runs']} runs, {x['days']} days, {x.get('while_away', x['started_with_no_typed_message_in_30_min_before'])} while away; models {list(x['models'])[:2]}")
     w("schedule logs: " + "; ".join(f"{x['path']} {x['lines']} lines, last {x['last_written']}" for x in I.get("schedule_logs") or []))
     w("crontab now: " + str([cut(x["command"], 80) for x in I["launchers"]["crontab"]]))
-    # scheduled jobs that start an agent get ids the AI pass can cite (11-05: a tester's 8 LaunchAgents running claude -p
+    # scheduled jobs that start an agent get ids the AI pass can cite (11-05: a person's 8 LaunchAgents running claude -p
     # were never shown; the line printed only the agents that start no AI tool). own: ownership.py via inventory.
     sched = [(f"schedule:{x.get('label') or os.path.basename(x.get('path') or '')}", x, " ".join(map(str, x.get("program_arguments") or []))[:90])
              for x in I["launchers"].get("launchd_matching") or []]
@@ -294,7 +294,7 @@ def main(run):
 
     # ---- behaviour: two lists the AI pass must not mix (11-11). One "by hand" list used to hold the person's own acts
     # beside what Claude Code and the model do by default (the model's own sub-agents, automatic compactions, built-in
-    # memory, plan files), with no minimum, and a tester read "sends side work to sub-agents by hand" from 126 calls the
+    # memory, plan files), with no minimum, and a person read "sends side work to sub-agents by hand" from 126 calls the
     # model chose. The split follows the scan's own who-did-it groups (inventory.py who_did_it): "you" = only a person
     # can produce the record; "claude" and "cant" = a default, the model's judgement, or nothing records who asked.
     who = {g["id"]: g.get("items") or [] for g in (I.get("who_did_it") or {}).get("groups") or []}

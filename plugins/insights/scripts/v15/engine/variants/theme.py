@@ -18,7 +18,7 @@ Dark Reader (browser extension), read from its source (src/inject/dynamic-theme/
 """
 import re
 
-# light hex -> dark hex. Grays: surfaces go to near-black neutrals (not Midnight navy: his 11-04 "all blue page"), inks go light. Primary: the ramp mirrored. Status: brand 400/500
+# light hex -> dark hex. Grays: surfaces go to near-black neutrals (not Midnight navy: the 11-04 "all blue page"), inks go light. Primary: the ramp mirrored. Status: brand 400/500
 # inks, brand 900 washes. Two border/inset values are blends between brand grays (the brand has no dark product palette).
 DARK = {
     "FFFFFF": "1B1D23", "FCFCFD": "1B1D23", "F9FAFB": "111216", "F4F5F7": "22242B", "F2F4F7": "22242B",

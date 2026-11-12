@@ -283,7 +283,7 @@ def _skill_calls(f, names, plugin_names):
 
 # ------------------------------------------------------------------------------------------------------ the rows
 
-TOO_BIG_LINES = 250        # his words: a skill "over 250 lines with no progressive disclosure and no other files"
+TOO_BIG_LINES = 250        # the words: a skill "over 250 lines with no progressive disclosure and no other files"
 TRY_SPLIT = "split the parts only some tasks need into references"
 NOT_USED = "not used in the last 30 days"
 EVALS_NOT_SEEN = "has an evals folder, never seen running"
@@ -293,7 +293,7 @@ ALWAYS_OPENED_FROM = 3     # a file opened in every one of this many loads or mo
 def skill_depth(s):
     """One fact row from inventory.json `skill_depth` -> {name, depth, used, why, lines, too_big_one_file, try_next,
     live_context_syntax, has_evals_not_seen_running, evals_note}. Display only: nothing here touches a row's state or any
-    level. His rulings 11-06, per skill the person wrote:
+    level. The rulings 11-06, per skill the person wrote:
       -  never loaded in the window (no Skill call, no typed /name): depth None, used False, "not used in the last 30 days".
          Its structure-only facts (live_context_syntax, the 250-line flag) still show.
       1  one file, read whole every time: no other file of the skill is ever opened

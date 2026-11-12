@@ -1,4 +1,4 @@
-"""Every problem check on one screen, for judging the system in dev mode (his 11-03: "I need to assess the
+"""Every problem check on one screen, for judging the system in dev mode (11-03: "I need to assess the
 credibility of what the system has done… imagine if overfitting or words like this only work on my own machine").
 Per check: verdict, how it decides, what it found against its bar, whether you can open the moments, and what it
 holds only if. Word searches and one-off hand reads come first: they are the ones most likely not to travel."""

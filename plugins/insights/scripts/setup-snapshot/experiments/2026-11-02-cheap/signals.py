@@ -9,7 +9,7 @@ built. assemble.py folds these rows into the AI pass's rows: the higher rung win
 
     python3 signals.py RUN_DIR   → RUN_DIR/signal-rows.json
 
-signal-rows.json is read by assemble.py (and by the portable experiment's test_julia_shaped.py), so keep its shape: {"practices": {practice: {"rung", "signals": [{"id", "rung", "says", ...}], "below_bar": [...]}},
+signal-rows.json is read by assemble.py (and by the portable experiment's test_stranger_shaped.py), so keep its shape: {"practices": {practice: {"rung", "signals": [{"id", "rung", "says", ...}], "below_bar": [...]}},
 "not_in_scan": [ids]}.
 """
 import json

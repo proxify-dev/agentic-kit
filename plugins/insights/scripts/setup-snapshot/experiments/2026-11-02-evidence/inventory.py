@@ -136,7 +136,7 @@ BUILTIN_COMMANDS = frozenset({
     "usage-credits", "use-case", "version", "voice", "web-setup", "wellbeing", "workflow-launch-exec", "workflows"
 })
 # Rule-file or hook text that talks about sub-agents (plain English). Whose text it is comes from git (own.hook,
-# own.rule_file), never from the text: his ruling 11-04, nothing tuned to one person's tools.
+# own.rule_file), never from the text: the ruling 11-04, nothing tuned to one person's tools.
 SUBAGENT_TALK_RX = re.compile(r"(?i)\bsub-?agents?\b|\bdelegat\w*|\bteammates?\b|\bAgent tool\b|\bparallel agents?\b")
 INSTRUCTION_NAMES = ("CLAUDE.md", "AGENTS.md", "CLAUDE.local.md", "GEMINI.md")
 START = time.time() - 30 * 86400  # set in main() from --days
@@ -623,7 +623,7 @@ def read_log(args):
                                 if str(f.get("content") or "").strip() and (r["automem_t"] is None or t < r["automem_t"]):
                                     r["automem_t"] = t
                                 # Claude Code loaded its auto memory into the session itself (no Read call): the session
-                                # read that store (11-05: a tester's memory read in 92 of 101 sessions read as 16)
+                                # read that store (11-05: a person's memory read in 92 of 101 sessions read as 16)
                                 for d in dirs_of([str(f["path"])]):
                                     r["dirs_read"][d] += 1
                 elif at == "skill_listing":
@@ -1833,7 +1833,7 @@ def _git_log_authors(path, cwd=None):
 def authorship(path, me, cwd=None):
     """Commits on a path: total, the person's, other authors (names only), and whose it is by ownership.py.
     yours = ownership.owner() says "theirs": no install receipt (marketplace, skills lock) and git doesn't show it is
-    mostly someone else's. A file in no repo is theirs (his ruling 11-05); until then it was nobody's and a tester's
+    mostly someone else's. A file in no repo is theirs (the ruling 11-05); until then it was nobody's and a person's
     own skills, hooks and rule files went uncounted."""
     log = _git_log_authors(path, cwd)
     mine = sum(1 for a in log if is_mine(a, me))
@@ -2029,7 +2029,7 @@ def eval_runner_and_results(d):
     return deny[:6], results[:5]
 
 
-# ---------------------------------------------------------------- how deep each skill of theirs goes (his ruling 11-06)
+# ---------------------------------------------------------------- how deep each skill of theirs goes (the ruling 11-06)
 # Facts only; the rule that turns them into depth 1-4 is labs/v15/engine/board.py (skill_depth). Display only: no level moves.
 # A skill is found in the logs by its name and the `skills/<name>/` part of a path (so a worktree, a checkout, a symlink or a
 # plugin cache copy of it all count), never by the name of one person's tool.
@@ -2472,7 +2472,7 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
                     if scripts and not i["script_run"]:
                         i["script_run"] = runs_script(val, name, scripts)
             i["loads_opened"] += len(hit)
-    # evals seen RUNNING the skill (his ruling 11-06), never guessed from a file's contents:
+    # evals seen RUNNING the skill (the ruling 11-06), never guessed from a file's contents:
     #  (a) `claude plugin eval <target>` in their logs, the target resolving to the plugin folder that holds the skill;
     #  (b) a headless run (entrypoint sdk-*) that loaded the skill and whose first prompt is written in a file of theirs that holds
     #      eval or test cases (eval_file_matches). Not by time: a run that merely overlaps a script call proves nothing.
@@ -2624,7 +2624,7 @@ def sqlite_stores(paths):
 
 def find_dbs():
     """Databases kept inside Claude Code's own folder (~/.claude), whoever's tool wrote them. No tool is looked for by
-    name (his ruling 11-04): a member's tools live where theirs do."""
+    name (the ruling 11-04): a member's tools live where theirs do."""
     out = []
     for base in (os.path.join(HOME, ".claude"),):
         for d, subdirs, files in os.walk(base):
@@ -2640,7 +2640,7 @@ def find_dbs():
 
 
 def past_work_reach(typed, own_start_ctx, automem_chats=()):
-    """New sessions where earlier work reached Claude early, by the effect and never by a tool's name (his ruling 11-04),
+    """New sessions where earlier work reached Claude early, by the effect and never by a tool's name (the ruling 11-04),
     in three kinds kept apart: loaded automatically (Claude Code put the project's auto-memory MEMORY.md, which an earlier
     session or the person wrote, in the session's context at its start: the `instructions` record says so), looked up
     (Claude read a file another, earlier session wrote before the person's 3rd message), or put in by a hook (a
@@ -2975,7 +2975,7 @@ def compact_anatomy(A, me, roots, rd, wr):
                 a["words"] = len(open(a["path"], errors="replace").read().split())
             except OSError:
                 pass
-    # every one: a silent cap at 250 cut his agents to 7 of 52 once untracked files counted as theirs (11-06), and a
+    # every one: a silent cap at 250 cut their agents to 7 of 52 once untracked files counted as theirs (11-06), and a
     # practice that cited a cut agent lost its fact. Ordered by kind so the small kinds lead whatever the reader skims.
     order = {"agent": 0, "hook_script": 1, "plugin_manifest": 2, "marketplace_manifest": 3, "command": 4, "workflow": 5,
              "output_style": 6, "skill": 7}
@@ -3148,7 +3148,7 @@ def main(argv=None):
         shutil.copy(a.chats, chats_path)
     elif not a.chats:
         # read the logs again on every run: a session list left in the run folder by an earlier run was built by older
-        # code from older logs (11-09: a tester's rerun after a fix kept her old empty list). Reuse only on --chats.
+        # code from older logs (11-09: a person's rerun after a fix kept their old empty list). Reuse only on --chats.
         load_module("logs", LOGS).main(["--days", str(a.days), "--out", chats_path])
     T["chats"] = round(time.time() - t0, 1)
     typed = [json.loads(x) for x in open(chats_path).readlines()[1:]]

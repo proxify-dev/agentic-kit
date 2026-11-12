@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""'What you've built' answers "what have I built for my agent, and does it get used?" (his 11-11 on the tab before:
+"""'What you've built' answers "what have I built for my agent, and does it get used?" (11-11 on the tab before:
 "really hard to read"): a tile per kind they have, then each kind sorted by use with the unused folded, a skill's reach
 as four plain steps, hooks pinned on a session's life, rule files counted only where the count holds. Made-up board rows
 with the `list` board.py writes. Run: python3 -m unittest test_view_built   (from this folder; standard library only)"""
