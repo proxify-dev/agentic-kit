@@ -105,6 +105,7 @@ _SVG = ('<svg class="{c}" viewBox="0 0 16 16" fill="none" stroke="currentColor" 
 CHEV = _SVG.format(c="bt-chev", d='<path d="M6 4l4 4-4 4"/>')
 
 CSS = """
+.v-built .bt-crafts{margin:28px 0}.v-built .cr{width:100%;border-collapse:collapse;font-size:13px}.v-built .cr th{text-align:left;font-weight:600;color:#475467;padding:6px 8px;border-bottom:1px solid #EAECF0}.v-built .cr td{vertical-align:top;padding:8px;border-bottom:1px solid #F4F5F7}.v-built .cr-k{display:block;color:#667085;font-size:12px}
 .v-built{font-variant-numeric:normal}
 .v-built p{margin:0}
 .v-built .bt-num,.v-built .it .u,.v-built .hk-chip b,.v-built .rf .u{font-variant-numeric:tabular-nums}
@@ -289,10 +290,14 @@ def _kinds(ctx):
 
 def _hook(kind, row, n, items=None):
     """Invisible attributes naming the thing a tile or section is about, the board's state for it and the count it prints.
-    A program tile is several board rows (one state each), so it carries the count only."""
-    state = f' data-state="{row["state"]}"' if row.get("state") and kind != "programs" else ""
+    A program tile is several board rows (one state each): it carries the state of the one the level read goes by
+    (things.best_row). A kind with no thing (workflows) carries no `data-thing`, never an empty one."""
+    if kind == "programs" and items:
+        row = level_things.best_row(items)
+    state = f' data-state="{row["state"]}"' if row.get("state") else ""
     said = f' data-said="{html.escape(level_things.rule_files_said(items))}"' if kind == "rules" and isinstance(items, dict) else ""
-    return f' data-thing="{KIND_THING.get(kind, "")}" data-kind="{kind}" data-count="{n}"{state}{said}'
+    thing = f' data-thing="{KIND_THING[kind]}"' if kind in KIND_THING else ""
+    return f'{thing} data-kind="{kind}" data-count="{n}"{state}{said}'
 
 
 def _tiles(ctx, kinds):
@@ -551,8 +556,35 @@ def render(ctx):
     for kind, row, items, n, used, line, label in kinds:
         title, what, unit = meta[kind]
         out.append(_section(ctx, kind, row, items, n, unit, title, what, member))
+    out.append(_crafts(ctx))
     out.append(_also(ctx, rows, member))
     return "".join(out)
+
+
+# How well what they use most is made (11-12, the craft read: setup-read/setup_craft.py writes craft-read.json). Advice only.
+CRAFT_TITLE = "How well what you use most is made"
+CRAFT_NOTE = ("Each thing sits on a step of six, from the agentic engineering playbook, and only when it passes every step below it. "
+              "What it did is what it caused in the last 30 days, counted from Claude Code's own records. Advice only: no level reads this.")
+CRAFT_READER = {"read": "A reader read the skills and sub-agents; code checked every yes it gave against the file.",
+                "couldn't check": "No answer from the reader could be checked against the files, so skills and sub-agents are not placed yet.",
+                "not asked": "No reader was asked, so only what code can prove is placed."}
+
+
+def _crafts(ctx):
+    """The craft read's rows as craft-read.json words them: the thing, its step in words, what it did, the one change.
+    The copy that leaves the laptop leaves this out: the rows name their files."""
+    cr = ctx.get("craft_read") or {}
+    rows = [r for r in cr.get("crafts") or [] if isinstance(r, dict) and r.get("name")]
+    if not rows or ctx.get("masked"):
+        return ""
+    esc = ctx["esc"]
+    said = CRAFT_READER.get((cr.get("reader") or {}).get("state"), "")
+    body = "".join(f'<tr><td><b>{esc(r["name"])}</b><span class="cr-k">{esc(r.get("kind_words"))}</span></td>'
+                   f'<td>{esc(r.get("step_words"))}</td><td>{esc(r.get("did_words"))}</td><td>{esc(r.get("change") or "")}</td></tr>'
+                   for r in rows)
+    return (f'<section class="bt-crafts"><h3>{esc(CRAFT_TITLE)}</h3><p class="note">{esc(CRAFT_NOTE)} {esc(said)}</p>'
+            '<table class="cr"><thead><tr><th>What</th><th>Step</th><th>In the last 30 days</th>'
+            f'<th>The one change that would move it up</th></tr></thead><tbody>{body}</tbody></table></section>')
 
 
 def _mask_why(why):

@@ -40,7 +40,11 @@ BUILT_USED, BUILT_IDLE, USES_OTHERS, NOT_SEEN, CANT_TELL = (
 BUILT_STATES = (BUILT_USED, BUILT_IDLE)
 
 # Claude Code's own sub-agent types: not something the person built, even when an agent file of theirs overrides one.
-BUILT_IN_AGENTS = {"general-purpose", "Explore", "Plan", "statusline-setup", "claude-code-guide", "fork"}
+# The same list as substrate/claude-code.yaml `agent_types` (generated from the Claude Code program) and inventory.py
+# BUILTIN_HELPERS; test_board.BuiltInAgents fails when they part (11-12: five types were missing here, so a run of one
+# could read as a sub-agent of theirs).
+BUILT_IN_AGENTS = {"general-purpose", "Explore", "Plan", "statusline-setup", "claude-code-guide", "fork", "claude",
+                   "comment-thread-analyst", "web-fetch", "worker", "workflow-subagent"}
 AUTO_MEMORY = "claude_auto_memory"  # written by Claude Code itself (autoMemoryEnabled), not a store they built
 SDK_KINDS = ("claude_agent_sdk_import", "sdk_query_call")
 RIG_KINDS = SDK_KINDS + ("claude_cli_print",)
