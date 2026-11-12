@@ -12,7 +12,8 @@ The rule, in this order:
                 this laptop (a "directory" marketplace, an inline --plugin-dir) is no receipt: its source folder goes
                 through 3 and 4.
   2. installed  a skills lock lists it (~/.agents/.skill-lock.json for global installs; a project's skills-lock.json
-                for that project's skills).
+                for that project's skills). Not when the lock names, as the source, a repo on this laptop that is mostly theirs
+                (`_own_source`): that is how they share their own skill. The same holds for 5 and 6 below.
   3. teammate   git: most of its commits are someone else's.
   4. installed  git says it is theirs, but it is a copy of someone else's file: byte-identical (a skill folder: its SKILL.md) to a
                 version of a file in another repo on this laptop whose commits are mostly someone else's (a clone of the
@@ -23,7 +24,12 @@ The rule, in this order:
                 copy came after the original (their file was not in their hands before that repo first held the version:
                 a teammate who copied THEIR file later does not make it a copy), their own session logs show no Write/Edit of
                 a file in that skill folder (a fork they reworked), and the repos looked in include clones below a project
-                folder that the scan passed as `clones` (not projects, so never a marketplace claim).
+                folder that the scan passed as `clones` (not projects, so never a marketplace claim), and, for a skill whose
+                SKILL.md sets publishing fields (a published package: the one kind of skill that has an upstream repo to look
+                for), the git repos in the home folder or one folder below it, where people keep a clone of a project they
+                use outside every folder the scan reads. Those are asked about any version in their history (a copy is
+                usually older than the clone's head), never for a skill without such fields (a search of hundreds of repos
+                per skill would cost minutes, and a skill with no fields is left theirs: the safe side).
   4b. installed git has nothing on it (untracked, ignored, or in no repo) and it is that same kind of copy: byte-identical to a
                 version at the head of a repo whose commits are mostly someone else's. how = "copy of someone else's file,
                 not committed here". 4's reason it did not fire for a file git has nothing on: it ran only when git said
@@ -119,6 +125,9 @@ class Receipts:
         self._has_blob = {}        # (repo, sha) → whether the repo holds that blob (git cat-file)
         self._mostly_others = {}   # repo → whether most of its commits are someone else's
         self._objects = {}         # repo → frozenset of the object names it holds (only for repos that are mostly someone else's), or None
+        self._own_source = {}      # a lock's source → whether it is a repo on this laptop that is mostly theirs
+        self._nearby = None        # git repos in the home folder or one folder below it, built on the first published skill asked about
+        self._nearby_warm = False  # whether every nearby repo was asked once about all the published skills' SKILL.md files (_warm_nearby)
 
 
 def _plugins_from_claude():
@@ -280,6 +289,38 @@ def _receipt(path, rc):
     return None
 
 
+def _own_source(source, rc, authorship):
+    """True when a skills lock names, as the source of a skill, a repo on this laptop that is mostly theirs. A lock that lists
+    a skill of theirs with their own repo as the source is how they share it, not a receipt that someone else's work was
+    installed. A source with no clone among the repos the scan read, or one whose commits are mostly someone else's, is a
+    receipt as before."""
+    m = re.search(r"(?:^|[:/])([\w.-]+/[\w.-]+?)(?:\.git)?/?$", str(source or ""))
+    if not m or not authorship:
+        return False
+    key = m.group(1).lower()
+    if key not in rc._own_source:
+        rc._own_source[key] = False                 # authorship(root) may ask who owns a file of root: not this question again
+        root = _clones(rc.repo_roots + rc.clone_roots).get(key)
+        a = authorship(root) if root else None
+        rc._own_source[key] = bool(a and a.get("commits") and 2 * (a.get("theirs") or 0) >= a["commits"])
+    return rc._own_source[key]
+
+
+def _shared_by_them(path, rc, authorship):
+    """True when some skills lock lists the skill folder's name with their own repo as its source: they publish it, so the
+    publishing fields in its SKILL.md say nothing about an unpacking (rule 6)."""
+    folder = _skill_folder(path)
+    name = os.path.basename(folder) if folder else None
+    srcs = [rc.global_lock.get(name)] + [skills.get(name) for skills in rc.project_locks.values()] if name else []
+    return any(src and _own_source(src, rc, authorship) for src in srcs)
+
+
+def _receipt_of_someone_else(path, rc, authorship):
+    """`_receipt`, except a lock entry whose source is their own repo (see _own_source)."""
+    got = _receipt(path, rc)
+    return None if got and got[0] == "skills-lock" and _own_source(got[1], rc, authorship) else got
+
+
 COPY_EXT = (".md", ".sh", ".py", ".js", ".mjs", ".ts", ".json", ".yaml", ".yml", ".toml")
 COPY_MIN, COPY_MAX = 64, 300_000   # under 64 bytes two files can match by chance (empty, a stub, one line); an agent or skill file names itself in its first lines
 
@@ -394,6 +435,7 @@ def warm_objects(rc):
             _repo_objects(repo, rc)
     for repo in rc.clone_roots:      # the nested clones: one ls-tree each, so no worker asks git about a clone again
         _head_blobs(repo, rc)
+    _warm_nearby(rc, [])            # the clones near home, asked about the published skills' files once, before the fork
 
 
 def _git_has_blob(repo, sha, rc):
@@ -484,6 +526,84 @@ def _copy_came_after(f, sha, repo, rc, tracked, path=None):
     return mine is not None and other is not None and mine >= other
 
 
+NEARBY_SKIP = ("Library", "Applications", "node_modules", "AppData", "Windows", "Program Files", "Program Files (x86)")
+NEARBY_MAX_ENTRIES = 5000   # folders looked at: a home folder synced from a network drive must not stall the scan
+
+
+def _nearby_repos(rc):
+    """Git repos (a .git folder, so no worktree) in the home folder or one folder below it, left out when the scan already reads
+    them: where people keep a clone of a project they use. Built once; hidden folders are not entered."""
+    if rc._nearby is None:
+        known = set(rc.repo_roots) | set(rc.clone_roots)
+        out, seen = [], 0
+
+        def subdirs(d):
+            try:
+                with os.scandir(d) as it:
+                    return [e.path for e in it if e.is_dir(follow_symlinks=False) and not e.name.startswith(".") and e.name not in NEARBY_SKIP]
+            except OSError:
+                return []
+
+        for top in subdirs(HOME):
+            for d in [top] + subdirs(top):
+                seen += 1
+                if seen > NEARBY_MAX_ENTRIES:
+                    break
+                if os.path.isdir(os.path.join(d, ".git")) and _real(d) not in known and _real(d) not in out:
+                    out.append(_real(d))
+            if seen > NEARBY_MAX_ENTRIES:
+                break
+        rc._nearby = out
+    return rc._nearby
+
+
+def _published_skill_md(f):
+    """True for a SKILL.md whose frontmatter sets publishing fields: what a package that has an upstream repo carries."""
+    return os.path.basename(f) == "SKILL.md" and bool(_publishing_fields(f))
+
+
+def _published_skill_files(rc):
+    """The SKILL.md files with publishing fields in the places a person's skills live (the home folder's skill folders and each
+    repo the scan read): the files _committed_copy asks the nearby clones about, so that one git process per clone answers for all."""
+    folders = [os.path.join(HOME, ".claude", "skills"), os.path.join(HOME, ".agents", "skills")]
+    for r in rc.repo_roots:
+        folders += [os.path.join(r, ".claude", "skills"), os.path.join(r, ".agents", "skills")]
+    out = []
+    for folder in dict.fromkeys(folders):
+        try:
+            names = sorted(os.listdir(folder))
+        except OSError:
+            continue
+        out += [f for f in (os.path.join(folder, n, "SKILL.md") for n in names) if os.path.isfile(f) and _published_skill_md(f)]
+    return out
+
+
+def _warm_nearby(rc, shas, workers=8):
+    """Ask every nearby repo, once, whether it holds any version of the published skills' SKILL.md files (the git names of their bytes,
+    plus `shas`): one `git cat-file --batch-check` per repo for all of them, a few at a time (_ask_blobs fills rc._has_blob). Done
+    once; a file looked up later that was not among them is asked of each repo by itself, as before. The answers are those of one
+    question per file and repo."""
+    if rc._nearby_warm and not shas:
+        return
+    shas = list(shas)
+    if not rc._nearby_warm:
+        for f in _published_skill_files(rc):
+            try:
+                if COPY_MIN <= os.path.getsize(f) <= COPY_MAX:
+                    with open(f, "rb") as fh:
+                        data = fh.read()
+                    shas.append(hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest())
+            except OSError:
+                pass
+    nearby = _nearby_repos(rc) if shas else []
+    first, rc._nearby_warm = not rc._nearby_warm, True
+    if not nearby or not (first or any((nearby[0], s) not in rc._has_blob for s in shas)):
+        return
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(workers) as ex:
+        list(ex.map(lambda repo: _ask_blobs(repo, shas, rc), nearby))
+
+
 def _committed_copy(path, rc, authorship, blob_authorship, tracked=True):
     """The repo whose file `path` is a copy of (rules 4 and 4b), else None. path is a file, or a skill folder (compared by its
     SKILL.md). A repo counts when it is another repo on this laptop (not the one path is in), most of its commits are someone
@@ -499,11 +619,14 @@ def _committed_copy(path, rc, authorship, blob_authorship, tracked=True):
         return None
     sha = hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()   # git's own name for these bytes
     clones = [r for r in rc.clone_roots if sha in _head_blobs(r, rc)]     # one ls-tree per clone, kept in rc._heads (warmed before the workers fork)
+    nearby = _nearby_repos(rc) if _published_skill_md(f) else []
+    if nearby:
+        _warm_nearby(rc, [sha])          # one git process per nearby repo for every published skill, not one per file and repo
     real_dir = _real(os.path.dirname(os.path.abspath(f)))   # once, not once per repo (realpath of the same file in 90 repos: 18 s on one laptop)
-    for root in rc.repo_roots + clones:
+    for root in rc.repo_roots + clones + nearby:
         if _under(real_dir, root) or rc._mostly_others.get(root) is False:   # known not to be someone else's: it holds no source of a copy
             continue
-        if root in rc.repo_roots and not _git_has_blob(root, sha, rc):    # a clone was listed by its head just above: it holds the blob
+        if root not in clones and not _git_has_blob(root, sha, rc):    # a clone was listed by its head just above: it holds the blob
             continue
         if root not in rc._mostly_others:
             rc._mostly_others[root] = False      # authorship(root) may ask who owns a file of root: not this question again
@@ -668,7 +791,7 @@ def owner(path, rc, authorship=None, written_in_logs=None, blob_authorship=None)
     if not path:
         return {"owner": "theirs", "how": "no receipt", "source": None}
     path = os.path.expanduser(str(path))
-    got = _receipt(path, rc)
+    got = _receipt_of_someone_else(path, rc, authorship)
     if got:
         return {"owner": "installed", "how": got[0], "source": got[1]}
     # a plugin copied into the cache from a folder on this laptop: ask git about the folder it was read from
@@ -690,11 +813,13 @@ def owner(path, rc, authorship=None, written_in_logs=None, blob_authorship=None)
     # it). Asked only here, so a file of theirs in git never reads installed because they also published it.
     same = _same_as_installed(look, rc)
     if same:
-        return {"owner": "installed", "how": "same as an installed copy", "source": same}
+        lock = _receipt(same, rc)
+        if not (lock and lock[0] == "skills-lock" and _own_source(lock[1], rc, authorship)):   # a copy of what they shared is theirs
+            return {"owner": "installed", "how": "same as an installed copy", "source": same}
     copy_of = _committed_copy(look, rc, authorship, blob_authorship, tracked=False) if authorship and blob_authorship else None
     if copy_of and not _agent_wrote_in(look, written_in_logs):
         return {"owner": "installed", "how": "copy of someone else's file, not committed here", "source": copy_of}
-    unpacked = _unpacked_skill(look, rc, written_in_logs)
+    unpacked = None if _shared_by_them(look, rc, authorship) else _unpacked_skill(look, rc, written_in_logs)
     if unpacked:
         return {"owner": "installed", "how": unpacked[0], "source": unpacked[1]}
     return {"owner": "theirs", "how": "no receipt", "source": look if look != path else None}
