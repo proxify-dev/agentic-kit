@@ -2,7 +2,34 @@
 the board (which counts what the person has), the level read (things.py), the setup read and every view can all use it
 without one depending on another. (11-12: each tab fixed its own "1 sessions", and about 75 of them stayed.)
 Standard library only."""
+import re
 import string
+
+
+def number(x):
+    """A count the run wrote, read as a whole number: an int, a float with nothing after the point, or digits ("12", "1,204").
+    None for anything else (nothing there, a list, text such as "12k" or "n/a", a bool, nan): nothing was counted, and the
+    caller says "couldn't check" or reads it as none, but never fails. (11-12: a list where a count belonged made a whole tab
+    read "This view failed to build".)"""
+    if isinstance(x, bool):
+        return None
+    if isinstance(x, int):
+        return x
+    if isinstance(x, float):
+        return int(x) if x.is_integer() else None
+    if isinstance(x, str) and re.fullmatch(r"\d{1,3}(,\d{3})+|\d+", x.strip()):
+        return int(x.strip().replace(",", ""))
+    return None
+
+
+def count_or_zero(x):
+    """number(x), and 0 when there is none. For a count whose absence means "none of them"."""
+    return number(x) or 0
+
+
+def is_not_a_number(x):
+    """True for a value that is there but is not a count: a list, "12k", "n/a". Nothing there (None) is not it."""
+    return x is not None and number(x) is None
 
 
 def count(x):
