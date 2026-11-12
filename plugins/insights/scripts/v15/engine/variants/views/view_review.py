@@ -35,6 +35,7 @@ HIDE_HEADER = True  # frame: the title stays for screen readers and the window t
 SHOW = 3        # receipts and extra changes on the first screen; the rest opens on click
 MORE_SHOWN = 3  # lines under the first change; a project's other changes stay in its row under "Each project"
 RECORDS_TAG = "From Claude Code's records"   # a change the code counted, not one the reader judged
+FILES_TAG = "Read from your files"           # a change the code found in the person's own files (setup_read.py card source "files")
 HABIT_TAG = "A habit seen in Claude Code's records"
 TREE_FILES = 40  # files drawn in one project's tree; the rest is a count
 WORDS_PER_PAGE, WORDS_PER_TOKEN = 500, 0.75  # a printed page; English words per token
@@ -101,7 +102,25 @@ CARD_SAYS = {
                       "do": "Give each task its own session, and hand over with a short note when one runs long.",
                       "pays": "The agent works from your words, not from a summary of a summary."},
 }
+CARD_SAYS.update({
+    "dead-pointer": {"head": "A line in your `AGENTS.md` sends the agent to a file that is not there",
+                     "do": "Point it at the file that exists, or delete the line.",
+                     "pays": "The agent stops guessing at a file that is not there."},
+    "agents-md-not-loaded": {"head": "Claude Code never reads one of your `AGENTS.md` files",
+                             "do": "Import it from the file Claude Code does read, or move what it holds there.",
+                             "pays": "What you wrote reaches the agent."},
+    "no-check-command": {"head": "Nothing tells the agent how to check its work here",
+                         "do": "Add one line naming the command to run before it says it is done.",
+                         "pays": "The agent runs your checks before it says it is done."},
+    "weakest-line": {"head": "One line in your `AGENTS.md` costs attention in every session and gives the agent little",
+                     "do": "Rewrite it so the agent knows when it applies and why, or delete it.",
+                     "pays": "Every line that stays does a job the agent would not do unasked."},
+    "restates-repo": {"head": "Lines in your `AGENTS.md` repeat what the repo already says",
+                      "do": "Delete them: the agent reads the repo itself.",
+                      "pays": "Less to read on every turn, and nothing to go stale."},
+})
 CARD_SAYS["endless-sessions"] = CARD_SAYS["session-scope"]
+NO_PICTURE = ("dead-pointer", "agents-md-not-loaded", "no-check-command", "restates-repo")   # their sentences carry the whole story
 UNITS = ("words", "tokens", "sessions", "compactions", "skills", "files", "notes", "links", "times", "commits",
          "changes", "servers", "plugins", "hours", "days", "lines")
 
@@ -165,6 +184,8 @@ CSS = """
 .v-review .kn-main{padding-top:12px;padding-bottom:12px}
 .v-review .kn-name{min-width:0}
 .v-review .kn-name b{display:block;font-size:15px;font-weight:600;color:#15172F;overflow-wrap:anywhere}
+.v-review .kn-plus{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:6px}
+.v-review .kn-plus i{font-style:normal;font-size:12px;font-weight:500;color:#027A48;background:#F6FEF9;border:1px solid #C4F3D8;border-radius:999px;padding:1px 8px;overflow-wrap:anywhere}
 .v-review .kn-name span{display:block;font-size:13px;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v-review .kn-c{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;min-height:40px;padding:6px 10px 6px 12px;
   border-radius:10px;border:1px solid transparent;cursor:pointer;font-size:14px;font-weight:500;color:#15172F}
@@ -617,8 +638,10 @@ def _knows(ctx, projects):
                          f'<span class="lab">{word}</span>{_st(state)}{shape}{_chev()}</button>')
             receipts.append(_receipt(ctx, i, p, pid, state, note, store))
         tag = tagline(p)
+        plus = [x for x in p.get("plus") or [] if isinstance(x, str) and x]   # what code found they do well: only ever adds
         rows.append(f'<div class="kn-row"><div class="kn-main"><div class="kn-name"><b>{esc(_name(p))}</b>'
-                    + (f'<span title="{esc(tag)}">{esc(tag)}</span>' if tag else "") + "</div>"
+                    + (f'<span title="{esc(tag)}">{esc(tag)}</span>' if tag else "")
+                    + (f'<div class="kn-plus">{"".join(f"<i>+ {esc(x)}</i>" for x in plus)}</div>' if plus else "") + "</div>"
                     + "".join(cells) + "</div>" + "".join(receipts) + "</div>")
     if not rows:
         return ""
@@ -657,7 +680,7 @@ def _changes(sr, projects):
     # sessions run, upkeep): numbers, so they come before the reader's opinions and after a habit that holds the level
     for c in sr.get("cards") or []:
         if isinstance(c, dict) and (c.get("saw") or c.get("do")):
-            items.append({**c, "tag": RECORDS_TAG})
+            items.append({**c, "tag": FILES_TAG if c.get("source") == "files" else RECORDS_TAG})
     many = len(projects) > 1
     for p, c in _interleave(projects, "change"):
         if c.get("saw") or c.get("do"):
@@ -735,6 +758,10 @@ def _picture(ctx, c):
                f'{plural(f.get("others_calls") or 0, "time")} in 30 days</span></div>')
         return "Plugins and skills you don't use still sit in every session", pic
     head = (CARD_SAYS.get(cid) or {}).get("head") or _clip(c.get("cost") or c.get("saw") or c.get("do"), 120)
+    if cid in NO_PICTURE:
+        return head, ""
+    if cid == "weakest-line" and isinstance(c.get("quote"), dict) and c["quote"].get("text"):
+        return head, _quote(ctx, c["quote"])   # the line itself: code found it in their file
     num = _num_in(c.get("saw")) or _num_in(c.get("cost"))
     pic = f'<div class="big"><b>{ctx["esc"](num[0])}</b><span>{ctx["esc"](num[1])}</span></div>' if num else ""
     return head, pic

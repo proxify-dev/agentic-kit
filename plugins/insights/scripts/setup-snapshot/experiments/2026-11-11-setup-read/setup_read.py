@@ -15,10 +15,12 @@ setup-read.json is what `engine.setup_read_gate` and the page read:
             A quote from a line that holds a secret is dropped (`quote: null`, `quote_dropped`) and is never ok;
             every string a reader wrote is scrubbed before it is written (setup_map.scrub).
   holds     the opposite habit, counted from Claude Code's own records.
-  cards     advice counted from those records, each {id, saw, cost, do, source: "records"}: what the page says to
-            change first that no file shows (how long sessions run, how full they start, setup nobody uses, rule
-            files that only grow). Advice only: no card moves a level. A card the page draws a picture of carries
-            its numbers in `figures`.
+  cards     advice, each {id, saw, cost, do, source}: what the page says to change first. source "records": counted from
+            Claude Code's records (how long sessions run, how full they start, setup nobody uses, an `AGENTS.md` that
+            only grows). source "files": counted by code in the person's instruction files, no AI (a pointer to a file
+            that is not there, lines that restate the repo, an `AGENTS.md` Claude Code never reads, no command that
+            checks the work). Advice only: no card moves a level. A card the page draws a picture of carries its
+            numbers in `figures`.
   projects  the review the page opens on (tagline, headline, summary, what works, what to change) with the project's
             outline, its verdicts per part, and per part what a verdict rests on (`read`: why, quote, next step).
 Standard library only; read-only on the person's files; a missing or damaged input reads as "not there", never a crash.
@@ -35,6 +37,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import setup_map  # noqa: E402  the outline drawn as a text tree
+import setup_instruction  # noqa: E402  what code alone reads in one instruction file (no AI): pointers, commands, restated lines
 ENGINE = os.path.normpath(os.path.join(HERE, "..", "..", "..", "v15", "engine"))   # scripts/ keeps labs' layout
 if ENGINE not in sys.path:
     sys.path.insert(0, ENGINE)
@@ -63,6 +66,13 @@ UNUSED_CALLS_PER_ITEM = 0.25 # unused setup: ... called less often than this, pe
 UNUSED_OWN_MIN = 2           # unused setup: skills of their own never loaded in the window
 RULES_GROW_WORDS = 1000      # rules only grow: words now in an always-loaded rule file of theirs
 RULES_GROW_CHANGES = 3       # rules only grow: commits to it, none of which made it shorter
+RESTATES_MIN_LINES = 1       # restates the repo: lines of one always-loaded file that say what the repo's own files say
+FREE_FILES = 6               # instruction files code reads per project for the cards below (always loaded, then unread)
+LINES_ALWAYS = 6             # the line-by-line read: always-loaded files of a project in the reader's brief
+LINES_SCOPED = 2             # ... and scoped files (a subfolder's file, a rule with paths:), the ones Claude Code's records show loaded most
+LINES_CAP = 40               # ... blocks asked about in one project, after code drops what it settles
+LINES_USER_CAP = 20          # ... and blocks of the user-level file, once per run, in the first project's brief
+DEAD_ONLY_WORDS = 6          # a block that is a dead pointer and at most this many other words is code's to report, not the reader's
 MAX_CARDS = 4
 SHAPED = ("indexed", "layered", "linked")
 
@@ -80,10 +90,10 @@ READER = """{mark}
 session starts here, how that knowledge is organised, and whether it would hold as the work grows.
 
 The outline at the end was drawn by code. It shows structure and judges nothing. Read-only. Open what you need to
-judge the three parts below and no more than this: the always-loaded files; up to {scoped} scoped files; up to {docs}
+judge the three parts below and no more than this: {always}; up to {scoped} scoped files; up to {docs}
 docs they link to (the ones an `AGENTS.md` sends the agent to most plainly); the memory index and {notes} notes; the
 SKILL.md of up to {skills} skills. `git log` on at most {logs} files, the main `AGENTS.md` first. When the outline lists
-nothing for a part, judge it from the outline and open nothing.
+nothing for a part, judge it from the outline and open nothing.{lines_open}
 
 Judge three parts, each `shown`, `partly`, `not shown` or `can't tell`:
 
@@ -139,9 +149,9 @@ Add one key, `setup_read`, to the JSON object you write to {out}:
                 {{"id": "corrections", ...}}, {{"id": "memory", ...}}],
       "tagline": "...", "headline": "...", "summary": "...",
       "works": [{{"what": "...", "why": "...", "quote": {{"path": "...", "line": 0, "text": "..."}}}}],
-      "change": [{{"saw": "...", "cost": "...", "do": "..."}}]
+      "change": [{{"saw": "...", "cost": "...", "do": "..."}}]{lines_shape}
     }}
-
+{lines}
 ### The outline (`w` = words; `→` = a pointer to another file)
 
 {tree}
@@ -156,6 +166,52 @@ Write the result with the Write tool to {out} as one JSON object:
 
 """
 SECOND_JOB = "A second job, in the same answer file. "
+
+# The line-by-line read (11-12, from the instruction read trial: experiments/2026-11-12-instruction-read/): the same reader, one
+# more answer key. Advice only: nothing here reaches a level, and no number the reader counts reaches the page.
+LINES_OPEN = (" The text of the always-loaded files is in \"The lines\" below: do not open them.")
+LINES_SHAPE = """,
+      "lines": {
+        "blocks": [{"id": "B1", "kind": "...", "known": "yes|no", "situation": null, "action": null, "checkable": "yes|no",
+                    "reason": "yes|no", "earned": "yes|no|can't tell", "quote": "..."}],
+        "weakest": {"block": "B?", "quote": "...", "why": "...", "rewrite": "..."},
+        "strongest": {"block": "B?", "quote": "...", "why": "..."}
+      }"""
+LINES = """
+### The lines (a second job, in the same answer file)
+
+The files below load at the start of every session they are named for, so each line costs the agent attention in every such
+session, and earns its place only when it changes what the agent does. Their text is here, in blocks, with what code found
+(`found` = a name the repo's own files hold; `ptr` = a pointer, MISSING when its file is not there; `cmd` = a command; `hist` =
+git's record of when the line was written). Open another file only when a block's answer turns on it and code's findings do not
+settle it, and at most three. For each block marked `judge`, add one entry to `lines.blocks`:
+
+- `kind`: `describes` (states what the project is or uses) · `points` (sends the agent to another file) · `steers` (tells it how
+  to work in some situation) · `guards` (forbids or limits an action) · `verifies` (says how to check the work, or when it is
+  done) · `preference` (how the person wants the conversation: tone, format of answers or plans) · `structure` (only organises).
+- `known`: `yes` when the agent would get this anyway, from the repo or by default, with no line telling it; else `no`.
+- `situation`: the situation the agent can recognise in this project in which the block applies (a kind of task, a file or folder,
+  a command, an event), in a few words; `null` when it applies always or never says. "When needed", "when possible" and a topic
+  label ("Architecture & Routing:") are no situation: the task itself ("adding a route") is. A labelled list of docs has `null`.
+- `action`: what the block makes the agent do there that it would not do by default; `null` when none.
+- `checkable`: `yes` when someone reading the transcript or the diff could tell whether it was followed.
+- `reason`: `yes` when the block says why, in a way that helps decide a case it does not name (a consequence in this project: what
+  breaks, who is hurt, what happened); `no` when it has none or only one that fits any project ("to keep things clean").
+- `earned`: `yes` when the block exists because something went wrong (`hist` shows it added after the file's first commit, or it
+  names the specific mistake it prevents); `no` when it reads as written before any agent ran and `hist` agrees; else `can't tell`.
+- `quote`: the block's most telling words, copied exactly from the file (at least 20 characters when the block has that many).
+
+Then, for the whole of these files:
+- `strongest`: the block that most changes what the agent does here (`block`, `quote`, `why` in one sentence).
+- `weakest`: the block that costs the most for what it gives (`block`, `quote`, `why`), and `rewrite`: that block written as it
+  should be (a situation the agent can recognise, the action, how to tell it was done, the reason), using only facts in these
+  files or in code's findings: invent no command and no path. Code checks the quote against the file and the rewrite against
+  the repo; the person reads the `why` and the `rewrite`, so word them as above and never write a person's name.
+
+{files}"""
+
+LINES_NOTE = ("Blocks code settled are left out: headings that only label, lines that restate what the repo's own files say, a line that is "
+              "only a pointer to a file that is not there. A block with a secret on its line is left out too.")
 # How much a reader opens (11-11: three readers spent 112k to 137k tokens each, against about 200k for the whole AI
 # part of a member's run). Guesses until the readings of a few member laptops are compared with a fuller read.
 OPEN_SCOPED, OPEN_DOCS, OPEN_NOTES, OPEN_SKILLS, OPEN_GIT_LOGS = 3, 5, 3, 3, 2
@@ -223,6 +279,206 @@ def proxify_run(flag=None):
     return os.environ.get("AGENTIC_SETUP_PROXIFY") == "1" if flag is None else bool(flag)
 
 
+# ------------------------------------------------------------------ the line-by-line read: the reader's second job
+
+def reader_files(p, user, root, home, inv, first):
+    """The files whose lines the reader judges, from the map: [(path on disk, how it loads)]. A project's always-loaded files
+    (the `AGENTS.md` or `CLAUDE.md` chain at its root, `CLAUDE.local.md`, what they @import, `.claude/rules/` files with no
+    `paths:`), the shallowest first, then at most LINES_SCOPED scoped files: the ones Claude Code's records show loaded most
+    (`rules_reaching`). The user-level `~/.claude/CLAUDE.md` joins the first project's brief only, once per run. Files above
+    the repo root are not read. An unreadable or unlisted file is left out."""
+    out = []
+    ents = [e for e in p.get("instruction_files") or [] if "error" not in e]
+    always = sorted((e for e in ents if e.get("loads") == "always"), key=lambda e: (e.get("depth", 0), e["path"]))
+    for e in always[:LINES_ALWAYS]:
+        out.append((absolute(e["path"], root, home), "every session in this project"))
+    reached = {os.path.normpath(str(x.get("what"))): x.get("chats") or 0
+               for x in ((inv or {}).get("rules_reaching") or {}).get("by_file") or [] if isinstance(x, dict) and x.get("what")}
+    scoped = [e for e in ents if e.get("loads") == "scoped"]
+    scoped.sort(key=lambda e: (-reached.get(absolute(e["path"], root, home), 0), -e.get("words", 0), e["path"]))
+    for e in scoped[:LINES_SCOPED]:
+        out.append((absolute(e["path"], root, home), "when the agent works in its folder"))
+    if first:
+        up = os.path.join(home, ".claude", "CLAUDE.md")
+        if any(absolute(e["path"], os.path.join(home, ".claude"), home) == up for e in (user or {}).get("instruction_files") or []
+               if e.get("loads") == "always" and "error" not in e) and os.path.isfile(up):
+            out.append((up, "every session on this laptop"))
+    return out
+
+
+def _only_a_dead_pointer(b):
+    ptrs = b.get("pointers") or []
+    if not ptrs or any(q["exists"] for q in ptrs):
+        return False
+    rest = b["text"]
+    for q in ptrs:
+        rest = rest.replace(q["raw"], " ")
+    return len(re.sub(r"[#*_`>|\[\]()@-]", " ", rest).split()) <= DEAD_ONLY_WORDS
+
+
+def reader_pool(p, user, root, home, inv, first):
+    """(listing for the brief, sidecar for merge) of one project's line-by-line read, or (None, None) when there is nothing to
+    read. Blocks code settles are left out (LINES_NOTE), the rest are numbered B1, B2... across the files, at most LINES_CAP in the
+    project's own files and LINES_USER_CAP in the user-level one. The sidecar holds, per block, its file, lines and what code
+    found, and a hash of each file, so merge checks the answer against the file it was asked about."""
+    import hashlib
+    files = reader_files(p, user, root, home, inv, first)
+    if not files:
+        return None, None
+    view = setup_instruction.repo_view(root)
+    facts = view[0]
+    vocab = sorted({*facts["scripts"], *facts["folders"], *facts["files"], *(os.path.basename(x) for x in view[1][:5000])})
+    side = {"schema": "instruction-lines/1", "root": root, "files": [], "blocks": {}, "vocab": vocab[:3000]}
+    out, n = [], 0
+    for path, loads in files:
+        user_level = loads.startswith("every session on this laptop")
+        text = setup_instruction.read_text(path)
+        if text is None:
+            continue
+        r = setup_instruction.read_file(path, root=None if user_level else root, home=home, with_history=True,
+                                        view=None if user_level else view)
+        if r.get("error"):
+            continue
+        own = sum(1 for k in side["blocks"].values() if k["user"] == user_level)
+        cap = LINES_USER_CAP if user_level else LINES_CAP
+        fi = len(side["files"])
+        side["files"].append({"path": path, "display": r["display"], "loads": loads, "user": user_level,
+                              "sha": hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()})
+        head = [f"#### {r['display']} ({plural(r['lines'], 'line')}, about {tokens(r['tokens_est'])} tokens; loads {loads})"]
+        g = r.get("git") or {}
+        head.append(f"- git: {g['commits']} commits from {g['first']} to {g['last']}" if g.get("tracked") else
+                    "- git: the file is not in git, so its history can't be read")
+        if r.get("sibling") and r["sibling"].get("relation"):
+            head.append(f"- beside it: {r['sibling']['file']}; {r['sibling']['relation']}")
+        body = []
+        for b in r["blocks"]:
+            if b["kind"] == "heading" and not b.get("judge"):
+                body.append(f"    (heading, line {b['start']}: {setup_map.scrub(b['text'])[:100]})")
+                continue
+            if not b.get("judge") or b.get("restates_repo") or _only_a_dead_pointer(b):
+                continue
+            if setup_map.has_secret(b["text"]):
+                continue   # a line holding a secret is never sent to a reader and never quoted
+            if own >= cap:
+                break
+            n, own = n + 1, own + 1
+            bid = f"B{n}"
+            side["blocks"][bid] = {"file": fi, "start": b["start"], "end": b["end"], "user": user_level,
+                                   "source": next((str(v).split(":")[0] for v in (b.get("found") or {}).values()), None)}
+            facts_ = setup_instruction._block_line(b)
+            text_ = "\n".join("    | " + ln for ln in b["text"].split("\n"))
+            body.append(f"{bid} · lines {b['start']}-{b['end']} · {b['kind']}\n{text_}" + ("\n    - " + "\n    - ".join(facts_) if facts_ else ""))
+        out.append("\n".join(head) + "\n\n" + "\n".join(body))
+    if not side["blocks"]:
+        return None, None
+    repo = [f"- the repo: scripts that check the work {r_} ; hooks {sorted(facts['hooks'])[:6]}; skills {facts['skills'][:8]}".replace(" ;", ";")
+            for r_ in [sorted(s for s in facts["scripts"] if setup_instruction.CHECK_WORDS.search(s))[:10]]]
+    listing = LINES_NOTE + "\n" + "\n".join(repo) + "\n\n" + "\n\n".join(out)
+    return LINES.format(files=listing), side
+
+
+def check_lines(side, ans):
+    """The reader's line-by-line answer, checked by code: {state, why, blocks_asked, blocks_read, weakest, strongest}.
+    state "couldn't check" when the answer is empty or malformed, or a file changed since the brief: never a verdict. A block counts
+    only when its quote sits inside its own lines of the file (setup_instruction.quote_in, the setup read's quote check) and no
+    line it sits on holds a secret. `weakest` and `strongest` are None unless their quote is found; a `rewrite` that names a
+    backticked command or path found in neither the file nor the repo is dropped with its card (the reader was told to invent none)."""
+    asked = len(side.get("blocks") or {})
+    res = {"state": "couldn't check", "why": "", "blocks_asked": asked, "blocks_read": 0, "weakest": None, "strongest": None}
+    if not isinstance(ans, dict) or not isinstance(ans.get("blocks"), list) or not ans["blocks"]:
+        res["why"] = "the reader gave no line-by-line answer"
+        return res
+    texts = {}
+    for i, f in enumerate(side["files"]):
+        t = setup_instruction.read_text(f["path"])
+        if t is None or __import__("hashlib").sha1(t.encode("utf-8", "replace")).hexdigest() != f["sha"]:
+            res["why"] = f"{f['display']} changed since the reader was asked about it"
+            return res
+        texts[i] = t
+    rows = {}
+    for a in ans["blocks"]:
+        m = re.match(r"^(B\d+)", str(a.get("id") if isinstance(a, dict) else ""))
+        bl = side["blocks"].get(m.group(1)) if m else None
+        if not bl or m.group(1) in rows:
+            continue
+        ok, _ = setup_instruction.quote_in(texts[bl["file"]], a.get("quote"), bl["start"], bl["end"])
+        if ok:
+            rows[m.group(1)] = {"kind": a.get("kind") if a.get("kind") in setup_instruction.KINDS else None,
+                                "known": a.get("known") == "yes", "situation": bool(a.get("situation")) and bool(a.get("action")),
+                                "reason": a.get("reason") == "yes", "source": bl["source"]}
+    res.update(state="read", blocks_read=len(rows))
+
+    def pick(key):
+        w = ans.get(key)
+        bl = side["blocks"].get((w or {}).get("block")) if isinstance(w, dict) else None
+        if not bl:
+            return None
+        ok, _ = setup_instruction.quote_in(texts[bl["file"]], w.get("quote"), bl["start"], bl["end"])
+        why, rewrite = squash(w.get("why") or ""), squash(w.get("rewrite") or "")
+        if not ok or setup_map.has_secret(why) or setup_map.has_secret(rewrite):
+            return None
+        f = side["files"][bl["file"]]
+        want = squash(w["quote"]).strip("`\"'“”")
+        lines = texts[bl["file"]].split("\n")
+        line = next((bl["start"] + i for i, ln in enumerate(lines[bl["start"] - 1:bl["end"]]) if squash(ln) and squash(ln)[:30] in want or want[:30] in squash(ln)),
+                    bl["start"])
+        out = {"block": w["block"], "file": f["display"], "path": f["path"], "loads": f["loads"], "line": line,
+               "quote": text(w["quote"], 300), "why": text(why, 300), "verdict": rows.get(w["block"]) or {}}
+        if key == "weakest":
+            if rewrite and invents(rewrite, texts[bl["file"]], side.get("vocab") or []):
+                return None
+            out["rewrite"] = text(rewrite, 600)
+        return out
+    res["weakest"], res["strongest"] = pick("weakest"), pick("strongest")
+    if res["weakest"] is None:
+        res["why"] = "the weakest line's quote was not found in the file, or its rewrite named something the repo does not hold"
+    return res
+
+
+def invents(rewrite, file_text, vocab):
+    """True when a rewrite names a backticked command or path that is in neither the instruction file nor the repo's names."""
+    have = set(vocab)
+    for m in setup_map.CODE_SPAN.finditer(rewrite):
+        tok = m.group(0).strip("`").strip()
+        if not tok or tok in file_text or tok in have:
+            continue
+        words = tok.split()
+        if len(words) > 1 and words[0] in setup_instruction.RUNNERS and words[-1] in have:
+            continue
+        return True
+    return False
+
+
+def card_weakest_line(lines):
+    """The one line a person should rewrite: the busiest project's weakest line of the files that load, its quote found in the
+    file by code (check_lines), with the reader's rewrite. {slug: check_lines result}, in the map's order. Nothing is counted by
+    the reader here: the card holds the quote, why it costs, and the rewrite."""
+    for res in lines.values():
+        w = (res or {}).get("weakest")
+        if not w or res.get("state") != "read":
+            continue
+        v = w.get("verdict") or {}
+        head = ("The agent cannot tell when it applies, nor why" if not v.get("situation") and not v.get("reason") else
+                "The agent cannot tell when it applies" if not v.get("situation") else
+                "The agent is not told why" if not v.get("reason") else "")
+        known = f"it finds this in `{v['source']}` already" if v.get("source") else "it gets this without being told"
+        said = (f"{head}, and {known}" if head else f"The agent: {known}".replace("The agent: it", "The agent")) if v.get("known") else head
+        cost = (said or w["why"]).rstrip(".") + ". It still takes attention on every turn."
+        if w.get("rewrite"):
+            do = f"Rewrite it as: \u201c{w['rewrite']}\u201d"
+        elif v.get("known"):
+            do = "Delete it."
+        else:
+            continue
+        where = {"every session in this project": "which loads in every session here",
+                 "when the agent works in its folder": "which loads when the agent works in its folder",
+                 "every session on this laptop": "which loads in every session on this laptop"}.get(w["loads"], "which loads in a session")
+        return {"id": "weakest-line", "source": "files", "file": w["path"], "quote": {"path": w["file"], "line": w["line"], "text": w["quote"]},
+                "saw": f"In `{w['file']}`, {where}, this line does the least for what it costs: \u201c{w['quote']}\u201d.",
+                "cost": cost, "do": do}
+    return None
+
+
 def brief(run, home=None, proxify=None):
     """Proxify's own run: the section is added to the anatomy brief, whose questions feed the page's part-by-part views.
     A member's run: the brief holds ONLY this review. The member's page has no part-by-part view (11-11), and its 19 to
@@ -234,8 +490,10 @@ def brief(run, home=None, proxify=None):
     if not m:
         print("setup read: no setup-map.json in the run folder; the briefs are unchanged")
         return 0
-    n, added, kept = 0, 0, set()
-    for s, root, p in projects_of(run, m, home):
+    n, added, kept, inv = 0, 0, set(), load(run, "inventory.json")
+    for stale in glob.glob(os.path.join(run, "instruction-lines-*.json")):
+        os.remove(stale)   # a rerun asks again: the answer is checked against this run's files
+    for k, (s, root, p) in enumerate(projects_of(run, m, home)):
         path = os.path.join(run, f"anatomy-brief-{s}.md")
         out = os.path.join(run, f"anatomy-ai-{s}.json")
         text = None
@@ -252,8 +510,17 @@ def brief(run, home=None, proxify=None):
         text = text[:i].rstrip() + "\n\n" if i >= 0 else text.rstrip() + "\n\n"   # a second run replaces the section
         # indented, so the outline's own headings are not read as headings of the brief
         drawn = "\n".join("    " + line if line else "" for line in tree(m, p, BRIEF_TREE_WORDS).split("\n"))
+        try:
+            listing, side = reader_pool(p, m.get("user"), root, home, inv, first=k == 0)
+        except Exception:  # noqa: BLE001  the line-by-line read is a second job: without it the review is asked as before
+            listing, side = None, None
+        if side:
+            with open(os.path.join(run, f"instruction-lines-{s}.json"), "w", encoding="utf-8") as f:
+                json.dump(side, f)
         section = READER.format(mark=MARK, out=out, tree=drawn, intro=SECOND_JOB if second else "", scoped=OPEN_SCOPED,
-                                docs=OPEN_DOCS, notes=OPEN_NOTES, skills=OPEN_SKILLS, logs=OPEN_GIT_LOGS)
+                                docs=OPEN_DOCS, notes=OPEN_NOTES, skills=OPEN_SKILLS, logs=OPEN_GIT_LOGS,
+                                always="the always-loaded files", lines_open=LINES_OPEN if listing else "",
+                                lines_shape=LINES_SHAPE if listing else "", lines=listing or "")
         with open(path, "w", encoding="utf-8") as f:
             f.write(text + section)
         kept.add(os.path.normpath(path))
@@ -618,6 +885,179 @@ def card_starting_context(chats, an, home):
                     "time, and the agent has more to wade through to find what matters."}
 
 
+# ------------------------------------------------------------------ cards: advice from code's read of the instruction files
+
+def instruction_findings(run, m, home):
+    """Code's read (setup_instruction.read_file, no AI, no git blame) of the instruction files the map lists as always loaded
+    or not loaded, for each project the map covers: [{slug, root, label, files: [{path, rel, loads, read}]}]. At most
+    FREE_FILES files a project, the shallowest first. A project with nothing to read is left out; a file that cannot be
+    read is left out and the rest goes on."""
+    out = []
+    for slug, root, p in projects_of(run, m, home):
+        files = []
+        entries = [e for e in p.get("instruction_files") or [] if e.get("loads") in ("always", "not_loaded") and "error" not in e]
+        entries.sort(key=lambda e: (e["loads"] != "always", e.get("depth", 0), e["path"]))
+        try:
+            view = setup_instruction.repo_view(root)
+        except Exception:  # noqa: BLE001  a repo code cannot list is a project with no free cards
+            continue
+        for e in entries[:FREE_FILES]:
+            path = absolute(e["path"], root, home)
+            try:
+                r = setup_instruction.read_file(path, root=root, home=home, with_history=False, view=view)
+            except Exception:  # noqa: BLE001
+                continue
+            if not r.get("error"):
+                files.append({"path": path, "rel": e["path"], "loads": e["loads"], "read": r})
+        if files:
+            out.append({"slug": slug, "root": root, "label": os.path.basename(root), "files": files, "view": view})
+    return out
+
+
+def _loaded(project):
+    return [f for f in project["files"] if f["loads"] == "always"]
+
+
+def _line_of(block, raw):
+    """The file line of the block's line that holds `raw`."""
+    return block["start"] + next((i for i, ln in enumerate(block["text"].split("\n")) if raw in ln), 0)
+
+
+def _and_list(items):
+    items = [f"`{x}`" for x in items]
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def card_dead_pointer(found):
+    """A line in a file every session loads sends the agent to a file that is not in the repo."""
+    for pr in found:
+        dead = []
+        for f in _loaded(pr):
+            for b in f["read"]["blocks"]:
+                for q in b.get("pointers") or []:
+                    if not q["exists"] and not q["raw"].endswith("/"):
+                        dead.append((f["rel"], _line_of(b, q["raw"]), q["raw"], q.get("near")))
+        if not dead:
+            continue
+        rel, line, raw, near = dead[0]
+        more = f"; {len(dead) - 1} more pointer{'s' if len(dead) > 2 else ''} in your `AGENTS.md` files are as dead" if len(dead) > 1 else ""
+        return {"id": "dead-pointer", "source": "files",
+                "saw": f"`{rel}` line {line} sends the agent to `{raw}`, which is not in the repo"
+                       + (f" (closest: `{near}`)" if near else "") + more + ".",
+                "cost": "The agent opens a file that is not there, then guesses what it held.",
+                "do": f"Point the line at `{near}`, or delete it." if near else "Point the line at the file that holds what it meant, or delete it."}
+    return None
+
+
+def card_agents_md_not_loaded(found):
+    """An `AGENTS.md` that Claude Code never reads, because a CLAUDE.md sits at or above it and imports none of it."""
+    for pr in found:
+        for f in pr["files"]:
+            if f["loads"] != "not_loaded" or os.path.basename(f["path"]) != "AGENTS.md":
+                continue
+            state, other = setup_instruction.agents_md_state(f["path"], pr["root"], None)
+            if state != "shadowed" or not other:
+                continue
+            rel_other = os.path.relpath(other, pr["root"])
+            name, lines = f["rel"], f["read"]["lines"]
+            beside = os.path.dirname(other) == os.path.dirname(f["path"])
+            if os.path.basename(other) == "CLAUDE.local.md":
+                do = ("Add a `CLAUDE.md` whose first line is `@AGENTS.md`: while a `CLAUDE.local.md` sits there on its own, Claude Code "
+                      "does not read `AGENTS.md`.")
+            else:
+                at = os.path.relpath(f["path"], os.path.dirname(other))
+                do = (f"Put `@{at}` first in `{rel_other}` and keep below it only what Claude Code alone needs." if beside else
+                      f"Add `@{at}` to `{rel_other}`, or move what `{name}` holds into it.")
+            others = sum(1 for g in pr["files"] if g["loads"] == "not_loaded") - 1
+            return {"id": "agents-md-not-loaded", "source": "files", "file": f["rel"], "figures": {"lines": lines},
+                    "saw": f"`{name}` ({plural(lines, 'line')}) sits {'beside' if beside else 'below'} `{rel_other}`, which does not import it, "
+                           f"so Claude Code reads `{rel_other}` only" + (f"; {others} more `AGENTS.md` files are in the same position" if others > 0 else "") + ".",
+                    "cost": f"What you wrote in `{name}` never reaches the agent in a Claude Code session.", "do": do}
+    return None
+
+
+CHECK_SCRIPT = re.compile(r"(?i)^(tests?|lint|typecheck|type-check|check|verify|validate|e2e|pytest|tsc)(?:[:\-_.]|$)|[:\-_](?:test|lint|check|e2e|typecheck)$")
+CHECK_FIRST = ("test", "lint", "typecheck", "type-check", "check")
+
+
+def _runner(facts, source, script):
+    """The command that runs a script of the repo, when its manifest says how: package.json by the lockfile's tool, Makefile and
+    justfile by their own. None for anything else: a card names no command it cannot name exactly."""
+    name = source.split(":")[0]
+    if name == "package.json":
+        pm = next((t for t in ("pnpm", "yarn", "bun", "npm") if t in (facts.get("tools") or {})), "npm")
+        return f"{pm} test" if script == "test" else f"{pm} run {script}"
+    if name in ("Makefile", "makefile"):
+        return f"make {script}"
+    if name in ("justfile", ".justfile"):
+        return f"just {script}"
+    return None
+
+
+def card_no_check_command(found):
+    """No line of the files every session loads names a command that checks the work, while the repo has scripts that do."""
+    for pr in found:
+        loaded = _loaded(pr)
+        if not loaded or any(f["read"]["check_commands"] for f in loaded):
+            continue
+        facts = pr["view"][0]
+        scripts = [s for s in facts["scripts"] if CHECK_SCRIPT.search(s)]
+        if not scripts:
+            continue
+        scripts.sort(key=lambda s: (CHECK_FIRST.index(s) if s in CHECK_FIRST else
+                                    next((len(CHECK_FIRST) + i for i, w in enumerate(CHECK_FIRST) if s.startswith(w)), 99), s))
+        shown = scripts[:4]
+        sources = sorted({facts["scripts"][s].split(":")[0] for s in shown})
+        where = f"`{sources[0]}`" if len(sources) == 1 else "the repo"
+        target = next((f for f in loaded if os.path.basename(f["path"]) in ("CLAUDE.md", "AGENTS.md")), loaded[0])
+        example = _runner(facts, facts["scripts"][shown[0]], shown[0])
+        return {"id": "no-check-command", "source": "files", "file": target["rel"],
+                "saw": f"No line the agent loads names a command that checks the work; {where} has {_and_list(shown)}.",
+                "cost": "The agent decides for itself when a change is checked, and may say it is done without running anything.",
+                "do": f"Add one line to `{target['rel']}` naming the command to run before saying the work is done"
+                      + (f", for example `{example}`." if example else ".")}
+    return None
+
+
+def card_restates_repo(found):
+    """Lines of an always-loaded file that say what the repo's own files already say (stack, versions, layout)."""
+    for pr in found:
+        best = None
+        for f in _loaded(pr):
+            lines = [b for b in f["read"]["blocks"] if b.get("judge")]
+            same = [b for b in lines if b.get("restates_repo")]
+            if len(same) >= RESTATES_MIN_LINES and (best is None or len(same) > len(best[1])):
+                best = (f, same, len(lines))
+        if not best:
+            continue
+        f, same, n = best
+        names = list(dict.fromkeys(k for b in same for k in b.get("found") or {}))[:5]
+        srcs = list(dict.fromkeys(str(v).split(":")[0] for b in same for v in (b.get("found") or {}).values()))
+        srcs = [x for x in srcs if not x.startswith("folder ")]
+        where = _and_list(srcs[:2]) if 1 <= len(srcs) <= 2 else "the repo's own files"
+        k, nums = len(same), [str(b["start"]) for b in same]
+        return {"id": "restates-repo", "source": "files", "file": f["rel"], "figures": {"lines": k, "of": n},
+                "saw": f"{k} of the {n} lines in `{f['rel']}` say{'s' if k == 1 else ''} what {where} already say{'s' if len(srcs) == 1 and where.startswith('`') else ''}"
+                       f" ({', '.join(names)}).",
+                "cost": "They load in every session, and go stale when a version moves.",
+                "do": f"Delete {'it' if k == 1 else 'them'} (line{'s' if k > 1 else ''} {' and '.join(nums) if k <= 2 else ', '.join(nums[:-1]) + ' and ' + nums[-1]}): "
+                      "the agent reads the repo itself."}
+    return None
+
+
+def plus_signals(found):
+    """{slug: [what a project's files do well]}: XML tags, a private CLAUDE.local.md, sections named by the task, numbered
+    steps, an opening that says what the file is for. Shown on the project's line, never a card and never a minus: a file
+    without them loses nothing."""
+    out = {}
+    for pr in found:
+        plus = list(dict.fromkeys(x for f in _loaded(pr) for x in f["read"]["structure"]["plus"]))
+        if plus:
+            out[pr["slug"]] = plus
+    return out
+
+
+
 def board_rows(run):
     """The capability board's rows (labs/v15/engine/board.py), by id: the one place that counts what is set up, whose
     it is and whether it was called, so this card and the "What you've built" tab can never disagree."""
@@ -696,10 +1136,13 @@ def card_rules_only_grow(inv, own, home):
                   "only one area needs into an `AGENTS.md` in that folder."}
 
 
-def cards(run, inv, m, hold, home):
-    """Advice counted from Claude Code's own records, the largest cost first: what a session loses (its scope), what
-    every turn pays (how full it starts, rule files that only grow), then what merely adds clutter (unused setup).
-    A fired hold is the session-scope card: it takes that card's cost and next step, and no second card is made."""
+def cards(run, inv, m, hold, home, found=None, lines=None):
+    """Advice, the largest cost first: what a session loses (its scope), what every turn pays (how full it starts), what
+    sends the agent wrong (a pointer to a file that is not there), what an `AGENTS.md` that only grows or is never read
+    costs, what is missing (no command that checks the work), then what merely adds clutter (lines that restate the repo,
+    setup nobody uses). Counted from Claude Code's own records or by code from the person's files (`found`,
+    instruction_findings: no AI). At most MAX_CARDS show. A fired hold is the session-scope card: it takes that card's
+    cost and next step, and no second card is made. This order is a proposal for the owner to confirm (PRODUCT.md (c))."""
     chats = chats_of(run)
     long = long_sessions(chats)
     if hold.get("fired"):
@@ -707,9 +1150,15 @@ def cards(run, inv, m, hold, home):
         if long:
             hold["why"] += "; " + longest_said(long[0])
     days = _num(((inv or {}).get("meta") or {}).get("days")) or 30
+    found = instruction_findings(run, m, home) if found is None else found
     makers = ((lambda: None if hold.get("fired") else card_session_scope(chats)),
               (lambda: card_starting_context(chats, load(run, "anatomy.json"), home)),
+              (lambda: card_dead_pointer(found)),
+              (lambda: card_weakest_line(lines or {})),
               (lambda: card_rules_only_grow(inv, own_always_loaded(m, home), home)),
+              (lambda: card_agents_md_not_loaded(found)),
+              (lambda: card_no_check_command(found)),
+              (lambda: card_restates_repo(found)),
               (lambda: card_unused_setup(board_rows(run), days)))
     out = []
     for make in makers:
@@ -719,6 +1168,13 @@ def cards(run, inv, m, hold, home):
             c = None
         if c:
             out.append(c)
+    # when "rules only grow" fires on the file the weakest line is in, the line is that card's example, not a second card
+    grow = next((c for c in out if c["id"] == "rules-only-grow"), None)
+    weak = next((c for c in out if c["id"] == "weakest-line"), None)
+    if grow and weak and grow["saw"].startswith(tilde(weak["file"], home) + " loads in every session"):   # the card names its file first
+        out.remove(weak)
+        grow["do"] += f" Start with this line: \u201c{weak['quote']['text']}\u201d. {weak['do']}"
+        grow["quote"] = weak["quote"]
     return out[:MAX_CARDS]
 
 
@@ -811,7 +1267,7 @@ def merge(run, home=None):
     user = m.get("user") or {}
     reads = {os.path.normpath(s["path"]): s.get("chats_reading") for s in inv.get("memory_stores") or []
              if s.get("path") and s.get("chats_reading") is not None}
-    per, projects, ran = {pid: [] for pid, _ in PARTS}, [], False
+    per, projects, ran, checked = {pid: [] for pid, _ in PARTS}, [], False, {}
     for s, root, p in projects_of(run, m, home):
         doc = load(run, f"anatomy-ai-{s}.json") or {}
         if not doc:   # a reader may have named its file by the folder, not the slug
@@ -821,6 +1277,9 @@ def merge(run, home=None):
                     doc = d
         sr = doc.get("setup_read")
         sr = sr if isinstance(sr, dict) else {}
+        side = load(run, f"instruction-lines-{s}.json")
+        if side:
+            checked[s] = check_lines(side, sr.get("lines"))
         answers = {a.get("id"): a for a in sr.get("parts") or [] if isinstance(a, dict)}
         ran = ran or bool(answers)
         where = allowed(p, user, root, home)
@@ -861,7 +1320,15 @@ def merge(run, home=None):
         parts.append(max(rows, key=lambda r: (level_things.part_state(r)[0] == "shown",
                                               rank[r["judged"]], r["structure"], r["quote_ok"], -rows.index(r))))
     hold = hold_endless(inv)
-    out = {"ran": ran, "parts": parts, "holds": [hold], "cards": cards(run, inv, m, hold, home), "projects": projects}
+    found = instruction_findings(run, m, home)
+    plus = plus_signals(found)
+    for pj in projects:
+        if plus.get(pj["slug"]):
+            pj["plus"] = plus[pj["slug"]]
+    for pj in projects:
+        if pj["slug"] in checked:   # what the reader's line-by-line answer came to, after code's check: words, no number is shown
+            pj["lines"] = {k: v for k, v in checked[pj["slug"]].items() if v not in (None, "")}
+    out = {"ran": ran, "parts": parts, "holds": [hold], "cards": cards(run, inv, m, hold, home, found, checked), "projects": projects}
     out["opening"] = opening(projects, first_change(out)) if ran else []
     with open(os.path.join(run, "setup-read.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)

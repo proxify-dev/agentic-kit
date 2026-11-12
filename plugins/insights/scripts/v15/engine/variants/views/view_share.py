@@ -116,7 +116,9 @@ PART_NAME = {"rules": "Instructions the agent starts with", "instructions": "Ins
              "corrections": "Corrections that stick", "memory": "Memory a new session reads"}
 SIGN_NAME = {"endless-sessions": "Sessions that only compact automatically", "session-scope": "How long sessions stay open",
              "starting-context": "How full a session starts", "unused-setup": "Setup that isn't used",
-             "rules-only-grow": "An AGENTS.md that only grows"}
+             "rules-only-grow": "An AGENTS.md that only grows", "dead-pointer": "A pointer to a file that is not there",
+             "agents-md-not-loaded": "An AGENTS.md Claude Code does not read", "no-check-command": "No command that checks the work",
+             "restates-repo": "Lines that repeat what the repo says", "weakest-line": "The line that costs the most for what it gives"}
 
 
 # the five lines of the summary that still come from the practice read (share_payload: practices, built_areas,
