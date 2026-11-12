@@ -28,7 +28,7 @@ MAX_BYTES = 300_000
 DOC_EXT = (".md", ".txt", ".mdc")
 OUTLINE_DEPTH, OUTLINE_MAX = 3, 40
 FOLLOW_DEPTH = 3     # pointer layers followed below a loaded file
-IMPORT_HOPS = 5      # Claude Code stops following @imports after five hops
+IMPORT_HOPS = 4      # Claude Code's memory docs (fetched 11-12): "a maximum depth of four hops"
 INDEX_MIN = 3        # a file that links to this many other notes of its store is an index
 STORE_FILES_CAP = 2000
 LISTED = 150  # files per load kind and project in the JSON; the totals always count every file
@@ -91,6 +91,15 @@ def has_secret(text):
     """True when the scrubber would change `text`: a quote from such a line is dropped, never shown masked."""
     flat = str(text if text is not None else "").replace("\n", " ").replace("\r", " ")
     return scrub(flat, len(flat) + 100) != flat
+
+
+def _instr():
+    """setup_instruction, imported when first needed: it imports this module, so this module cannot import it at the top."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import setup_instruction  # noqa: PLC0415
+    return setup_instruction
 
 
 def read(path):
@@ -269,11 +278,28 @@ def inside(path, roots):
     return any(path == r or path.startswith(r.rstrip(os.sep) + os.sep) for r in roots)
 
 
+def dead_backticked(raw, sentence, base, root, ctx):
+    """True when `raw`, written in backticks, names a file that is not there and its sentence sends the agent to it
+    (setup_instruction.backticked_state: one rule here and in a file's blocks). `root` is the project's, None for a
+    file that has no repo to look in (a skill folder, a user-level file)."""
+    if root is None:
+        return False
+    si = _instr()
+    target, exists = si.resolve(raw, base, root, ctx.home)
+    if target is None or exists:
+        return False
+    facts, files = si.repo_view(root)
+    return si.backticked_state(raw, sentence, root, facts, files)[0] == "dead"
+
+
 def pointers(lines, start, path, roots, ctx, display):
     """Every link, @import and file path in the text that names a file inside `roots`. A link or @import to a file
-    that is not there is kept with exists=false (a dead pointer is structure); a bare path counts only when it exists."""
+    that is not there is kept with exists=false (a dead pointer is structure), and so is a backticked path that
+    resolves nowhere when its sentence sends the agent to it (`see `CONTEXT.md``) and the repo has no file by that name,
+    no dependency, no remote (`dead_backticked`); any other bare path counts only when it exists."""
     out, seen, fence = [], set(), False
     base = os.path.dirname(path)
+    repo = roots[0] if len(roots) == 2 and roots[1] == ctx.claude else None   # a project's pointers are followed from [root, ~/.claude]
     for i in range(start, len(lines)):
         line = lines[i]
         if FENCE.match(line):
@@ -289,6 +315,12 @@ def pointers(lines, start, path, roots, ctx, display):
         masked = CODE_SPAN.sub(lambda m: " " * len(m.group(0)), line)
         for m in IMPORT.finditer(masked):
             found.append((m.start(1), m.group(1), "import"))
+        for m in CODE_SPAN.finditer(line):
+            inner = m.group(0).strip("`").strip()
+            if " " not in inner and not inner.startswith(("-", "http", "@")) and (
+                    "/" in inner or re.search(r"\.(md|mdc|txt|json|ya?ml|toml|py|sh|ts|js|sql|prisma|csv|html)$", inner)):
+                if dead_backticked(inner, sentence_at(line, m.start()), base, repo, ctx):
+                    found.append((m.start(), inner, "backticked"))
         for m in TOKEN.finditer(line):
             tok = m.group(0).strip(".,;:")
             if ("/" in tok or re.search(r"\.[A-Za-z0-9]{1,5}$", tok)) and not tok.startswith(("http", "//")) and "://" not in line[max(0, m.start() - 8):m.start() + 1]:
@@ -297,6 +329,8 @@ def pointers(lines, start, path, roots, ctx, display):
             target, exists = resolve(raw, base, roots, ctx)
             if target is None or not inside(target, roots) or (exists is False and kind == "path"):
                 continue
+            if kind == "backticked":
+                kind = "path"   # the map's kinds are link, import and path
             if exists and os.path.isdir(target) or target == path:
                 continue
             key = (target, i)
@@ -327,8 +361,10 @@ def file_facts(path, roots, ctx, display):
 
 def load_instructions(seeds, roots, ctx, display):
     """seeds: [(path, loads, scope)] -> entries and totals.
-    always / scoped files that @import another doc load with it (same kind of load, up to five hops); every other
-    pointer to a doc is on_demand, followed three layers down, each doc recorded once."""
+    always / scoped files that @import another doc load with it (same kind of load, up to four hops); every other
+    pointer to a doc is on_demand, followed three layers down, each doc recorded once. A seed with loads "not_loaded"
+    (an `AGENTS.md` Claude Code never reads, `instruction_seeds`) is listed with its reason and followed no further,
+    unless a loaded file @imports it: then it loads with that file."""
     entries, order, loaded = {}, [], []
 
     def add(path, loads, depth, **extra):
@@ -342,6 +378,9 @@ def load_instructions(seeds, roots, ctx, display):
         path = os.path.normpath(path)
         if path in entries:
             continue
+        if loads == "not_loaded":
+            add(path, loads, 0, not_loaded_why=(scope or {}).get("why", ""))
+            continue
         add(path, loads, 0, **({"scoped_to": scope} if scope else {}))
         loaded.append(path)
     # @import chains
@@ -354,9 +393,9 @@ def load_instructions(seeds, roots, ctx, display):
             continue
         for ptr in parent.get("pointers", []):
             t = ptr["_abs"]
-            if ptr["kind"] == "import" and ptr["exists"] and t.endswith(DOC_EXT) and t not in entries:
+            if ptr["kind"] == "import" and ptr["exists"] and t.endswith(DOC_EXT) and (t not in entries or entries[t]["loads"] == "not_loaded"):
                 e = add(t, parent["loads"], parent["depth"] + 1, reached_from=parent["path"], via="import",
-                        **({"scoped_to": parent["scoped_to"]} if "scoped_to" in parent else {}))
+                        **({"scoped_to": parent["scoped_to"]} if "scoped_to" in parent else {}))   # an unread file an import reaches is read
                 e["_import_hops"] = parent.get("_import_hops", 0) + 1
                 loaded.append(t)
     # on demand
@@ -393,9 +432,12 @@ def totals(entries):
     t = {"files": len(entries), "always_words": 0, "scoped_words": 0, "on_demand_words": 0,
          "always_files": 0, "scoped_files": 0, "on_demand_files": 0, "max_depth": 0}
     for e in entries:
+        t.setdefault(e["loads"] + "_files", 0)   # "not_loaded" only when a file is: the totals keep their shape otherwise
+        t.setdefault(e["loads"] + "_words", 0)
         t[e["loads"] + "_files"] += 1
         t[e["loads"] + "_words"] += e.get("words", 0)
-        t["max_depth"] = max(t["max_depth"], e.get("depth", 0))
+        if e["loads"] != "not_loaded":
+            t["max_depth"] = max(t["max_depth"], e.get("depth", 0))
     return t
 
 
@@ -421,15 +463,26 @@ def rules_seeds(rules_dir):
     return out
 
 
-def instruction_seeds(root, files, theirs, rules_dir):
+def instruction_seeds(root, files, theirs, rules_dir, home=None):
     """Own CLAUDE.md / AGENTS.md / CLAUDE.local.md of a project, and its .claude/rules. The project root's files are
     always loaded for that repo, whatever folder sessions started in; a file in a folder below it loads when Claude
-    works there."""
+    works there. An `AGENTS.md` loads only when Claude Code reads it (setup_instruction.agents_md_state: no CLAUDE.md,
+    .claude/CLAUDE.md or CLAUDE.local.md in its folder or above it up to the root, or the one beside it imports it); a
+    CLAUDE.md that is a link to it makes it one file, counted once; otherwise it is seeded "not_loaded" with the reason.
+    Why: a project whose AGENTS.md sits beside a CLAUDE.md that never imports it was counted as having two always-loaded
+    files, and that lifts the instructions part of the level (11-12)."""
     seeds = []
     for p in sorted(files):
         d = os.path.dirname(p)
         if os.path.basename(d) == ".claude" and os.path.basename(p) in ("CLAUDE.md", "CLAUDE.local.md"):
             d = os.path.dirname(d)
+        if os.path.basename(p) == "AGENTS.md":
+            state, other = _instr().agents_md_state(p, root, home)
+            if state == "link" and os.path.realpath(other) in {os.path.realpath(f) for f in files}:
+                continue   # the CLAUDE.md that links to it is its own seed: one file
+            if state == "shadowed":
+                seeds.append((p, "not_loaded", {"why": f"Claude Code reads {os.path.relpath(other, root)}, which does not import it"}))
+                continue
         if d == root:
             seeds.append((p, "always", None))
         else:
@@ -790,7 +843,7 @@ def build(run_dir, projects=3, home=None):
         else:
             # a repo the inventory says is someone else's contributes no rule files (they carry no ownership mark)
             theirs = repo_rows.get(root, {}).get("authors_here") is not False
-            seeds = instruction_seeds(root, instr[key], theirs, os.path.join(root, ".claude", "rules"))
+            seeds = instruction_seeds(root, instr[key], theirs, os.path.join(root, ".claude", "rules"), ctx.home)
         ptr_roots = [root] if claude_level else [root, ctx.claude]
         out = {}
         try:
@@ -800,7 +853,7 @@ def build(run_dir, projects=3, home=None):
         tot = totals(ents)
         # the totals count every file; the list keeps the first (shallowest, then biggest) of the long kinds
         keep, not_listed = [], {}
-        for kind in ("always", "scoped", "on_demand"):
+        for kind in ("always", "scoped", "on_demand", "not_loaded"):
             group = sorted((e for e in ents if e["loads"] == kind), key=lambda e: (e["depth"], -e.get("words", 0), e["path"]))
             keep += group[:LISTED]
             if len(group) > LISTED:
@@ -871,6 +924,8 @@ def render(m, cap):
             tag = f" ← {e['reached_from']}, depth {e['depth']}"
         elif e.get("via") == "import":
             tag = f"{tag} ← @import from {e['reached_from']}, depth {e['depth']}"
+        if loads == "not_loaded":
+            tag = f" — not read: {e.get('not_loaded_why') or 'Claude Code does not load it'}"
         if "error" in e:
             L.append(f"- {e['path']}{tag}: {e['error']}")
             return
@@ -930,7 +985,7 @@ def render(m, cap):
     L.append("# Setup map\n")
     L.append("Structure of one person's agent-facing files, drawn by code with no judgment. `w` = words. Always loaded = "
              "read at the start of every session; Scoped = an `AGENTS.md` below the project root, or a `.claude/rules/` file with `paths:`; On demand = "
-             "a doc reached by a pointer. Pointers are `→ target (words) line N: \"sentence\"`.\n")
+             "a doc reached by a pointer; Not loaded = an `AGENTS.md` Claude Code does not read here. Pointers are `→ target (words) line N: \"sentence\"`.\n")
     for p in [*m["projects"], m["user"]]:
         label = "User level" if p["root"] == "~/.claude" else "Project"
         L.append(f"## {label}: {p['root']}")
@@ -941,7 +996,8 @@ def render(m, cap):
         L.append(f"{t['files']} instruction files; always {t['always_words']}w, scoped {t['scoped_words']}w, "
                  f"on demand {t['on_demand_words']}w; deepest pointer layer {t['max_depth']}"
                  + (f"; typed sessions {p['typed_sessions']}" if "typed_sessions" in p else "") + "\n")
-        for title, kind in (("Always loaded", "always"), ("Scoped", "scoped"), ("On demand", "on_demand")):
+        for title, kind in (("Always loaded", "always"), ("Scoped", "scoped"), ("On demand", "on_demand"),
+                            ("Not loaded by Claude Code", "not_loaded")):
             section(title, [e for e in p["instruction_files"] if e["loads"] == kind], file_line)
         if p.get("not_listed"):
             L.append("- not listed, but counted in the totals: " + ", ".join(f"{n} {k.replace('_', ' ')}" for k, n in p["not_listed"].items()))

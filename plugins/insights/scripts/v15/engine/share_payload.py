@@ -8,7 +8,8 @@ Proxify sets it beside the person's evaluation call (engine calibration: above /
 
 Since 11-11 it also carries the read the level now rests on (NEW_KEYS): which read is in use, each thing's state, and
 the setup read's verdict per part (did the code prove the structure, what the agent judged, did its quote check out)
-with the ids of the holds that fired and of the cards counted from Claude Code's records. The practice rungs stay
+with the ids of the holds that fired and of the advice cards (counted from Claude Code's records, or by code from
+their files: an id such as dead-pointer, never the file or the line). The practice rungs stay
 under `practices`, which tools/calibrate.py reads.
 
 The deployed receiver refuses a summary with any top-level key it does not know (its check(): "unknown field <key>";
