@@ -412,6 +412,7 @@ def history(root: Path, rel: str) -> dict | None:
                 "last_commit": rows[0][0][:10] if rows else None,
                 "user_commits": sum(Identity.is_user(x[1], x[2]) for x in rows),
                 "authors": len({x[1].lower() for x in rows}),
+                "first_by_user": bool(rows) and Identity.is_user(rows[-1][1], rows[-1][2]),
             }
     else:
         cnr(root, "git history budget used up; later files have no git block")
@@ -1115,9 +1116,27 @@ def classify_origin(path: Path, name: str, kind: str) -> tuple[str, str, dict | 
         u, n = gi.get("user_commits") or 0, gi["commits"]
         slim = {k: gi[k] for k in ("commits", "last_commit", "user_commits") if k in gi}
         ev = f"git: {u} of {n} commits by an identity email, last {gi.get('last_commit')}{link}{src}"
+        if o["owner"] != "theirs" and u and kind == "skill" and path.is_dir():
+            made = made_by_them(path, gi)
+            if made:
+                return "own", f"{ev}; theirs: {made}, teammates co-edited the folder", slim
         return ("own" if o["owner"] == "theirs" else "mixed" if u else "third_party"), ev, slim
     where = f"in git repo {gi['repo']} but never committed" if gi.get("in_git") else "not in git"
     return "own", f"no install receipt (no marketplace, no skills lock); {where}: theirs by default{link}{src}", None
+
+
+def made_by_them(folder: Path, gi: dict) -> str | None:
+    """Why a skill folder with mostly teammates' commits is still theirs: they made its first commit, or most of the commits
+    on its SKILL.md are theirs. Teammates filling in a skill's references/ do not make it theirs (11-12: a tester's own
+    skill read "mixed" on 7 of 24 folder commits and counted in no row). None when neither holds."""
+    if gi.get("first_by_user"):
+        return "they made its first commit"
+    root, entry = gi.get("repo"), folder / "SKILL.md"
+    if root and entry.is_file():
+        h = history(Path(root), os.path.relpath(os.path.realpath(entry), root))
+        if h and h.get("commits") and 2 * (h.get("user_commits") or 0) >= h["commits"]:
+            return f"{h['user_commits']} of {h['commits']} commits on its SKILL.md are theirs"
+    return None
 
 
 def dir_stats(d: Path, cap: int = 600) -> tuple[int, bool]:

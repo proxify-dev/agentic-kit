@@ -412,7 +412,9 @@ def read_log(args):
          # when Claude Code loaded the project's auto-memory MEMORY.md into the session (an `instructions` record whose
          # file is type AutoMem, with text): the session began with earlier work in its context, no Read call needed
          "automem_t": None, "jobs_came_back": 0, "jobs_poll_loops": 0,
-         # what could show a skill's depth (skill_depth_facts): (t, "load", name) for a Skill call or a typed /name;
+         # what could show a skill's depth (skill_depth_facts): (t, "load", name) for a Skill call or a typed built-in-style
+         # /name; (t, "loaded", folder name) for Claude Code's "Base directory for this skill" record (a typed skill command
+         # leaves only this one);
          # (t, "read" | "edit" | "bash", path or command) for a tool call that names a `skills/` path;
          # (t, "script", (file paths the command names)) for a Bash call that ran a script or test
          "skill_ev": []}
@@ -1964,6 +1966,61 @@ def uses_live_context(text):
     return False
 
 
+CODE_PATH_RX = re.compile(r"`([^`\s]*/[^`\s]*)`")
+
+
+def external_code(text, folder, project):
+    """The code a skill keeps elsewhere in its repo, as absolute paths: what its SKILL.md names in backticks outside the
+    skill's own folder, when it is a folder named after the skill (`tests/full-test/` for full-test) or a code file named
+    outright (`scripts/seed.sh`). Runs of it never show from the skill folder alone (11-12: a runner outside .claude/skills/
+    ran 400 times, unseen). A folder not named after the skill is the product's code, not the skill's (`app/Domains/Shared/`
+    in a browser-test skill). Relative names are read from the project; only what exists on disk counts, at most 12."""
+    out = []
+    if not text or not folder:
+        return out
+    real_folder = os.path.realpath(folder)
+    name = os.path.basename(real_folder).lower()
+    for m in CODE_PATH_RX.finditer(text):
+        w = m.group(1).rstrip(".,:;)")
+        if not w or "://" in w or w.startswith(("-", "<", "$", "{", "@")) or any(c in w for c in "*?|<>"):
+            continue
+        w = os.path.expanduser(w)
+        if not w.startswith("/"):
+            if not project:
+                continue
+            w = os.path.join(project, w)
+        p = os.path.realpath(w)
+        if p == real_folder or p.startswith(real_folder + os.sep) or p in out:
+            continue
+        if os.path.isdir(p):
+            rel = os.path.relpath(p, os.path.realpath(project)) if project else p
+            if name not in rel.lower().replace("_", "-"):
+                continue
+        elif not os.path.isfile(p) or not (p.endswith(CODE_EXT) or os.access(p, os.X_OK)):
+            continue
+        out.append(p)
+        if len(out) >= 12:
+            break
+    return out
+
+
+def runs_external(files, external, project):
+    """The first code file a script or test call named that sits in one of the skill's external code paths, relative to the
+    project (or absolute when the skill has none); None when the call named nothing there. Code only, and on disk: a doc the
+    skill names (`docs/bug-log.md`) is not its script, nor is a path-shaped word left by `node -e "require('./x')"`."""
+    for f in files or ():
+        p = os.path.realpath(str(f))
+        if not any(p == e or p.startswith(e + os.sep) for e in external) or not os.path.isfile(p):
+            continue
+        try:
+            code = p.endswith(CODE_EXT) or os.access(p, os.X_OK)
+        except OSError:
+            code = False
+        if code:
+            return os.path.relpath(p, os.path.realpath(project)) if project else p
+    return None
+
+
 def skill_folder(folder, entry_name):
     """{relative path: is it code} for every file in a skill's folder except its SKILL.md and junk."""
     out = {}
@@ -2293,9 +2350,11 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
     """One fact row per skill the person wrote (anatomy origin `own`, which ownership.py decided), by name. What it holds
     and what the logs of the window show about it; board.skill_depth turns the row into a depth.
 
-      name · lines (of SKILL.md) · other_files (everything else in its folder) · loads (Skill calls and typed /name) ·
+      name · lines (of SKILL.md) · other_files (everything else in its folder) · loads (Skill calls, and typed /name read
+      from Claude Code's "Base directory for this skill" record, once per load) ·
       loads_opened (loads after which the agent opened one of the skill's other files, before its next load) · opened (that
-      file) · script_run (a script of the skill, run after a load) · live_syntax (SKILL.md uses !`cmd`) ·
+      file) · script_run (a script of the skill, or of the code its SKILL.md names elsewhere in the repo, run after a load) ·
+      live_syntax (SKILL.md uses !`cmd`) ·
       eval (the skill's evals seen RUNNING, from what Claude Code writes: {how: plugin_eval | headless_run, plugin_evals: calls
       of `claude plugin eval` on the plugin that holds the skill, headless_runs: headless runs that loaded the skill and whose first
       prompt is written in an eval or test file of theirs, eval_files: the first such files}; None when neither was seen) ·
@@ -2334,18 +2393,29 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
             text = ""
         files = skill_folder(folder, entry) if folder and os.path.isdir(folder) else {}
         info[name] = {"name": name, "folder": folder, "lines": len(text.splitlines()), "other_files": len(files),
-                      "files": files, "loads": 0, "loads_opened": 0, "opened": None, "script_run": None,
+                      "files": files, "project": a.get("project"), "external": external_code(text, folder, a.get("project")),
+                      "loads": 0, "loads_opened": 0, "opened": None, "script_run": None,
                       "live_syntax": uses_live_context(text), "eval": None, "copies": copies[name],
                       "shared_name": name in others}
     for evs in by_session.values():
         evs.sort(key=lambda e: e[0])
         loads = defaultdict(list)       # skill name -> times it loaded in this session
         edited = set()
+        # Claude Code writes "Base directory for this skill: <folder>" (a "loaded" event) every time a skill's text goes in:
+        # right after a Skill call, where it repeats that call's load, and on its own when the person typed /name (the
+        # <command-message> form, which the log reader leaves to this record). A load is still pending until its record comes.
+        pending = Counter()
         for t, kind, val in evs:
             if kind == "load":
                 ns, _, short = val.rpartition(":")
+                pending[short] += 1
                 if short in info and not info[short]["shared_name"] and (not ns or ns in own_plugins):
                     loads[short].append(t)
+            elif kind == "loaded":
+                if pending[val]:
+                    pending[val] -= 1
+                elif val in info and not info[val]["shared_name"]:
+                    loads[val].append(t)
             elif kind == "edit":
                 edited.update(skill_refs(val))
         for name, ts in loads.items():
@@ -2368,6 +2438,9 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
                     scripts = {rel for rel, code in i["files"].items() if code}
                     if scripts and not i["script_run"]:
                         i["script_run"] = runs_script(val, name, scripts)
+                elif kind == "script" and i["external"] and not i["script_run"]:
+                    # the skill keeps its code elsewhere in the repo (SKILL.md: "Code: `tests/full-test/`"): a run of it counts
+                    i["script_run"] = runs_external(val, i["external"], i["project"])
             i["loads_opened"] += len(hit)
     # evals seen RUNNING the skill (his ruling 11-06), never guessed from a file's contents:
     #  (a) `claude plugin eval <target>` in their logs, the target resolving to the plugin folder that holds the skill;
@@ -2423,7 +2496,7 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
     out = []
     for name in sorted(info):
         i = info[name]
-        del i["folder"], i["files"]
+        del i["folder"], i["files"], i["project"], i["external"]
         out.append(i)
     return out
 
