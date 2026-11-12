@@ -232,6 +232,12 @@ last changed src/app.py?"*, or type `/tracer:blame src/app.py`.
 
 Tried end to end from GitHub on a fresh Linux machine. Not yet tried on Windows or on a fresh macOS account.
 
+## Contributing and what changed
+
+Pull requests are welcome: [CONTRIBUTING.md](CONTRIBUTING.md) says what to run and how a change lands. A plugin's changes are in
+its `CHANGELOG.md` (insights has one today) and in the [Releases](https://github.com/proxify-dev/agentic-kit/releases) page: a plugin
+gets new code on your machine only when a version is released.
+
 ## Use at your own risk
 
 This is an independent project, not affiliated with or endorsed by Anthropic. It is provided as is (see

@@ -45,3 +45,5 @@ In a terminal (not inside a Claude Code chat):
 claude plugin marketplace update agentic-kit
 claude plugin update insights@agentic-kit
 ```
+
+Then restart Claude Code. What each version changes is in [CHANGELOG.md](CHANGELOG.md).
