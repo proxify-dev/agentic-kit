@@ -616,6 +616,15 @@ def corrections_structure(p, user, root, home):
     return best[0][0], said
 
 
+def has_shape(store):
+    """Whether the store has the shape of memory. Question 1 of memory_shape.py already answered it when the scan listed the
+    store (the map carries the answer as memory_shape); it is not judged a second time here. A map with no answer on the
+    store (an older run's) falls back to the outline's own shape."""
+    if store.get("memory_shape"):
+        return store["memory_shape"] != "none"
+    return store.get("shape") in SHAPED
+
+
 def memory_structure(p, user, root, home, reads):
     stores = [(s, root) for s in p.get("memory") or []] + [(s, os.path.join(home, ".claude")) for s in (user or {}).get("memory") or []]
     stores = [(s, base) for s, base in stores if "error" not in s]
@@ -630,12 +639,16 @@ def memory_structure(p, user, root, home, reads):
     scored = []
     for s, base in own:
         n = reads.get(absolute(s["path"], base, home))
-        ok = s.get("shape") in SHAPED and s.get("files", 0) >= MEMORY_NOTES_MIN and (n is None or n >= MEMORY_SESSIONS_MIN)
-        scored.append(((ok, s.get("shape") in SHAPED, s.get("files", 0)), s, n))
+        shaped = has_shape(s)
+        ok = shaped and s.get("files", 0) >= MEMORY_NOTES_MIN and (n is None or n >= MEMORY_SESSIONS_MIN)
+        scored.append(((ok, shaped, s.get("files", 0)), s, n))
     key, s, n = max(scored, key=lambda x: x[0])
+    named = s.get("shape")
+    if has_shape(s) and named not in SHAPED:
+        named = "linked"   # the scan's rule found the shape (an index or linked notes); this map's own outline found none
     shape = {"indexed": "an index and notes", "layered": "an index, with sub-folders or typed notes",
              "linked": "notes that link each other, with no index", "flat-log": "a log with no index and no links",
-             "single-file": "a single file"}.get(s.get("shape"), s.get("shape") or "unknown shape")
+             "single-file": "a single file"}.get(named, named or "unknown shape")
     said = f"{s['path']}: {shape}, {s.get('files', 0)} file{'s' if s.get('files', 0) != 1 else ''}"
     if n is not None:
         said += f", read in {n} session{'s' if n != 1 else ''}"

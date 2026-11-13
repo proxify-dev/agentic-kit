@@ -688,8 +688,12 @@ def r_parallel(f):
 
 
 def r_memory(f):
-    stores = [s for s in _l(f.i.get("memory_stores")) if isinstance(s, dict)]
-    built = [s for s in stores if s.get("kind") not in (AUTO_MEMORY, "referenced_notes")]
+    # the stores the scan kept after its three questions (memory_shape.py: is it memory by its shape, is it theirs, a copy
+    # counted once); each carries its reads, counted once and only for files inside it (memory_shape.store_use)
+    stores = [s for s in _l(f.i.get("memory_stores")) if isinstance(s, dict) and s.get("counted", True)]
+    # a notes folder an instruction file points to counts like any other: its shape and owner are asked, not its name
+    # (it was left out whole before the scan asked, and the setup map listed it all the same)
+    built = [s for s in stores if s.get("kind") != AUTO_MEMORY]
     auto = [s for s in stores if s.get("kind") == AUTO_MEMORY]
     reads = sum(_n(s.get("agent_reads")) for s in built)
     early = _n(_d(f.i.get("past_work_reach")).get("looked_it_up_early"))
