@@ -8,10 +8,13 @@ One line per chat (interactive only: entrypoints starting with "sdk" are program
   msgs[]      typed messages: i, t, ctx, int, rej, corr, chars, head(160), pm (permission mode)
   calls[]     the agent's tool calls in the main chat: t, ctx, name, key, err, out(160 when err)
               key = Bash command (300) | file path | helper type + description | skill | other input (120)
+              an ExitPlanMode call also carries id (its tool_use id) and, when the person declined the plan, denied: true
+  plan_files  the plan files Claude Code named in this chat (the planFilePath of its plan_mode attachments)
   compactions[]  t, at (index of the next typed message), trigger, pre, post
   commands[]  typed slash commands: t, at, name, args(80)
   attachments {type: count}   e.g. nested_memory, edited_text_file, plan_mode, skill_listing
-  helpers     {"calls": {name: n}, "bash": [first 300 chars, up to 400], "files_read": n, "n": helper files}
+  helpers     {"calls": {name: n}, "bash": [first 300 chars, up to 400], "files_read": n, "n": helper files,
+               "edits": [[t, file path] of each Edit / Write / MultiEdit a sub-agent made, up to 500]}
 
 Standard library only. Usage: python3 logs.py [--days 30] [--root ~/.claude/projects] --out chats.jsonl
 """
@@ -40,6 +43,7 @@ INJECTED = ("<command-name>", "<command-message>", "<local-command", "<task-noti
             "<system-reminder>", "<cross-session-message", "Caveat:", "[Request interrupted")
 NOT_THE_PERSON = ("Another Claude session sent a message", "[SYSTEM NOTIFICATION")
 INTERRUPT = "[Request interrupted by user"
+PLAN_ATTACHMENTS = ("plan_mode", "plan_mode_exit", "plan_mode_reentry")
 REJECT = ("The user doesn't want to proceed", "The user doesn’t want to proceed")
 CORRECTION_RE = re.compile(
     r"^[\s\W]*(no|nope|nah|don'?t|do not|dont|wrong|not what|stop|wait|why did you|you didn'?t|"
@@ -77,7 +81,7 @@ def read_chat(args):
     path, start = args
     c = {"chat": os.path.basename(path)[:-6], "project": os.path.basename(os.path.dirname(path)),
          "cwd": None, "ep": None, "version": None, "t0": None, "t1": None, "msgs": [], "calls": [],
-         "compactions": [], "commands": [], "attachments": Counter(), "helpers": None}
+         "compactions": [], "commands": [], "attachments": Counter(), "helpers": None, "plan_files": set()}
     ctx = 0
     pend_int = pend_rej = 0
     by_id = {}
@@ -117,6 +121,9 @@ def read_chat(args):
                 a = r.get("attachment") or {}
                 if live and isinstance(a, dict):
                     c["attachments"][a.get("type") or "?"] += 1
+                    # Claude Code names the plan file in every plan-mode attachment ({"type": "plan_mode", "planFilePath": ...})
+                    if a.get("type") in PLAN_ATTACHMENTS and isinstance(a.get("planFilePath"), str):
+                        c["plan_files"].add(a["planFilePath"])
                 continue
             if kind == "assistant":
                 m = r.get("message") or {}
@@ -130,6 +137,8 @@ def read_chat(args):
                         if isinstance(b, dict) and b.get("type") == "tool_use":
                             call = {"t": t, "ctx": ctx, "name": b.get("name"), "key": key_of(b.get("name"), b.get("input")),
                                     "err": None, "out": None, "at": len(c["msgs"])}
+                            if b.get("name") == "ExitPlanMode":
+                                call["id"] = b.get("id")   # a forked or resumed chat repeats its parent's calls: inventory.plans_sent_back counts each id once
                             by_id[b.get("id")] = call
                             c["calls"].append(call)
                 continue
@@ -156,6 +165,11 @@ def read_chat(args):
                             call["out"] = body[:160]
                     if b.get("is_error") and any(m in body for m in REJECT):
                         pend_rej += 1
+                    # The person declined a plan: Claude Code writes the ExitPlanMode call's tool_result as is_error true with
+                    # "The user doesn't want to proceed with this tool use..." and, on the record, toolDenialKind "user-rejected".
+                    if call is not None and call["name"] == "ExitPlanMode" and b.get("is_error") and (
+                            r.get("toolDenialKind") == "user-rejected" or any(m in body for m in REJECT)):
+                        call["denied"] = True
                 continue
             st = text_of(content).lstrip()
             if st.startswith(INTERRUPT):
@@ -198,7 +212,7 @@ def read_chat(args):
     if not c["msgs"]:
         return None
     # helpers: the chat's sub-agent files
-    h = {"calls": Counter(), "bash": [], "files_read": 0, "n": 0}
+    h = {"calls": Counter(), "bash": [], "files_read": 0, "n": 0, "edits": []}
     for q in glob.glob(os.path.join(path[:-6], "subagents", "*.jsonl")):
         h["n"] += 1
         try:
@@ -207,13 +221,19 @@ def read_chat(args):
                     if b'"tool_use"' not in line or b'"type":"assistant"' not in line:
                         continue
                     try:
-                        m = json.loads(line).get("message") or {}
+                        rec = json.loads(line)
+                        m = rec.get("message") or {}
                     except ValueError:
                         continue
                     for b in m.get("content") or []:
                         if isinstance(b, dict) and b.get("type") == "tool_use":
                             nm = b.get("name")
                             h["calls"][nm] += 1
+                            if nm in ("Edit", "Write", "MultiEdit") and len(h["edits"]) < 500 and rec.get("timestamp"):
+                                try:
+                                    h["edits"].append([epoch(rec["timestamp"]), key_of(nm, b.get("input"))])
+                                except ValueError:
+                                    pass
                             if nm in ("Read", "Grep", "Glob"):
                                 h["files_read"] += 1
                             if nm == "Bash" and len(h["bash"]) < 400:
@@ -221,6 +241,7 @@ def read_chat(args):
         except OSError:
             pass
     c["helpers"] = h
+    c["plan_files"] = sorted(c["plan_files"])
     return c
 
 

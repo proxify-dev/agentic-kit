@@ -57,7 +57,9 @@ THINGS = [
      "own": ["you.plan_mode_switched_on", "you.plans_asked", "setup.chats_opened_in_plan_by_settings"],
      "claude": ["cant.plan_mode_entered_by_claude"],
      "say": "You switched plan mode on {n:time} in the last 30 days.",
-     "say_claude": ("time Claude asked to switch plan mode on", "times Claude asked to switch plan mode on")},
+     "say_claude": ("time Claude asked to switch plan mode on", "times Claude asked to switch plan mode on"),
+     # shown only: one more clause on the card. Its count is in no `own` or `claude` list above, so no state or level reads it.
+     "also": {"count": "you.plans_sent_back", "say": "sent {n:plan} back before any code"}},
     {"id": "use-others-tools", "name": "Use MCP servers and skills others made", "level": "L1",
      # two counts, never summed: skills from others and MCP servers are different rows with different calls (others_said)
      "from": "board", "rows": ["cap-mcp", "cap-skills-installed"]},
@@ -437,6 +439,24 @@ def _from_counts(t, counts, bars, have_inv):
     return NOT_SEEN, "Nothing in your session records shows it."
 
 
+NOTHING_SEEN = "Nothing in your session records shows it."
+
+
+def with_also(t, state, proof, counts):
+    """The card's sentence with its shown-only count after it ("... in the last 30 days and sent 3 plans back before any code."),
+    or the sentence as it was when the count is 0 or absent. It changes no state: `state` is only read, to word the join."""
+    a = t.get("also")
+    n = wording.count_or_zero((counts.get(a["count"]) or {}).get("n")) if a else 0
+    if not n:
+        return proof
+    clause = say(a["say"], n=n)
+    if state == YOURS_USED and proof.endswith("."):
+        return f"{proof[:-1]} and {clause}."
+    if proof == NOTHING_SEEN:
+        return f"You {clause}; nothing else in your session records shows plan mode in use."
+    return f"{proof} You {clause}."
+
+
 def best_row(rows):
     """The row whose state ranks first (STATE_RANK): the one a thing of several rows reads as. A tile that stands for such a thing
     carries its state, so a test can compare it with the level read's."""
@@ -528,7 +548,7 @@ def things(run_dir, board, bars):
                                             else f"You typed {plural(typed, 'message')} in the last 30 days.")
             else:
                 state, proof = NOT_SEEN, "No session in the last 30 days."
-        thing = {"id": t["id"], "name": t["name"], "level": t["level"], "state": state, "proof": proof}
+        thing = {"id": t["id"], "name": t["name"], "level": t["level"], "state": state, "proof": with_also(t, state, proof, counts)}
         if t["id"] == "rule-files" and state in PRESENT:
             thing["said"] = rule_files_said(rule_files(rows))   # the sentence the Built tab prints too; a test compares them
         if t["id"] == "evals" and state == YOURS_USED and not evals_counts(rows.get("cap-evals"))[0]:

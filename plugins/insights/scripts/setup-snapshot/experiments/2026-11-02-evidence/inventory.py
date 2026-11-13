@@ -1463,6 +1463,55 @@ def typed_concurrency(chats, window=600):
     return {"most_chats_in_10_min": best, "messages_with_3_plus_chats": multi, "messages": len(ev)}
 
 
+CODE_TOOLS = ("Edit", "Write", "MultiEdit")
+
+
+def plans_sent_back(chats):
+    """How many plans the person sent back before any code: {"n", "chats", "declined"}. The one function for this count; shown on the
+    plan-mode card as one more sentence and credited to no level (it is in no `own` or `claude` list of things.py).
+    chats: the typed chats of logs.py (a headless run is never one). A plan is sent back when
+      1. Claude presented it: an ExitPlanMode call;
+      2. the person declined it: the call's tool_result is_error true, "The user doesn't want to proceed with this tool use...",
+         and on the record toolDenialKind "user-rejected" (logs.py sets `denied` from either);
+      3. the person typed a message next (logs.py's msgs: only what a person typed, nothing Claude Code injected);
+      4. before any code edit, Claude presented a plan again (another ExitPlanMode), or wrote or edited the plan file again (the
+         planFilePath of Claude Code's plan_mode attachments), or no code edit followed in that chat at all.
+    A code edit is an Edit, Write or MultiEdit (by Claude or by a sub-agent) to a file that is not the plan file and not markdown.
+    A decline followed straight by code, with no new plan and no rewrite, is not counted: on one laptop 11 of those 13 were an
+    approval with a note on process ("use a worktree"). A forked or resumed chat repeats its parent's calls: each plan is counted once,
+    by its ExitPlanMode call id."""
+    seen, n, declined, in_chats = set(), 0, 0, set()
+    for ch in sorted(chats, key=lambda c: c.get("t0") or 0):
+        calls = ch.get("calls") or []
+        plan_files = set(ch.get("plan_files") or ())
+        edits = [(c["t"], c.get("key") or "") for c in calls if c.get("name") in CODE_TOOLS]
+        edits += [(t, path) for t, path in ((ch.get("helpers") or {}).get("edits") or [])]
+        code = sorted(t for t, path in edits if path not in plan_files and not path.lower().endswith((".md", ".mdx")))
+        again = sorted([c["t"] for c in calls if c.get("name") == "ExitPlanMode"] + [t for t, path in edits if path in plan_files])
+        typed = sorted(m["t"] for m in ch.get("msgs") or [])
+        for c in calls:
+            if c.get("name") != "ExitPlanMode" or not c.get("denied"):
+                continue
+            key = c.get("id") or (ch["chat"], c["t"])
+            if key in seen:
+                continue
+            seen.add(key)
+            declined += 1
+            i = bisect.bisect_right(typed, c["t"])
+            if i == len(typed):
+                continue                                  # nothing typed after the decline
+            said = typed[i]
+            j = bisect.bisect_right(code, c["t"])
+            first_code = code[j] if j < len(code) else float("inf")
+            if said > first_code:
+                continue                                  # code came before the person said anything
+            k = bisect.bisect_right(again, said)
+            if first_code == float("inf") or (k < len(again) and again[k] < first_code):
+                n += 1
+                in_chats.add(ch["chat"])
+    return {"n": n, "chats": len(in_chats), "declined": declined}
+
+
 # What each who_did_it count can't tell you, keyed by its id; the page shows it beside the proof.
 WHO_DID_IT_CANT_TELL = {
     'you.typed_messages': 'How long or how good the messages were, only how many.',
@@ -1481,6 +1530,7 @@ WHO_DID_IT_CANT_TELL = {
     'you.helpers_stopped_by_hand': 'Why you stopped it, or whether it was off track.',
     'you.manual_compactions': 'Whether what mattered survived the compaction.',
     'you.plan_mode_switched_on': 'Whether the plan changed what got built: switching it on and saying go at once looks the same.',
+    'you.plans_sent_back': 'Whether your message was about the approach or about how to work: a plan declined and rewritten reads the same either way. Only plans presented in plan mode count; planning without it is not seen.',
     'you.chats_at_once': 'Whether the sessions were separate jobs or one job spread out, or whether any of them clashed.',
     'you.most_chats_in_10_min': "Whether it's a habit: this is a peak, and one busy afternoon sets it.",
     'setup.subagents_after_own_context': "Whether that text is why Claude started them; it might have anyway.",
@@ -1541,6 +1591,7 @@ def who_did_it(inv, chats, raw, meta):
     COPY_NOTE = " A record copied into a forked or resumed session counts once"
     msgs = [m for ch in chats for m in ch.get("msgs", [])]
     conc = typed_concurrency(chats)
+    sent_back = plans_sent_back(chats)
     comp = inv["compactions"]
     att = raw["attachments"]
     m = lambda k: meta.get(k) or {"n": 0, "chats": 0}  # noqa: E731
@@ -1676,6 +1727,12 @@ def who_did_it(inv, chats, raw, meta):
            f"Plan mode started between two of your messages with no call from Claude to enter it and no /plan, which leaves "
            f"your own mode switch (Shift+Tab). {plan['you']['msgs']} of the {pm.get('plan', 0)} messages you typed in plan mode "
            "came after one of these."),
+        it("you.plans_sent_back", "Plans you sent back before any code", sent_back["n"], sent_back["chats"], of=sent_back["declined"], proof=
+           "Claude presented a plan (ExitPlanMode) and you declined it (\"The user doesn't want to proceed\", toolDenialKind: user-rejected); "
+           "you typed a message next; then, before any code was written, Claude presented a plan again, wrote the plan file again, or "
+           f"wrote no code in that session. Of the {sent_back['declined']} plans you declined, {sent_back['n']} were sent back so. A decline "
+           "followed straight by code is not counted. Interactive sessions only; code is an Edit, Write or MultiEdit to a file that is "
+           "not the plan file and not markdown."),
         it("you.chats_at_once", "Messages typed while 3 or more of your sessions were active", conc["messages_with_3_plus_chats"], None, of=conc["messages"], proof=
            "At least 3 different sessions got a message from you within 5 minutes either side. Sessions left open but idle "
            "don't count."),
