@@ -556,6 +556,14 @@ def collect_notes(path):
     return notes, skipped, truncated
 
 
+def memory_shape_answer(rec):
+    """The scan's answer to "is it memory?" for this store (anatomy.json: shape, shape_why), carried on the map's entry as
+    memory_shape / memory_shape_why. {} for a store the scan did not ask (an older run's, or Claude Code's own)."""
+    if not rec or rec.get("shape") not in ("index", "notes", "none"):
+        return {}
+    return {"memory_shape": rec["shape"], "memory_shape_why": rec.get("shape_why") or ""}
+
+
 def memory_store(path, ctx, display):
     kind = "builtin" if re.fullmatch(re.escape(os.path.join(ctx.claude, "projects")) + r"/[^/]+/memory", os.path.normpath(path)) else "own"
     res = {"path": display(path), "kind": kind}
@@ -818,10 +826,12 @@ def build(run_dir, projects=3, home=None):
                 seen_art.add((real, a["kind"]))
                 arts[o][a["kind"]].append(a)
     stores = {r: [] for r in [*roots, "user"]}
+    # question 1's answer on each store (memory_shape.shape_of, run by the file scan): the map carries it, the setup read takes it
+    asked = {os.path.normpath(m["path"]): m for m in anat.get("memory_stores") or [] if m.get("path") and m.get("shape")}
     for m in anat.get("memory_stores") or []:
         p = m.get("path")
-        if not p or m.get("in_fixture_path") or "/skills/" in p:
-            continue
+        if not p or m.get("in_fixture_path") or "/skills/" in p or not m.get("counted", True):
+            continue   # `counted`: the scan's three questions on the store (memory_shape.py); a store without them (an older run) counts
         p = os.path.normpath(p)
         if p.startswith(os.path.join(ctx.claude, "projects") + os.sep):
             continue   # Claude Code's own memory folders: matched to a project by name below, whatever the inventory listed
@@ -862,7 +872,8 @@ def build(run_dir, projects=3, home=None):
         if not_listed:
             out["not_listed"] = not_listed
         out["totals"] = tot
-        out["memory"] = [memory_store(p, ctx, display) for p in dict.fromkeys(stores[key])]
+        out["memory"] = [{**memory_store(p, ctx, display), **memory_shape_answer(asked.get(os.path.normpath(p)))}
+                         for p in dict.fromkeys(stores[key])]
         out["memory"].sort(key=lambda s: (s["kind"] != "builtin", -(s.get("total_words") or 0), s["path"]))
         out["skills"] = [skill_entry(a["path"], a.get("name") or os.path.basename(a["path"]), ctx, display)
                          for a in sorted(arts[key]["skill"], key=lambda a: a["path"])]

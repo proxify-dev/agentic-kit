@@ -42,6 +42,9 @@ Output (JSON). Every list item carries `scope` (home | ancestor | project | fold
                         md_with_frontmatter, frontmatter_share, frontmatter_types{}, index_files[], top_subdirs[{name, files}],
                         wikilinks{total, unique_targets, resolved, unresolved_unique, unresolved_sample[]},
                         oldest_mtime, newest_mtime, truncated,
+                        the three questions (2026-11-02-evidence/memory_shape.py; the name only finds a candidate): shape
+                        ("index" | "notes" | "none" | "built-in") + shape_why, origin ("own" | "others" | "installed") + origin_why +
+                        origin_proof, copy_of (a store they already have), then counted + stopped_at ("shape" | "origin" | "copy"),
                         start_folder (claude_auto_memory only: the folder its sessions started in; null when the folder name in `path`
                         can't be reversed to a known folder)}
   hooks[]         {scope, project, source_kind: settings|plugin|project_plugin|statusline, source, plugin?, event, matcher,
@@ -556,6 +559,7 @@ FIXTURE_RE = re.compile(r"(?i)(?:^|/)(?:fixtures?|__fixtures__|assignments|demos
                         r"test-data|templates?|snapshots?|samples?|vendor|third[_-]party|playground|sandbox|\.?scratch|_experiments|\.testbed|\.?backups?|"
                         r"\.tmp-probe|[\w.-]*\.(?:bak|absorbed)[\w.-]*)(?:/|$)")
 MAX_DEPTH, MAX_ENTRIES, WALK_BUDGET_S = 8, 400_000, 22.0
+MD_DIRS_CAP, MD_FILES_PER_DIR, NOT_CANDIDATES_BUDGET_S = 20_000, 60, 10.0   # guards on time and memory, not thresholds
 
 
 def instruction_kind(name: str, parent: str, grand: str) -> str | None:
@@ -616,6 +620,7 @@ class Walk:
         self.claude_dirs: list[Path] = []
         self.memory_dirs: list[Path] = []
         self.memory_md: list[Path] = []
+        self.md_dirs: dict[str, list[str]] = {}   # folders holding 2+ markdown files of their own (not in a skill): data for "has the shape of memory, was no candidate"
         self.vaults: list[Path] = []
         self.mcp_files: list[Path] = []
         self.mcp_code: list[Path] = []       # code whose name, or a folder above it, says mcp: a server's handler, maybe
@@ -665,6 +670,10 @@ def walk_target(root: Path) -> Walk:
         dp = Path(d)
         names = {e.name for e in entries}
         in_skill_here = in_skill or "SKILL.md" in names
+        if not in_skill_here and len(w.md_dirs) < MD_DIRS_CAP:
+            mds = sorted(n for n in names if n.lower().endswith((".md", ".markdown")))
+            if len(mds) >= 2:
+                w.md_dirs[d] = mds[:MD_FILES_PER_DIR]
         in_mcp_here = in_mcp or _says_mcp(dp.name)   # a repo named foo-mcp-server too (its files, capped)
         for e in entries:
             w.entries += 1
@@ -1181,7 +1190,18 @@ def _ownership():
     return mod
 
 
+def _memory_shape():
+    """The three questions that decide what counts as memory (2026-11-02-evidence/memory_shape.py)."""
+    import importlib.util
+    here = os.path.dirname(os.path.abspath(__file__))
+    spec = importlib.util.spec_from_file_location("memory_shape", os.path.join(here, "..", "2026-11-02-evidence", "memory_shape.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 OWNERSHIP = _ownership()
+MEMORY_SHAPE = _memory_shape()
 RECEIPTS = None   # built once, when the project roots are known (step 4)
 WRITTEN_DIRS = ()   # folders the person's agents wrote a file in (--written-dirs: the evidence scan reads the logs)
 
@@ -1828,8 +1848,7 @@ def scan_store(root: Path, kind: str, scope: str, project: Path | None, referenc
             break
     if files == 0:
         return None
-    if not md and kind in ("named_memory", "agent_memory"):
-        return None
+    # a folder with no note stays: question 1 (memory_shape.shape_of) answers "none" and says why; the name only found it
     with_fm = read_n = 0
     links_total = resolved = 0
     targets: Counter = Counter()
@@ -2813,6 +2832,9 @@ def main(argv=None):
             p = Path(rp)
             needles = {str(p), str(p).replace(str(HOME), "~", 1), "/".join(p.parts[-2:])}
             rec["referenced_from"] = sorted(set(rec["referenced_from"]) | {ip for ip, tx in INSTR_TEXT.items() if any(n and n in tx for n in needles)})
+        # where their sessions started, from the order the evidence scan passed the folders in (most sessions first)
+        not_candidates = shaped_not_candidates(walks, list(mem))
+        judge_memory_stores(list(mem.values()), {str(t): len(targets) - i for i, t in enumerate(targets)})
         S.lists["memory_stores"] = sorted(mem.values(), key=lambda r: (r["scope"], r["path"]))
 
     # 10. worktrees
@@ -2868,7 +2890,8 @@ def main(argv=None):
     arts = sorted(S.lists["artifacts"], key=lambda a: (a["scope"], a.get("project") or "", a["kind"], a["path"]))
     summary = {
         "instruction_files": dict(Counter(r["scope"] for r in S.lists["instruction_files"])),
-        "memory_stores": len(S.lists["memory_stores"]),
+        "memory_stores": sum(1 for m in S.lists["memory_stores"] if m.get("counted")),
+        "memory_stores_not_counted": dict(Counter(m["stopped_at"] for m in S.lists["memory_stores"] if m.get("stopped_at"))),
         "hooks": dict(Counter(h["event"] for h in S.lists["hooks"])),
         "hooks_missing_script": sum(1 for h in S.lists["hooks"] if h.get("script_exists") is False),
         "artifacts": {f"{k}/{o}": n for (k, o), n in sorted(Counter((a["kind"], a["origin"]) for a in arts).items())},
@@ -2897,7 +2920,7 @@ def main(argv=None):
         "summary": summary, "identity": identity,
         "instruction_files": S.lists["instruction_files"], "memory_stores": S.lists["memory_stores"], "hooks": S.lists["hooks"],
         "artifacts": arts, "plugins": plugins, "mcp_servers": S.lists["mcp_servers"], "mcp_notes": S.lists["mcp_notes"],
-        "mcp_built": S.lists["mcp_built"],
+        "mcp_built": S.lists["mcp_built"], "memory_not_candidates": not_candidates,
         "settings": {"files": S.lists["settings_files"], "backups": S.lists["settings_backups"], "notable": S.lists["settings_notable"],
                      "counts": S.lists["settings_counts"], "env_keys": S.lists["settings_env_keys"]},
         "worktrees": worktrees, "scaffolding": scaffolding, "launchers": launchers, "could_not_read": COULD_NOT_READ, "timings_s": TIMINGS,
@@ -2916,6 +2939,67 @@ def main(argv=None):
     outp.write_text(json.dumps(out, indent=1, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
     print(f"wrote {outp} ({outp.stat().st_size} bytes) in {out['meta']['total_seconds']}s; timings {TIMINGS}", file=sys.stderr)
     return 0
+
+
+def shaped_not_candidates(walks: dict, store_paths: list[str]) -> dict:
+    """Data only, never counted and never on a page: how many folders under the scanned projects have the shape of memory
+    (memory_shape.flat_shape: the rule on a folder's own markdown files) though nothing named them as candidates. The owner decides
+    later whether to widen the search. Left out: folders inside a store, in a fixture path, and in a skill."""
+    t_end = time.monotonic() + NOT_CANDIDATES_BUDGET_S
+    inside = tuple(p.rstrip("/") + "/" for p in store_paths)
+    seen: set[str] = set()
+    found: list[str] = []
+    truncated = False
+    for t, w in walks.items():
+        for d, names in sorted(w.md_dirs.items()):
+            if d in seen or (d + "/").startswith(inside) or FIXTURE_RE.search(os.path.relpath(d, t).replace(os.sep, "/")):
+                continue
+            seen.add(d)
+            if time.monotonic() > t_end:
+                truncated = True
+                break
+            try:
+                if MEMORY_SHAPE.flat_shape(d, [os.path.join(d, n) for n in names]):
+                    found.append(d)
+            except Exception:  # noqa: BLE001 - a folder that can't be read has no shape we can claim
+                continue
+    return {"folders": len(found), "checked": len(seen), "truncated": truncated, "sample": found[:5],
+            "rule": "memory_shape.flat_shape: a folder's own markdown files only; sub-folders are not read"}
+
+
+def judge_memory_stores(recs: list[dict], started: dict[str, int] | None = None) -> None:
+    """Questions 1 and 2 of memory_shape.py on every candidate, each answer and its reason on the record: shape (is it memory,
+    by what is in it), origin (is it theirs, by ownership.py), copy_of (a store they already have), then counted and
+    stopped_at. Claude Code's own per-project memory is not asked. Question 2 is asked only of what has a shape."""
+    ms = MEMORY_SHAPE
+    notes: dict[str, dict] = {}
+    for r in recs:
+        if not ms.asks_questions(r):
+            r.update(shape="built-in", shape_why="Claude Code's own per-project memory, written by Claude Code", origin="built-in")
+            ms.settle(r)
+            continue
+        try:
+            got = ms.shape_of(r["path"])
+        except Exception as e:  # noqa: BLE001 - a store that can't be read is not a store
+            got = {"shape": "none", "why": f"could not be read ({type(e).__name__})", "notes": 0, "_notes": {}}
+        notes[r["path"]] = got.pop("_notes", {})
+        r["shape"], r["shape_why"] = got["shape"], got["why"]
+        r["shape_index"], r["shape_notes"], r["shape_notes_linking"] = got.get("index"), got["notes"], got.get("linking")
+
+    def classify(p):
+        o, ev, _ = classify_origin(Path(p), Path(p).name, "memory")
+        return o, ev
+    for r in recs:
+        if r.get("shape") in ("index", "notes") and ms.asks_questions(r) and not r.get("in_fixture_path"):
+            try:
+                r["origin"], r["origin_why"], r["origin_proof"] = ms.origin_of(r, classify, written_in_logs)
+            except Exception as e:  # noqa: BLE001 - not knowing is "theirs": the safe side (11-05)
+                r["origin"], r["origin_why"], r["origin_proof"] = "own", f"ownership could not be read ({type(e).__name__}): theirs by default", "default"
+    ms.mark_copies(recs, lambda r: notes.get(r["path"], {}), written_in_logs, lambda r: (started or {}).get(r.get("project") or "", 0))
+    for r in recs:
+        if r.get("copy_of"):
+            r["origin_why"] = "a copy of a store they already have, counted there"
+        ms.settle(r)
 
 
 def scan_single_memory_md(f: Path, project: Path) -> dict:

@@ -158,6 +158,7 @@ def load_module(name, path):
 
 
 clock = load_module("clock", os.path.join(HERE, "clock.py"))   # the one place the calendar clock is read
+memory_shape = load_module("memory_shape", os.path.join(HERE, "memory_shape.py"))   # what counts as memory, whose it is, whether it is used
 START = clock.now() - 30 * 86400  # set in main() from --days
 ANATOMY = os.path.join(EXP, "2026-10-27-anatomy", "inventory.py")
 LOGS = os.path.join(EXP, "2026-11-02-problems", "logs.py")
@@ -578,6 +579,19 @@ def read_log_limited(args):
         _DEADLINE = None
 
 
+MAX_PATHS_PER_LOG = 5000   # a guard on memory, not a threshold: a log naming more distinct paths keeps its first
+
+
+def note_path(r, key, path, cwd):
+    """Record a file or folder a call named, in full. A call that names `~/x` or a relative path counts as that file."""
+    if not path or "$" in path or "*" in path:
+        return
+    c = r[key]
+    p = memory_shape.normal(path, cwd or "")
+    if p in c or len(c) < MAX_PATHS_PER_LOG:
+        c[p] += 1
+
+
 def read_log(args):
     """One log file → a compact record. Main chats (typed or headless) and helper files alike."""
     path, start, is_helper = args
@@ -586,6 +600,9 @@ def read_log(args):
          "mcp": Counter(), "agents": [], "workflows": [], "skills": Counter(), "plan_calls": 0, "plan_rejected": 0,
          "hooks": Counter(), "hook_blocks": Counter(), "hook_msgs": Counter(), "nested": Counter(),
          "compactions": [], "commands": [], "first_prompt": None, "dirs_read": Counter(), "dirs_written": Counter(),
+         # the files and folders named, in full (dirs_read is cut to 5 levels, so a deep store read as its parent folder):
+         # memory_shape.store_use counts a store's reads and writes from these; own_tool: started by this tool's own AI pass
+         "paths_read": Counter(), "paths_written": Counter(), "own_tool": False,
          "instr_edits": Counter(), "worktree_adds": 0, "bg_bash": 0, "skill_listing_words": 0, "tool_errors": 0,
          "hook_denials": Counter(), "attach": Counter(), "hook_runs": Counter(),
          # who did it: names Claude gave its helpers, who each SendMessage went to, messages other sessions or
@@ -727,6 +744,7 @@ def read_log(args):
                                 # read that store (11-05: a person's memory read in 92 of 101 sessions read as 16)
                                 for d in dirs_of([str(f["path"])]):
                                     r["dirs_read"][d] += 1
+                                note_path(r, "paths_read", str(f["path"]), rec.get("cwd"))
                 elif at == "skill_listing":
                     w = len(str(a.get("content") or "").split())
                     r["skill_listing_words"] = max(r["skill_listing_words"], w)
@@ -780,6 +798,8 @@ def read_log(args):
                             r["bg_bash"] += 1
                         for d in dirs_of(PATH_RX.findall(cmd)[:6]):
                             r["dirs_read"][d] += 1
+                        for p in PATH_RX.findall(cmd)[:6]:
+                            note_path(r, "paths_read", p, rec.get("cwd"))
                         if WORKISH_RX.search(cmd):
                             for d in worked_dirs_of(cmd, rec.get("cwd") or ""):
                                 if worked_repo(d):
@@ -808,6 +828,7 @@ def read_log(args):
                         if p:
                             for d in dirs_of([p]):
                                 r["dirs_read"][d] += 1
+                            note_path(r, "paths_read", p, rec.get("cwd"))
                     elif name in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
                         p = inp.get("file_path") or inp.get("notebook_path") or ""
                         if "skills/" in p:
@@ -815,6 +836,7 @@ def read_log(args):
                         if p:
                             for d in dirs_of([p]):
                                 r["dirs_written"][d] += 1
+                            note_path(r, "paths_written", p, rec.get("cwd"))
                             q = os.path.expanduser(p)
                             q = q if q.startswith("/") else os.path.join(rec.get("cwd") or "/", q)
                             if worked_repo(os.path.dirname(q)):
@@ -870,6 +892,7 @@ def read_log(args):
                         txt = " ".join(x.get("text", "") for x in content if isinstance(x, dict) and x.get("type") == "text")
                         if txt.strip() and not txt.lstrip().startswith(("<", "Caveat:")):
                             r["first_prompt"] = txt.strip()[:200]
+                            r["own_tool"] = memory_shape.own_tool_run(txt)
                 elif isinstance(content, str):
                     st = content.lstrip()
                     if st.startswith("<bash-input>") and "plugin" in st and PLUGIN_EVAL_RX.search(st):    # typed: `!claude plugin eval <target>`
@@ -891,6 +914,7 @@ def read_log(args):
                             r["skill_ev"].append((t, "load", nm.strip().lstrip("/")[:60]))
                     elif r["first_prompt"] is None and st and not st.startswith(("<", "Caveat:")):
                         r["first_prompt"] = st[:200]
+                        r["own_tool"] = memory_shape.own_tool_run(st)
                 pm = rec.get("permissionMode")
                 if pm and not rec.get("isMeta") and not rec.get("toolUseResult"):
                     r["pm"][pm] += 1
@@ -3134,7 +3158,28 @@ def schedule_logs(roots, start):
 # ---------------------------------------------------------------- compacting the file inventory
 
 
-def compact_anatomy(A, me, roots, rd, wr):
+def memory_paths(recs):
+    """Question 3's raw material (memory_shape.store_use): {path: [count, sessions]} named by calls that read, and by calls
+    that wrote, in the sessions the person typed in and their sub-agents. Left out: sessions and sub-agents started by this
+    tool's own AI pass (memory_shape.own_tool_run), which open memory files to judge them, and the sub-agents of such a
+    session. A sub-agent counts for the session that started it."""
+    reads, writes = chats_counter(), chats_counter()
+    parent = lambda r: os.path.basename(os.path.dirname(os.path.dirname(r["file"])))  # noqa: E731
+    tool_chats = {r["chat"] for r in recs if not r["helper"] and r.get("own_tool")}
+    for r in recs:
+        if r.get("own_tool") or (r["helper"] and parent(r) in tool_chats):
+            continue
+        if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED):
+            continue
+        chat = parent(r) if r["helper"] else r["chat"]
+        for p, n in (r.get("paths_read") or {}).items():
+            add(reads, p, n, chat)
+        for p, n in (r.get("paths_written") or {}).items():
+            add(writes, p, n, chat)
+    return reads, writes
+
+
+def compact_anatomy(A, me, roots, rd, wr, mem_use=None):
     out = {}
     s = A.get("settings") or {}
     files = []
@@ -3238,19 +3283,25 @@ def compact_anatomy(A, me, roots, rd, wr):
                            "url_host": m.get("url_host"), "env_names": [e.get("name") for e in m.get("env") or []]}
                           for m in A.get("mcp_servers") or []]
 
+    # question 3 of memory_shape.py, for the stores questions 1 and 2 kept: reads and writes of a file inside the store
+    # (an older anatomy.json holds no verdict: its stores all count)
+    kept = [m for m in A.get("memory_stores") or [] if not m.get("in_fixture_path") and m.get("counted", True)]
+    use = memory_shape.store_use([m["path"] for m in kept], *(mem_use or ({}, {})))
     stores = []
-    for m in A.get("memory_stores") or []:
-        if m.get("in_fixture_path"):
-            continue
-        p = m["path"]
-        reads = sum(v[0] for d, v in rd.items() if d.startswith(p) or p.startswith(d + "/") and len(d) > len(HOME) + 10)
-        rchats = {c for d, v in rd.items() if d.startswith(p) for c in v[1]}
-        wchats = {c for d, v in wr.items() if d.startswith(p) for c in v[1]}
-        stores.append({"path": p, "kind": m.get("kind"), "scope": m.get("scope"), "files": m.get("files"),
+    for m in kept:
+        u = use[m["path"]]
+        stores.append({"path": m["path"], "kind": m.get("kind"), "scope": m.get("scope"), "files": m.get("files"),
                        "md_files": m.get("md_files"), "frontmatter_share": m.get("frontmatter_share"),
                        "newest": m.get("newest_mtime"), "referenced_from": (m.get("referenced_from") or [])[:4],
-                       "gitignored": m.get("gitignored"), "agent_reads": reads, "chats_reading": len(rchats),
-                       "chats_writing_by_hand_tools": len(wchats)})
+                       "gitignored": m.get("gitignored"), "agent_reads": u["reads"], "chats_reading": u["sessions_reading"],
+                       "chats_writing_by_hand_tools": u["sessions_writing"], "writes": u["writes"],
+                       "shape": m.get("shape"), "shape_why": m.get("shape_why"), "origin": m.get("origin"),
+                       "origin_why": m.get("origin_why"), "counted": True})
+    # what stopped at each question, kept as data: not memory, not theirs, a copy of one they have
+    out["memory_not_counted"] = [{"path": m["path"], "kind": m.get("kind"), "stopped_at": m.get("stopped_at"),
+                                  "why": m.get("shape_why") if m.get("stopped_at") == "shape" else m.get("origin_why"),
+                                  **({"copy_of": m["copy_of"]} if m.get("copy_of") else {})}
+                                 for m in A.get("memory_stores") or [] if not m.get("in_fixture_path") and m.get("counted") is False]
     out["memory_stores"] = sorted(stores, key=lambda x: -x["chats_reading"])
 
     L = A.get("launchers") or {}
@@ -3577,7 +3628,7 @@ def main(argv=None):
             print("anatomy inventory failed:", (err or "")[-400:], file=sys.stderr)
     T["anatomy_wait"] = round(time.monotonic() - t0, 1)
     A = json.load(open(anat_path)) if os.path.exists(anat_path) else {}
-    files_part = compact_anatomy(A, me, scan_roots, rd, wr)
+    files_part = compact_anatomy(A, me, scan_roots, rd, wr, memory_paths(recs))
     hook_runs = attribute_hook_runs(agg.pop("hook_runs_typed"), agg.pop("hook_runs_headless"), A, me)
     who_raw = agg.pop("who_raw")
     own_hook = hook_ownership(A, me, files_part["plugins"])
