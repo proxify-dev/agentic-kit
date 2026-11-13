@@ -522,7 +522,7 @@ def things(run_dir, board, bars):
 def pointer(run_dir, board, setup, builds, bars=None):
     """The level from things. `setup` = engine.setup_read(run_dir): {ran, parts, holds, shown, held, ok, need}.
     `builds` = {areas, areas_ok, evals, weeks, weeks_ok} from the engine; this read takes only the weeks from it
-    (engine.refined_over_time's rule: a check that did not run is never a minus). L4 here is this read's own: evals
+    (engine.refined_over_time's rule: a check that gave no answer does not hold L4: could be L4). L4 here is this read's own: evals
     on what they built, in use, plus L4_BUILT_KINDS of the other four kinds, each built and used in the window."""
     ts, days = things(run_dir, board, bars or {})
     at = lambda lv: [t for t in ts if t["level"] == lv]  # noqa: E731
@@ -563,7 +563,8 @@ def pointer(run_dir, board, setup, builds, bars=None):
             out.append(f"{L4_BUILT_KINDS - len(kinds)} more of {names([k for k in L4_KINDS if k not in kinds])}, built and in use"
                        + (f" ({names(idle)}: yours, but not used in the last 30 days)" if idle else ""))
         if not refined:
-            out.append("changes to what you built over 3 or more weeks")
+            out.append("changes to what you built over 3 or more weeks" if builds.get("weeks") is not None else
+                       "the weeks you changed what you built (they could not be counted this time), 3 or more")
         return out
 
     if deep and l4_rest:

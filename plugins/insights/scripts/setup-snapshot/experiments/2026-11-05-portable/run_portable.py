@@ -111,7 +111,19 @@ def too_slow(row, budget):
     return row["status"] == "counted" and (row["secs"] or 0) > budget
 
 
-def run_checks(keys, budget, workers=8, fork=CAN_FORK, poll=0.2, retry=True, info=None):
+# The one check whose answer decides a level (Level 4: changes to what they built in 3 or more different weeks) gets a longer limit than
+# the others: it takes 1 to 5 s of the 5 s limit, and under load it timed out in about 1 run in 10, which reads as "no answer" and holds
+# the level at "L3, could be L4" (labs/v15/engine/engine.py refined_over_time). A factor of the budget, so a test's short budget stays short.
+LEVEL_CHECK_LIMIT_FACTOR = 4
+LONGER_LIMIT = {("built-for-the-agent-roll-call", "L4", 5): LEVEL_CHECK_LIMIT_FACTOR}
+
+
+def limits_for(budget):
+    """{check key: its own limit in seconds} for the checks that have one longer than `budget`; every other check has `budget`."""
+    return {k: budget * f for k, f in LONGER_LIMIT.items()}
+
+
+def run_checks(keys, budget, workers=8, fork=CAN_FORK, poll=0.2, retry=True, info=None, limits=None):
     """{key: row} for every check, each with its own limit: a check that has not answered `budget` seconds after it started is ended
     (with the commands it started) and written as a timeout, and its worker is replaced at once, so a check that never returns
     holds no slot beyond its own budget and cannot take the others' turn. Before this (11-05 to 11-12) one limit for the whole step
@@ -120,15 +132,18 @@ def run_checks(keys, budget, workers=8, fork=CAN_FORK, poll=0.2, retry=True, inf
     The workers are forked after the shared work, so each inherits it; a worker keeps what one of its checks computed for the next.
     A check over its budget that used under STARVED of it in processor time waited for the machine (its neighbours, other programs),
     it did not run long: it is run once more, after the others, with the same budget; over it again, it stays a timeout. A check that
-    really runs long uses its processor time and is never run again. (`info["retried"]`, `info["answered_on_retry"]`.)"""
+    really runs long uses its processor time and is never run again. (`info["retried"]`, `info["answered_on_retry"]`.)
+    `limits` = {key: seconds} gives a check a limit of its own in place of `budget` (see `limits_for`); every use of the limit below
+    (the cut-off, the starved share, the answer that came too late) is that check's own."""
+    limits = limits or {}
     if not fork:
-        return _run_in_threads(keys, budget)
-    out, starved = _run_pool(keys, budget, workers, poll)
+        return _run_in_threads(keys, budget, limits)
+    out, starved = _run_pool(keys, budget, workers, poll, limits)
     if retry and starved:
-        again, _ = _run_pool([k for k in keys if k in starved], budget, workers, poll)
+        again, _ = _run_pool([k for k in keys if k in starved], budget, workers, poll, limits)
         answered = []
         for k, row in again.items():
-            if row["status"] != "timeout" and not too_slow(row, budget):
+            if row["status"] != "timeout" and not too_slow(row, limits.get(k, budget)):
                 out[k] = row
                 answered.append(k)
         if info is not None:
@@ -139,9 +154,10 @@ def run_checks(keys, budget, workers=8, fork=CAN_FORK, poll=0.2, retry=True, inf
     return out
 
 
-def _run_pool(keys, budget, workers, poll):
+def _run_pool(keys, budget, workers, poll, limits=None):
     """One pass of the checks over a pool of worker processes: ({key: row}, the keys over their budget that were starved of the processor)."""
     ctx = multiprocessing.get_context("fork")
+    limits = limits or {}
 
     def start():
         mine, theirs = ctx.Pipe()
@@ -171,7 +187,8 @@ def _run_pool(keys, budget, workers, poll):
                 try:
                     row = conn.recv()
                     out[w["key"]] = row
-                    if too_slow(row, budget) and row.get("_cpu", budget) < STARVED * budget:
+                    own = limits.get(w["key"], budget)
+                    if too_slow(row, own) and row.get("_cpu", own) < STARVED * own:
                         starved.add(w["key"])
                     w["key"] = None
                 except (EOFError, OSError):    # the worker died under its check (out of memory, a crash)
@@ -182,8 +199,8 @@ def _run_pool(keys, budget, workers, poll):
                     w.update(start())
             now = time.monotonic()
             for w in pool:
-                if w["key"] is not None and now - w["t0"] > budget:
-                    out[w["key"]] = _over_budget_row(w["key"], budget)
+                if w["key"] is not None and now - w["t0"] > limits.get(w["key"], budget):
+                    out[w["key"]] = _over_budget_row(w["key"], limits.get(w["key"], budget))
                     starved.add(w["key"])      # cut off: whether it waited or ran is not known here, so it gets one more try (a long check is cut off again)
                     _stop(w)
                     w.update(start())
@@ -193,7 +210,7 @@ def _run_pool(keys, budget, workers, poll):
     return out, starved
 
 
-def _run_in_threads(keys, budget):
+def _run_in_threads(keys, budget, limits=None):
     """Where processes cannot be forked (Windows): one check at a time in this process, each on its own thread that is given up on
     after its budget. The thread cannot be ended, so a check that never returns goes on in the background while the next ones run."""
     out = {}
@@ -201,8 +218,8 @@ def _run_in_threads(keys, budget):
         box = {}
         t = threading.Thread(target=lambda k=k: box.update(row=one(k)), daemon=True)
         t.start()
-        t.join(budget)
-        out[k] = box.get("row") or _over_budget_row(k, budget)
+        t.join((limits or {}).get(k, budget))
+        out[k] = box.get("row") or _over_budget_row(k, (limits or {}).get(k, budget))
     return out
 
 
@@ -283,18 +300,21 @@ def main():
     t_shared = time.monotonic() - t0
     keys = sorted(base.CHECKS)
     info = {}
-    out = run_checks(keys, a.budget, info=info)
+    limits = limits_for(a.budget)
+    out = run_checks(keys, a.budget, info=info, limits=limits)
     for k in keys:
-        if out[k]["status"] == "counted" and out[k]["secs"] > a.budget:   # answered, but too slow to count on
+        own = limits.get(k, a.budget)
+        if out[k]["status"] == "counted" and out[k]["secs"] > own:   # answered, but too slow to count on
             out[k].update(status="timeout", value=None,
-                          note=f"not proven on other laptops yet: took {out[k]['secs']:.0f}s, over the {a.budget:.0f}s budget")
+                          note=f"not proven on other laptops yet: took {out[k]['secs']:.0f}s, over the {own:.0f}s budget")
     rows = [out[k] for k in keys]
     meta = {"days": a.days, "checks": len(rows), "shared_secs": round(t_shared, 1),
             "shared_parts_secs": {"laptop_index": round(t_laptop, 1), "prewarm_and_listings": round(t_prewarm - t_laptop, 1),
                                   "builders": round(t_shared - t_prewarm, 1)},
             "retried_after_being_cut_off_while_starved": info.get("retried", []), "answered_on_retry": info.get("answered_on_retry", []),
             "builders_over_1s": {k: v for k, v in sorted(builder_secs.items(), key=lambda kv: -kv[1]) if v >= 1}, "total_secs": round(time.monotonic() - t0, 1),
-            "budget_secs": a.budget, "by_status": {s: sum(1 for r in rows if r["status"] == s) for s in ("counted", "cant_tell", "timeout", "error")},
+            "budget_secs": a.budget, "longer_limits_secs": {f"{k[0]} {k[1]}#{k[2]}": v for k, v in limits.items()},
+            "by_status": {s: sum(1 for r in rows if r["status"] == s) for s in ("counted", "cant_tell", "timeout", "error")},
             "sessions": len(LT.sessions), "repos": len(LT.repos), "logs": logs_held(LT, a.days)}
     os.makedirs(a.run_dir, exist_ok=True)
     with open(os.path.join(a.run_dir, "portable-checks.json"), "w") as f:
