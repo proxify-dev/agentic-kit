@@ -115,6 +115,8 @@ Judge three parts, each `shown`, `partly`, `not shown` or `can't tell`:
      current, pruned or merged.
    - partly: notes exist, but as a log that only grows, or as files nothing links.
    - not shown: only Claude Code's built-in memory left as it writes it, or nothing.
+   Claude Code's own memory folder (`~/.claude/projects/<project>/memory`) is not the person's work: it never counts as
+   memory shown, however tidy its index.
 
 For each part:
 - `why`: one sentence a non-engineer follows, naming the file.
@@ -625,9 +627,35 @@ def has_shape(store):
     return store.get("shape") in SHAPED
 
 
-def memory_structure(p, user, root, home, reads):
+def memory_stores(p, user, root, home):
+    """Every memory store this project's reader could see: the project's and the user level's, as (store, base)."""
     stores = [(s, root) for s in p.get("memory") or []] + [(s, os.path.join(home, ".claude")) for s in (user or {}).get("memory") or []]
-    stores = [(s, base) for s, base in stores if "error" not in s]
+    return [(s, base) for s, base in stores if "error" not in s]
+
+
+def only_builtin_memory(p, user, root, home):
+    """The one place that decides whether a project's memory is only what Claude Code keeps by itself: there is at
+    least one store and every one is the built-in kind. The reader's word on the memory part is then ignored
+    (settle_memory): the same 24-note built-in index was judged shown, partly and not shown by different readers."""
+    stores = memory_stores(p, user, root, home)
+    return bool(stores) and all(s.get("kind") == "builtin" for s, _ in stores)
+
+
+BUILTIN_ONLY = "only the memory Claude Code keeps by itself"
+
+
+def settle_memory(row, p, user, root, home):
+    """The memory part's row with code's answer where code already knows it: a project whose every memory store is
+    Claude Code's own reads "not shown", whatever the reader said, and the reader's quote (it can only be from there)
+    is not kept."""
+    if not only_builtin_memory(p, user, root, home):
+        return row
+    row = {k: v for k, v in row.items() if k != "quote_dropped"}
+    return {**row, "judged": "not shown", "why": BUILTIN_ONLY, "quote": None, "quote_ok": False}
+
+
+def memory_structure(p, user, root, home, reads):
+    stores = memory_stores(p, user, root, home)
     if not stores:
         return False, "no notes folder found for this project"
     # Claude Code's built-in memory folder never shows a design by its shape: Claude Code itself writes the index and
@@ -661,16 +689,20 @@ def squash(text):
     return " ".join(str(text).split())
 
 
-def allowed(p, user, root, home):
+def allowed(p, user, root, home, memory_part=False):
     """Where a quote may come from: (files, folders, docs_root). Files and folders are the person's own in this
     project's map and the user level's (memory stores and skill folders count whole). docs_root is the project root
-    when the map reached more docs than it lists: any doc below it may then be one of them, and only a doc."""
+    when the map reached more docs than it lists: any doc below it may then be one of them, and only a doc.
+    memory_part: the quote backs "memory shown", so Claude Code's built-in memory folders are left out: they are not
+    the person's work. The other two parts take them as before."""
     files, dirs = set(), set()
     for place, base in ((p, root), (user or {}, os.path.join(home, ".claude"))):
         for k in ("instruction_files", "agents", "commands"):
             for e in place.get(k) or []:
                 files.add(absolute(e["path"], base, home))
         for s in place.get("memory") or []:
+            if memory_part and s.get("kind") == "builtin":
+                continue
             a = absolute(s["path"], base, home)
             (dirs if os.path.isdir(a) else files).add(a)
         for s in place.get("skills") or []:
@@ -1305,15 +1337,18 @@ def merge(run, home=None):
         answers = {a.get("id"): a for a in sr.get("parts") or [] if isinstance(a, dict)}
         ran = ran or bool(answers)
         where = allowed(p, user, root, home)
+        where_memory = allowed(p, user, root, home, memory_part=True)
         structure = {"rules": rules_structure(p), "corrections": corrections_structure(p, user, root, home),
                      "memory": memory_structure(p, user, root, home, reads)}
         for pid, name in PARTS:
             a = answers.get(pid) or {}
             ok, why = structure[pid]
-            per[pid].append({"id": pid, "name": name, "structure": bool(ok), "structure_why": why,
-                             "judged": judged_of(a.get("judged")), **quoted(a.get("quote"), where, root, home),
-                             "why": text(a.get("why")),
-                             "complexity": text(a.get("complexity")), "next": text(a.get("next")), "project": s})
+            row = {"id": pid, "name": name, "structure": bool(ok), "structure_why": why,
+                   "judged": judged_of(a.get("judged")),
+                   **quoted(a.get("quote"), where_memory if pid == "memory" else where, root, home),
+                   "why": text(a.get("why")),
+                   "complexity": text(a.get("complexity")), "next": text(a.get("next")), "project": s}
+            per[pid].append(settle_memory(row, p, user, root, home) if pid == "memory" else row)
         projects.append({
             "slug": s, "label": os.path.basename(root), "tagline": tagline(sr.get("tagline")),
             "headline": text(sr.get("headline"), 240),
