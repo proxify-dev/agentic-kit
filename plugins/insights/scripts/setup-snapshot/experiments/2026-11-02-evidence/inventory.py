@@ -3386,8 +3386,9 @@ def main(argv=None):
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     T = {}
-    t0 = time.monotonic()
-    start = clock.now() - a.days * 86400
+    t0 = time.monotonic()   # elapsed time only: on macOS it counts from boot, so it is never a date
+    made = clock.now()      # the scan's date: the header's "read <day>", the window's end, every detector's "last N days"
+    start = made - a.days * 86400
     global START, WRITTEN_DIRS
     START = start
 
@@ -3661,7 +3662,7 @@ def main(argv=None):
     hist = slash_history(a.days, tr, len(typed_ids))
     versions = Counter(c.get("version") for c in typed if c.get("version"))
     inv = {
-        "meta": {"days": a.days, "to": day(t0), "made": t0, "main_log_files": n_main, "helper_log_files": n_help,
+        "meta": {"days": a.days, "to": day(made), "made": made, "main_log_files": n_main, "helper_log_files": n_help,
                  "versions": [v for v, _ in versions.most_common(3)], "seconds": T,
                  "logs_timed_out": len(logs_timed_out),
                  "could_not_read": files_part.pop("could_not_read") + [
