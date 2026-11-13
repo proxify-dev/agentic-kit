@@ -215,6 +215,10 @@ tools:
   name: EnterPlanMode
   means: Claude asked to switch plan mode on.
   who_acts: claude
+- id: tool.exit_plan_mode
+  name: ExitPlanMode
+  means: Claude presented its plan for the person to approve or decline; declined, the result is the user-rejected denial (fld.tool_denial_kind).
+  who_acts: claude
 - id: tool.bash
   name: Bash
   means: Claude ran a shell command, in the foreground or (run_in_background) the background.
@@ -292,6 +296,7 @@ cards:
   you.helpers_stopped_by_hand: {from: [meta.subagent], status: ok}
   you.manual_compactions: {from: [sys.compact_boundary], status: ok}
   you.plan_mode_switched_on: {from: [fld.permission_mode], status: ok}
+  you.plans_sent_back: {from: [tool.exit_plan_mode, fld.tool_denial_kind, rec.user_typed, tool.write, att.plan_mode], status: ok}
   you.chats_at_once: {from: [rec.user_typed], status: ok}
   you.most_chats_in_10_min: {from: [rec.user_typed], status: ok}
   setup.chats_opened_in_plan_by_settings: {from: [fld.permission_mode, own.settings], status: ok}
