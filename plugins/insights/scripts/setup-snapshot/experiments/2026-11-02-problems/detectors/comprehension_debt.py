@@ -12,7 +12,8 @@ person's Claude Code logs:
                  you saying it is broken, than an unchecked one? Compared inside the same kind and size of change.
 
 Reads the raw logs (main chat + helper files) for the calls and what came back; reads the repos read-only
-(`git show --name-only`, `git rev-parse`) to learn which files a commit held, and falls back to the files the agent edited
+(`git cat-file --batch-check` and `git log --no-walk --name-only` once per repository, as `git show --name-only` would say
+per commit; `git rev-parse`) to learn which files a commit held, and falls back to the files the agent edited
 when the commit is gone (worktree removed, history rewritten). Standard library only (members run system python3).
 Usage: python3 comprehension_debt.py [--chats FILE] [--out FILE]
 """
@@ -25,6 +26,7 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from multiprocessing import Pool
 
@@ -151,20 +153,41 @@ def read_stream(path, helper, start):
     return ev
 
 
+def may_hold_a_commit(path):
+    """False only when the log cannot hold a `git commit` run in a shell call: no assistant line carries a Bash tool call
+    that says "commit". stream_commits yields a commit only from such a call, so a log that fails this yields none, whatever
+    read_stream would have made of it. The test is raw bytes (no JSON parse, the expensive part of reading a log), so it is
+    a superset: a log that passes may still hold no commit. Same answers as reading every log, in a fraction of the time."""
+    with open(path, "rb") as fh:
+        for line in fh:
+            if b"commit" in line and b'"type":"assistant"' in line and b'"tool_use"' in line and b'"Bash"' in line:
+                return True
+    return False
+
+
 def read_chat(args):
     project, chat, start = args
     base = os.path.join(ROOT, project, chat)
     out = {"chat": chat, "main": [], "helpers": []}
     try:
-        out["main"] = read_stream(base + ".jsonl", False, start)
+        out["main"] = read_stream(base + ".jsonl", False, start) if may_hold_a_commit(base + ".jsonl") else []
     except OSError:
         pass
     for q in glob.glob(base + "/subagents/*.jsonl"):
         try:
-            out["helpers"].append(read_stream(q, True, start))
+            out["helpers"].append(read_stream(q, True, start) if may_hold_a_commit(q) else [])
         except OSError:
             pass
     return out
+
+
+def commits_of_chat(args):
+    """read_chat() and then stream_commits() of each stream, in the worker: the commits of one chat, the main log's first,
+    then each sub-agent's, as analyse() needs them. stream_commits is plain Python over the events (about half the time of the
+    check), so it runs in the pool with the reading rather than one after another in the parent."""
+    out = read_chat(args)
+    return {"chat": out["chat"], "streams": [("main chat", stream_commits(out["main"], "main chat"))] +
+            [("helper", stream_commits(h, "helper")) for h in out["helpers"]]}
 
 
 # ---- one stream -> its commits, each with what happened between the last edit and the commit -----------------------
@@ -292,8 +315,8 @@ def git(d, *a):
         return ""
 
 
-def resolve(h, ds):
-    """(repo key, commit time, files) for a commit hash found in one of the directories, else None."""
+def _existing_dirs(ds):
+    """The directories resolve() tries, in its order: each walked up to the nearest one that exists, none twice."""
     seen = []
     for d in ds:
         while d and not os.path.isdir(d) and os.path.dirname(d) != d:   # up to the root, which is its own parent ("/", "//", "C:\\")
@@ -301,21 +324,124 @@ def resolve(h, ds):
         if not d or d in seen:
             continue
         seen.append(d)
+    return seen
+
+
+def _repo_key(d):
+    """The repository a directory belongs to (its git-common-dir, so a worktree and its main checkout are one)."""
+    key = git(d, "rev-parse", "--git-common-dir").strip()
+    return os.path.normpath(key if os.path.isabs(key) else os.path.join(d, key))
+
+
+def _is_repo(d):
+    return bool(git(d, "rev-parse", "--git-common-dir").strip())
+
+
+def resolve(h, ds):
+    """(repo key, commit time, files) for a commit hash found in one of the directories, else None. One commit at a time,
+    two `git show` calls: the reference that resolve_many() must equal, and its fallback for an object it cannot judge."""
+    for d in _existing_dirs(ds):
         o = git(d, "show", "--no-patch", "--format=%ct", h).strip()
         if o.isdigit():
             files = [x for x in git(d, "show", "--name-only", "--format=", h).split("\n") if x]
-            key = git(d, "rev-parse", "--git-common-dir").strip()
-            key = os.path.normpath(key if os.path.isabs(key) else os.path.join(d, key))
-            return key, int(o), files
+            return _repo_key(d), int(o), files
     return None
 
 
-def judge_commit(c, chat_cwd):
+GIT_WORKERS = 8      # repos asked at once
+_NO_ANSWER = object()
+
+
+def _git_bytes(d, args, stdin):
+    try:
+        r = subprocess.run(["git", "-C", d, *args], input=stdin, capture_output=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else None
+
+
+def _ask_repo(d, names):
+    """{hash as written: (commit time, files) | None} for the hashes of one repo, in two git calls: `cat-file --batch-check`
+    says which exist and are commits; one `git log --no-walk` gives their times and file lists the way `git show` does
+    (`--cc` for a merge, default renames and quoting). A name that is missing is None (resolve() reads that as not found); one
+    that is ambiguous, not a commit or not answered is asked one by one, by resolve()'s own calls."""
+    out = {}
+    checked = _git_bytes(d, ["cat-file", "--batch-check"], "".join(n + "\n" for n in names).encode())
+    rows = checked.split("\n") if checked is not None else []
+    full = {}
+    for n, row in zip(names, rows):
+        parts = row.split(" ")
+        if len(parts) == 3 and parts[1] == "commit":
+            full[n] = parts[0]
+        elif parts[-1] == "missing":
+            out[n] = None
+    if full:
+        shown = _git_bytes(d, ["log", "--no-walk=unsorted", "--stdin", "--root", "--cc", "--name-only", "--format=%x01%H %ct"],
+                           "".join(sha + "\n" for sha in dict.fromkeys(full.values())).encode())
+        blocks = {}
+        for blk in (shown or "").split("\x01")[1:]:
+            head, _, body = blk.partition("\n")
+            sha, _, ct = head.partition(" ")
+            blocks[sha] = (int(ct), [x for x in body.split("\n") if x])
+        for n, sha in full.items():
+            if sha in blocks:
+                out[n] = blocks[sha]
+    return out
+
+
+def resolve_many(requests):
+    """resolve() for many (hash, directories) pairs at once; the same answers, in the same order.
+    Each commit tries its directories in order and the first that knows the hash wins; so this works in rounds: round k asks
+    every commit still unanswered about its k-th directory, directories of one repository (same git-common-dir) asked as
+    one, repositories in a bounded pool. A hash a repo cannot answer in batch falls back to resolve()'s per-call path for
+    that directory."""
+    cands = [(_existing_dirs(ds) if h else []) for h, ds in requests]
+    result = [_NO_ANSWER] * len(requests)
+    with ThreadPoolExecutor(max_workers=GIT_WORKERS) as ex:
+        for k in range(max((len(c) for c in cands), default=0)):
+            todo = [i for i, c in enumerate(cands) if result[i] is _NO_ANSWER and k < len(c)]
+            if not todo:
+                break
+            dirs = sorted({cands[i][k] for i in todo})
+            keys = dict(zip(dirs, ex.map(_repo_key, dirs)))
+            repos = dict(zip(dirs, ex.map(_is_repo, dirs)))          # git show in a folder that is no repo answers nothing
+            groups = {}                                             # repo key -> (a directory of it, {hash: [requests]})
+            for i in todo:
+                d = cands[i][k]
+                if not repos[d]:
+                    continue
+                groups.setdefault(keys[d], (d, {}))[1].setdefault(requests[i][0], []).append(i)
+            keyed = list(groups.items())
+            answers = list(ex.map(lambda kv: _ask_repo(kv[1][0], list(kv[1][1])), keyed))
+            for (key, (d, by_hash)), got in zip(keyed, answers):
+                for h, idx in by_hash.items():
+                    if h not in got:                                 # ambiguous, not a commit, no answer: the per-call way
+                        o = git(d, "show", "--no-patch", "--format=%ct", h).strip()
+                        got[h] = (int(o), [x for x in git(d, "show", "--name-only", "--format=", h).split("\n") if x]) if o.isdigit() else None
+                    if got[h] is not None:
+                        for i in idx:
+                            result[i] = (keys[cands[i][k]], got[h][0], got[h][1])
+    return [None if r is _NO_ANSWER else r for r in result]
+
+
+def where_to_look(c, chat_cwd):
+    """The commit's hash and message, and the directories it may be in, best guess first: what resolve() is asked."""
     h, msg = message_and_hash(c)
     c["hash"], c["msg"] = h, msg
+    edit_dirs = [os.path.dirname(p) for t, p, s in c["work"] if p]
+    return h, dirs_for(c, chat_cwd, edit_dirs)
+
+
+def judge_commit(c, chat_cwd, resolved=_NO_ANSWER):
+    """`resolved`: what resolve_many() answered for this commit (where_to_look() is what it was asked); left out, the commit
+    is resolved here, one at a time."""
+    h, msg = c["hash"], c["msg"] = message_and_hash(c)
     edits = [e for e in c["work"] if e[0] > c["prev_commit_t"]]
     edit_dirs = [os.path.dirname(p) for t, p, s in c["work"] if p]
-    res = resolve(h, dirs_for(c, chat_cwd, edit_dirs)) if h else None
+    if resolved is not _NO_ANSWER:
+        res = resolved
+    else:
+        res = resolve(h, dirs_for(c, chat_cwd, edit_dirs)) if h else None
     if res:
         c["repo"], c["files"], c["files_from"] = res[0], res[2], "git"
     else:
@@ -361,13 +487,16 @@ def analyse(chats, meta):
     cwd = {c["chat"]: c.get("cwd") for c in chats}
     msgs = {c["chat"]: c["msgs"] for c in chats}
     with Pool(max(1, (os.cpu_count() or 2) - 1)) as pool:
-        raw = pool.map(read_chat, [(c["project"], c["chat"], start) for c in chats], chunksize=4)
-    commits = []
+        raw = pool.map(commits_of_chat, [(c["project"], c["chat"], start) for c in chats], chunksize=4)
+    found = []
     for chat in raw:
-        for where, ev in [("main chat", chat["main"])] + [("helper", h) for h in chat["helpers"]]:
-            for c in stream_commits(ev, where):
+        for where, stream in chat["streams"]:
+            for c in stream:
                 c["chat"] = chat["chat"]
-                commits.append(judge_commit(c, cwd.get(chat["chat"])))
+                found.append(c)
+    asks = [where_to_look(c, cwd.get(c["chat"])) for c in found]
+    answers = resolve_many([(h, ds) if h else (None, []) for h, ds in asks])   # git, batched per repository
+    commits = [judge_commit(c, cwd.get(c["chat"]), resolved=a) for c, a in zip(found, answers)]
     commits = [c for c in commits if not c["merge"]]
     analyse.commits = commits                      # kept for hand checks
     # held: later fix / revert commit on the same files within 2 h (any chat in that repo), or you saying it is broken

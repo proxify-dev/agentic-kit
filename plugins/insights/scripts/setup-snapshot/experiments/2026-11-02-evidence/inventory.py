@@ -49,6 +49,7 @@ Sections (inventory.json):
 """
 import argparse
 import bisect
+import concurrent.futures as cf
 import functools
 import glob
 import importlib.util
@@ -60,6 +61,7 @@ import signal
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
@@ -177,6 +179,7 @@ def receipts(roots=None):
     global _own_mod, _receipts
     if _own_mod is None:
         _own_mod = load_module("ownership", OWNERSHIP)
+        load_module("file_history", os.path.join(HERE, "file_history.py")).speed_up_ownership(_own_mod)   # one git process per repo, not per file
     if _receipts is None or roots is not None:
         _receipts = _own_mod.load_receipts(roots=roots or [])
     return _own_mod, _receipts
@@ -204,6 +207,35 @@ def git(args, cwd, timeout=20):
                               env=GITENV).stdout
     except (OSError, subprocess.SubprocessError):
         return ""
+
+
+def _git_run(args, cwd, timeout=20):
+    try:
+        return subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=timeout, env=GITENV, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+_histories = None
+
+
+def history_rows(path):
+    """[(author date, email, name)] of the commits `git log -- path` prints, newest first, from the repo's whole history read
+    once (file_history.py); None when it cannot say (a path through a symlink, outside a repo, a repo read too big or failed),
+    and the caller asks git about that one path."""
+    global _histories
+    if _histories is None:
+        _histories = load_module("file_history", os.path.join(HERE, "file_history.py")).Histories(_git_run)
+    if not path or os.path.abspath(path) != os.path.realpath(path):
+        return None
+    top = os.path.realpath(path)
+    while top and not os.path.exists(os.path.join(top, ".git")):
+        up = parent_dir(top)
+        if not up or up == HOME:
+            return None
+        top = up
+    return _histories.rows(top, os.path.relpath(path, top))
 
 
 def parent_dir(q):
@@ -1897,6 +1929,9 @@ def is_mine(author_line, me):
 def _git_log_authors(path, cwd=None):
     if not path or not os.path.exists(path):
         return []
+    rows = history_rows(path)
+    if rows is not None:
+        return [f"{n} <{e}>" for _, e, n in rows]
     cwd = cwd or (path if os.path.isdir(path) else os.path.dirname(path))
     return [x for x in git(["log", "--format=%an <%ae>", "--", path], cwd).split("\n") if x]
 
@@ -1995,7 +2030,8 @@ SKIP_DIRS = {"node_modules", ".git", "dist", "build", ".venv", "venv", "__pycach
              ".next", "target", "vendor"}
 
 
-def walk_dirs(root, maxdepth=6):
+def _walk_dirs_each_time(root, maxdepth=6):
+    """The walk done afresh (os.walk, a stat on every folder for a `.git` file): what walk_dirs returns, kept as the reference."""
     root_depth = root.rstrip("/").count("/")
     for d, subdirs, files in os.walk(root):
         if d.count("/") - root_depth >= maxdepth:
@@ -2007,7 +2043,128 @@ def walk_dirs(root, maxdepth=6):
         yield d, subdirs, files
 
 
+# One walk of each scan folder, shared by the parts that used to walk it again (find_evals, the eval files of skill_depth_facts,
+# schedule_logs: about 95 s on a laptop with 100 repos). It lists each folder once and finds a linked worktree (a folder whose `.git`
+# is a file) in that listing, not with a stat of every folder. The widest of the three walks is kept (7 levels, hidden folders
+# included); each part sees its own as a view of it, so every part gets the folders it got before.
+TREE_DEPTH = 7
+_TREES: dict = {}          # root -> {"done": Event, "tree": {folder: (subfolders, files)}}, one entry per root, built once
+_TREE_LOCK = threading.Lock()
+_TREE_POOL = None
+
+
+def _listing(d):
+    """(folders, files, folders that are symlinks) of d as os.walk sees them, or None when d cannot be listed."""
+    try:
+        with os.scandir(d) as it:
+            entries = list(it)
+    except OSError:
+        return None
+    dirs, files, links = [], [], set()
+    for e in entries:
+        try:
+            is_dir = e.is_dir()
+        except OSError:
+            is_dir = False
+        if is_dir:
+            dirs.append(e.name)
+            try:
+                if e.is_symlink():
+                    links.add(e.name)
+            except OSError:
+                pass
+        else:
+            files.append(e.name)
+    return dirs, files, links
+
+
+def _grow(d, listing, root_depth, tree):
+    dirs, files, links = listing
+    if d.count("/") - root_depth >= TREE_DEPTH:
+        dirs = []
+    kept, below = [], []
+    for s in dirs:
+        if s in SKIP_DIRS or s in ("worktrees", "w", ".upstreams"):
+            continue
+        child = os.path.join(d, s)
+        if s in links:   # os.walk lists a symlinked folder and never enters it
+            if os.path.isfile(os.path.join(child, ".git")):
+                continue
+            kept.append(s)
+            continue
+        sub = _listing(child)
+        if sub is not None and ".git" in sub[1] and os.path.isfile(os.path.join(child, ".git")):
+            continue   # a linked worktree
+        kept.append(s)
+        if sub is not None:
+            below.append((child, sub))
+    tree[d] = (kept, files)
+    for child, sub in below:
+        _grow(child, sub, root_depth, tree)
+
+
+def _tree(root):
+    """The walked folders of root, built by the first caller (others wait for it); different roots build at the same time."""
+    with _TREE_LOCK:
+        entry = _TREES.get(root)
+        builder = entry is None
+        if builder:
+            entry = _TREES[root] = {"done": threading.Event(), "tree": {}}
+    if builder:
+        try:
+            first = _listing(root)
+            if first is not None:
+                _grow(root, first, root.count("/"), entry["tree"])
+        finally:
+            entry["done"].set()
+    else:
+        entry["done"].wait()
+    return entry["tree"]
+
+
+def walk_dirs_ahead(roots, wait=True):
+    """Walk every root now, 8 at a time (listing a folder waits on the disk); with wait=False it returns at once and the walks
+    go on in the background, so a part that needs one waits only for that one."""
+    global _TREE_POOL
+    todo = [r for r in dict.fromkeys(roots) if isinstance(r, str) and r == r.rstrip("/") and r not in _TREES and os.path.isdir(r)]
+    if not todo:
+        return
+    if _TREE_POOL is None:
+        _TREE_POOL = cf.ThreadPoolExecutor(max_workers=8)
+    futures = [_TREE_POOL.submit(_tree, r) for r in todo]
+    if wait:
+        for f in futures:
+            f.result()
+
+
+def _view(tree, d, hidden_too, depth_left, root_depth):
+    """Replay os.walk over a tree top-down; the consumer may empty or trim `subdirs` as it can with os.walk."""
+    node = tree.get(d)
+    if node is None:
+        return
+    subdirs = list(node[0])
+    if depth_left is not None and d.count("/") - root_depth >= depth_left:
+        subdirs = []
+    if not hidden_too:
+        subdirs = [s for s in subdirs if not (s.startswith(".") and s not in (".claude", ".agents", ".githooks"))]
+    yield d, subdirs, list(node[1])
+    for s in subdirs:
+        child = os.path.join(d, s)
+        if child in tree:
+            yield from _view(tree, child, hidden_too, depth_left, root_depth)
+
+
+def walk_dirs(root, maxdepth=6):
+    """os.walk over root's folders without the ones no part reads: dependency and build folders, hidden folders but three,
+    folders of a linked worktree, and nothing deeper than `maxdepth` levels."""
+    if maxdepth > TREE_DEPTH or root != root.rstrip("/"):
+        yield from _walk_dirs_each_time(root, maxdepth)
+        return
+    yield from _view(_tree(root), root, False, maxdepth, root.count("/"))
+
+
 def find_evals(roots, me, start):
+    walk_dirs_ahead(roots)
     out = []
     seen = set()
     for root in roots:
@@ -2629,8 +2786,12 @@ def words_history(path, me, max_revs=40):
         return out
     revs = []
     step = max(1, len(log) // max_revs)
-    for h, d, a in log[::step][:max_revs]:
-        body = git(["show", f"{h}:{rel}"], rr, 10)
+    picked = log[::step][:max_revs]
+    # the file as each picked revision held it, from one `git cat-file --batch`; one that git cannot show as a file reads as
+    # empty, as `git show` printing nothing did
+    bodies = load_module("file_history", os.path.join(HERE, "file_history.py")).blobs_at(rr, [f"{h}:{rel}" for h, _, _ in picked])
+    for (h, d, a), raw in zip(picked, bodies):
+        body = raw.decode("utf-8", "replace") if raw is not None else ""
         revs.append({"rev": h, "date": d, "words": len(body.split()), "theirs": is_mine(a, me)})
     revs.reverse()
     peak = max(revs, key=lambda x: x["words"]) if revs else None
@@ -2935,18 +3096,25 @@ def who_mentions(name, plugins, roots):
     return sorted(set(hits))
 
 
+def _schedule_walk_each_time(root):
+    for d, subdirs, files in os.walk(root):
+        if d.count("/") - root.count("/") >= 7:
+            subdirs[:] = []
+        subdirs[:] = [x for x in subdirs if x not in SKIP_DIRS and x not in ("worktrees", "w", ".upstreams")
+                      and not os.path.isfile(os.path.join(d, x, ".git"))]
+        yield d, subdirs, files
+
+
 def schedule_logs(roots, start):
     """Logs a scheduled job leaves (cron.log, *-cron.log, schedule*.log): proof of runs nobody started by hand, even
     when the crontab line is gone."""
+    walk_dirs_ahead(roots)
     out = []
     for root in roots:
         if not os.path.isdir(root):
             continue
-        for d, subdirs, files in os.walk(root):
-            if d.count("/") - root.count("/") >= 7:
-                subdirs[:] = []
-            subdirs[:] = [x for x in subdirs if x not in SKIP_DIRS and x not in ("worktrees", "w", ".upstreams")
-                          and not os.path.isfile(os.path.join(d, x, ".git"))]
+        for d, subdirs, files in (_view(_tree(root), root, True, None, root.count("/")) if root == root.rstrip("/")
+                                  else _schedule_walk_each_time(root)):
             for f in files:
                 fl = f.lower()
                 if not (fl.endswith((".log", ".jsonl")) and ("cron" in fl or "schedul" in fl or "tick" in fl)):
@@ -3298,6 +3466,9 @@ def main(argv=None):
         below[f] = repos_below(f)
     below_all = list(dict.fromkeys(r for rs in below.values() for r in rs))[:BELOW_CAP]
     in_repo = {r: f for f, rs in below.items() for r in rs}
+    # walk the repos meanwhile (find_evals, the eval files and schedule_logs read these walks later); done after the log workers
+    # have ended, because a process forked while threads run can inherit a lock a thread holds
+    walk_dirs_ahead([r for r in dict.fromkeys([*roots, *below_all, *from_work]) if isinstance(r, str)], wait=False)
     agg, rd, wr = aggregate(recs, {c["chat"] for c in typed}, typed_times(chats_path), SchedulerStarts())
 
     t = time.monotonic()
