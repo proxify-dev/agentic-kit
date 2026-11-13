@@ -11,17 +11,30 @@ You get a new version only when it is released: each entry below is one release,
 brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3, 0.4.1 and 0.6.7 were never sent out; their
 changes arrived in the version after them.
 
+## 0.6.10 — 2026-11-13
+
+### What changes for you
+
+- **The memory verdict for Claude Code's own memory no longer changes between runs** (#46). When the only memory a project has is the folder Claude Code keeps by itself, the setup read now says "not shown" every time, with the reason, instead of the AI reader's word, which varied between readers and runs. A memory quote can no longer come from that folder.
+- **Correction to the 0.6.9 notes.** They said four problem checks that look at the last 30 days had no start to their window and that their counts could go down. That was wrong: those checks take their date from a record that was always right, and their counts did not change because of the fix. Only the header's date and the Review's "Period" line were wrong. The 0.6.9 entry below is corrected.
+
+### Known limits
+
+- A project with no memory store at all still shows the AI reader's word for memory; code already keeps it from counting.
+- Everything listed under 0.6.9 still holds.
+
+Pull requests: #46.
+
 ## 0.6.9 — 2026-11-13
 
 ### What changes for you
 
-- **The page shows the day of the scan again** (#43). Since 0.6.6 the header read a day in early January 1970 ("read 2 Jan") on a Mac, because the scan saved the time since the laptop started as its date. The Review's "Period" line was wrong the same way, and four problem checks that look at the last 30 days had no start to their window, so they looked at everything. The date now comes from the calendar clock, and a test fails if a timer value is ever used as a date again.
+- **The page shows the day of the scan again** (#43). Since 0.6.6 the header read a day in early January 1970 ("read 2 Jan") on a Mac, because the scan saved the time since the laptop started as its date. The Review's "Period" line was wrong the same way. The date now comes from the calendar clock, and a test fails if a timer value is ever used as a date again.
 - **Only your own memory counts as yours** (#45). Before, any folder named "memory" counted, a code module included, and every memory store on the laptop was listed as yours, so a repo you only cloned could fill "What you've built → Memory" with other people's notes. Now a folder is memory by its shape (an index that links to its notes, or notes that link each other), it is yours unless it sits in a repo mostly by others with no commit and no session of yours writing in it, and a copy of a store you already have counts once. A laptop whose only memory was someone else's can read Level 1 where it read Level 2.
 - **Memory reads are counted right** (#45). Only files opened or written inside a store count, not reads of a folder above it, and sessions this tool started to read your setup no longer count as you using your memory. The number on the page goes down.
 
 ### Known limits
 
-- The counts of those four problem checks can go down, because they now look at 30 days, not at everything.
 - What makes a folder memory (2 links, 3 notes) and a copy (half its notes identical) are first guesses until checked on more laptops. A memory folder with one subfolder per agent, each with its own index, is read as one store.
 - Each AI reader still gives its own word for Claude Code's own memory; code already keeps it from counting.
 - Everything listed under 0.6.8 still holds.
