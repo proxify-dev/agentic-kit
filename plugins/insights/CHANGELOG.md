@@ -8,8 +8,34 @@ claude plugin update insights@agentic-kit
 ```
 
 You get a new version only when it is released: each entry below is one release, newest first. The numbers in
-brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3 and 0.4.1 were never sent out; their
+brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3, 0.4.1 and 0.6.7 were never sent out; their
 changes arrived in the version after them.
+
+## 0.6.8 — 2026-11-13
+
+### What changes for you
+
+- **A copy of someone else's skill is no longer counted as yours** (#34). Before, a skill or instruction file that was a copy of someone else's work (unpacked into a cache, a backups folder or a fixtures folder, with no install receipt) was listed under what you wrote. Now it is listed as installed when three things hold: its bytes equal the file at the head of a clone whose commits are mostly other people's, the copy is newer than that file, and you never edited it in a session. A skills lock in another folder also counts as a receipt. Anything that fails a proof stays yours. Your "what you wrote" counts can go down, and a laptop whose only own thing was such a copy reads Level 1 where it read Level 2.
+- **A skill you downloaded and committed once is no longer counted as yours either** (#38). A skill installed from someone else's repository and committed once into a project of yours read as yours when its original sat in a clone you keep in your home folder. The scan now also looks in the git repositories in your home folder or one folder below it, with the same proofs. A skills lock that names your own repository as the source of one of your skills is no longer read as an install of it.
+- **"What you've built" shows where each thing you built stands** (#35). Each of your most used skills, sub-agents, plugins, hooks and evals gets one line: the step it sits on, in words (six steps, from a note to tested by evals; a step needs every step below it), what it did in the last 30 days counted by code, and the one change that would move it up. Code places what it can prove; the per-project AI reader places the rest, with a quoted line that code checks. A hook of your own plugin is shown from its source and counted once.
+- **The scan is much faster on a laptop with many sessions** (#36, #39). The checks step went from about 28 minutes to 5, and far fewer checks run out of time (about 5 of 157, where 92 did). The file inventory and the commit check now ask git for a repository's history once, not once per file, with the same answers. On one such laptop, busy with other work, the scan went from about 38 minutes to about 8. No answer changed because of the code. Four steps nothing on the page reads (the size, the uncommitted files and the merge state of each linked worktree, and the git ignore check on a file with no commits) now run only when you switch them on, with `AGENTIC_SETUP_WORKTREE_SIZES`, `AGENTIC_SETUP_WORKTREE_DIRTY`, `AGENTIC_SETUP_WORKTREE_MERGED` or `AGENTIC_SETUP_IGNORE_CHECK` set to `1`.
+- **A busy laptop no longer loses the history of your files** (#41). Before, a 40-second budget for git history lookups ran out under load and every instruction file was left without history, so the counts of your own skills and instruction files changed from one run to the next. The budget now covers only lookups made one path at a time; reading a whole repository has its own limit of 180 seconds. When files are still left without history, one line above the tabs says how many.
+- **Level 4 waits for its check** (#40). The check for changes to what you built in 3 or more different weeks was read as met when it timed out, which happened in about 1 run in 10 on a busy laptop. It now has a limit 4 times longer, and when it still has no answer the level reads "L3, could be L4" with the reason said, never L4.
+
+### Known limits
+
+- A full run still takes several minutes on a laptop with many sessions: on the laptop above, about 8 minutes for the scan and about 4 for the AI reading. A few checks can still run out of time on a busy one.
+- A repository whose whole history takes more than 180 seconds to read, or that has more than 80,000 commits, is read one file at a time, and files can be left without history; the page says how many.
+- The original of a downloaded skill is looked for only in repositories in your home folder or one folder below it, and only for a skill that sets publishing fields. Only a clone's current head is matched when a copy elsewhere is checked, not its older versions, and a copy made with its original timestamps kept is not caught.
+- Advice never changes a level.
+- The craft reading adds AI cost: the AI reading for three large projects cost about $2.60, against about $1.80 before. One run's AI part is about 350k tokens on a large setup, against a target of about 200k.
+- What a sub-agent did inside its own run is not counted yet, only its runs. A hook started through a launcher script is judged by the launcher's text.
+- Folders without git are not read as projects.
+- Folders of generated files that each hold a rule file still count as separate rule files.
+- Share still sends the older read's lines until the receiving side accepts the new fields.
+- Every threshold is a guess until it is checked against levels confirmed on calls.
+
+Pull requests: #34, #35, #36, #38, #39, #40, #41.
 
 ## 0.6.6 — 2026-11-12
 
