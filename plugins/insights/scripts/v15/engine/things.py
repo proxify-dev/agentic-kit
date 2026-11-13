@@ -305,6 +305,25 @@ def rule_files_said(c):
     return out
 
 
+# ---- time ran out while reading git history: one count, one line --------------------------------------------------
+
+def history_unread(anatomy):
+    """How many files had no git history because the time ran out (the scan's budget for one-path-at-a-time lookups, or a
+    timeout): `summary.git_history_unread` of anatomy.json, counted by one function of the scan (inventory.history_unread_files).
+    0 for a run that read every history, for a run from before the count existed, and for anything that is not a number: a page
+    never says history was unread on the strength of a value it cannot read. (11-12: a spent budget changed the counts of
+    one person's own skills and rule files between runs of the same code, and nothing on the page said so.)"""
+    summary = (anatomy or {}).get("summary") if isinstance(anatomy, dict) else None
+    return wording.count_or_zero((summary or {}).get("git_history_unread")) if isinstance(summary, dict) else 0
+
+
+def history_unread_said(n):
+    """The line every page prints when `history_unread` is above zero, and nothing when it is zero."""
+    if not n:
+        return ""
+    return f"The history of {plural(n, 'file')} couldn't be read in time, so who made {'it' if n == 1 else 'them'} is a guess in this run."
+
+
 # ---- projects: one list for every tab ----------------------------------------------------------------------------
 
 def mapped_projects(setup_map, setup_read=None):
