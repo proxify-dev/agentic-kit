@@ -1425,6 +1425,20 @@ def scan_claude_dir(cdir: Path, scope: str, project: Path | None):
             S.lists["claude_scheduled_tasks"].append({"path": str(p), "scope": scope, "count": len(tasks) if isinstance(tasks, list) else None,
                                                       "tasks": [scrub(json.dumps({k: v for k, v in t.items() if k in ("cron", "schedule", "name", "id", "prompt", "recurring")}), 200)
                                                                 for t in (tasks or [])[:10] if isinstance(t, dict)]})
+        elif name == "scheduled-tasks" and p.is_dir():
+            # the shape Claude Code writes since 11-16: one folder per task, its SKILL.md holding the task's name and
+            # description up top and, below, the prompt the app sends on every run. A schedule that starts an agent;
+            # the file is named like a skill's but is never one of their skills (only `skills` above is).
+            try:
+                task_dirs = sorted(x for x in p.iterdir() if x.is_dir() and (x / "SKILL.md").is_file())
+            except OSError as e:
+                cnr(p, f"cannot list: {e.strerror or e}")
+                task_dirs = []
+            for d in task_dirs:
+                fm = frontmatter(read_text(d / "SKILL.md") or "") or {}
+                nm = fm.get("name") or d.name
+                S.lists["claude_scheduled_tasks"].append({"path": str(d / "SKILL.md"), "scope": scope, "count": 1, "name": nm,
+                                                          "tasks": [scrub(json.dumps({"name": nm, "description": fm.get("description", "")}), 200)]})
 
 
 # ---------------------------------------------------------------- plugins
