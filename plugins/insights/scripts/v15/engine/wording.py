@@ -45,6 +45,13 @@ def change_pick_said(chosen=False):
             f"at once: {COMMAND} --only NAME, once per project (up to 5).")
 
 
+# What this laptop cannot see, said once. Every tab that prints "Not seen" (or a "looked, not found") prints this sentence, so
+# checks that run in CI after a push, routines on claude.ai and other machines never read as "none". The states themselves
+# ("Not seen", "Couldn't check", a question for the call) keep their meanings: this is about places, they are about habits.
+CANT_SEE = ("This page reads this laptop only. It can't see checks that run in CI after a push, routines on claude.ai, or work "
+            "on another computer or a client's machine, so \"Not seen\" never means \"not there\". An evaluation call can add them.")
+
+
 def number(x):
     """A count the run wrote, read as a whole number: an int, a float with nothing after the point, or digits ("12", "1,204").
     None for anything else (nothing there, a list, text such as "12k" or "n/a", a bool, nan): nothing was counted, and the

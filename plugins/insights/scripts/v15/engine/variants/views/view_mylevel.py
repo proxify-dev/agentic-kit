@@ -227,7 +227,8 @@ def _things(pt, esc):
         groups.append(f'<div class="tg" data-level="{lv}" data-have="{have}" data-of="{of}" data-unit="thing"><h4>{lv} · {esc(MEANING[lv])}<small>{have} of {wording.plural(of, "thing")} in place · {esc(GROUP_SAYS[lv])}</small></h4>'
                       f'<ul class="why things">{rows}</ul></div>')
     return ('<h3>What your laptop shows, level by level</h3><p style="color:#475467;font-size:13px;margin:0 0 8px">Each thing '
-            'belongs to one level. What Claude Code or the model did by itself is shown, and counts for nothing.</p>'
+            'belongs to one level. What Claude Code or the model did by itself is shown, and counts for nothing. '
+            + esc(wording.CANT_SEE) + '</p>'
             + "".join(groups))
 
 

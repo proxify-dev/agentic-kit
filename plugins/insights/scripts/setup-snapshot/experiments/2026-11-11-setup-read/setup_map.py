@@ -14,7 +14,14 @@ Discovery comes from what the earlier steps wrote into RUN_DIR; this step decide
                       sessions did, `found_from_work`; `authors_here`) and
                       own_artifacts.own (skills, agents, commands: whose they are was decided by ownership.py)
   anatomy.json        instruction_files (path, kind, scope, origin = ownership.py's verdict) and memory_stores
-Only files marked `own` go in. Their text is then read from disk and the pointers in it are followed.
+Files marked `own` go in. So does a project's CLAUDE.md / AGENTS.md a teammate wrote most of (ownership.py's
+`mixed`: the person made at least one of its commits; `third_party`: none), in a repo the person writes in
+(`authors_here`): it loads in every session there, so the reader must see it. It is marked `team` (with `touched`), as
+is every file reached only through it, and is counted under `team_totals`, never `totals`: `totals` stays the person's
+own files, which "You have N files", the Built tab and the rules part read. What a team file counts for is the setup
+read's call (setup_read.TEAM_FILES, ruling R1). Why (11-16): a 16 KB and a 421-line AGENTS.md read as "0 instruction
+files", hidden from the reader, because a teammate made most of the commits. Their text is then read from disk and the
+pointers in it are followed.
 Standard library only; read-only; a file that is missing, unreadable or over 300 KB gets an "error" and the run goes on.
 """
 import argparse
@@ -37,6 +44,10 @@ STORE_FILES_CAP = 2000
 LISTED = 150  # files per load kind and project in the JSON; the totals always count every file
 MD_WORDS = 6000
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".obsidian", ".venv", "venv"}
+TEAM_SECTION = "Your team's files (written mostly by others)"   # no load word in it: view_review reads a section's kind by its words
+TEAM_LOADS = {"always": "loads in every session", "scoped": "loads in its folder", "on_demand": "opened when needed",
+              "not_loaded": "Claude Code does not read it"}
+TEAM_ORIGINS = ("mixed", "third_party")   # ownership.py: most of the file's commits are a teammate's (mixed: one is theirs)
 
 HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 FENCE = re.compile(r"^\s*(```|~~~)")
@@ -116,6 +127,41 @@ def read(path):
             return f.read(), None
     except OSError as e:
         return None, f"unreadable: {e.strerror or e}"
+
+
+def branch_facts(root):
+    """{"on": the checked-out branch (None when HEAD is a bare commit), "default": the remote's default branch (None when
+    the files don't say)} for the work tree at `root`, or None when it is no repo. Read from files only, never a git call and
+    never a fetch, so it works offline: HEAD (a linked worktree's own, found through its .git file) and, in the shared git
+    folder (commondir), refs/remotes/origin/HEAD, which a clone writes. A repo with no origin/HEAD has no known default:
+    the page then says nothing rather than guessing "main"."""
+    try:
+        g = os.path.join(root, ".git")
+        if os.path.isfile(g):
+            with open(g, encoding="utf-8", errors="replace") as f:
+                t = f.read().split("gitdir:")[-1].strip()
+            gitdir = t if os.path.isabs(t) else os.path.normpath(os.path.join(root, t))
+        elif os.path.isdir(g):
+            gitdir = g
+        else:
+            return None
+        with open(os.path.join(gitdir, "HEAD"), encoding="utf-8", errors="replace") as f:
+            m = re.match(r"ref:\s*refs/heads/(.+)", f.read().strip())
+        on = m.group(1).strip() if m else None
+        common = gitdir
+        if os.path.isfile(os.path.join(gitdir, "commondir")):
+            with open(os.path.join(gitdir, "commondir"), encoding="utf-8", errors="replace") as f:
+                common = os.path.normpath(os.path.join(gitdir, f.read().strip()))
+        default = None
+        try:
+            with open(os.path.join(common, "refs", "remotes", "origin", "HEAD"), encoding="utf-8", errors="replace") as f:
+                d = re.match(r"ref:\s*refs/remotes/origin/(.+)", f.read().strip())
+            default = d.group(1).strip() if d else None
+        except OSError:
+            pass
+        return {"on": on, "default": default}
+    except OSError:
+        return None
 
 
 class Ctx:
@@ -362,7 +408,7 @@ def file_facts(path, roots, ctx, display):
 
 # ------------------------------------------------------------------ instruction files
 
-def load_instructions(seeds, roots, ctx, display):
+def load_instructions(seeds, roots, ctx, display, team=None):
     """seeds: [(path, loads, scope)] -> entries and totals.
     always / scoped files that @import another doc load with it (same kind of load, up to four hops); every other
     pointer to a doc is on_demand, followed three layers down, each doc recorded once. A seed with loads "not_loaded"
@@ -416,6 +462,8 @@ def load_instructions(seeds, roots, ctx, display):
                 add(t, "on_demand", parent["depth"] + 1, reached_from=parent["path"])
                 nxt.append((t, hops + 1))
         frontier = nxt
+    if team:
+        mark_team(entries, [os.path.normpath(p) for p, _, _ in seeds], {os.path.normpath(p): t for p, t in team.items()})
     for e in entries.values():
         for ptr in e.get("pointers", []):
             tgt = entries.get(ptr["_abs"])
@@ -429,6 +477,31 @@ def load_instructions(seeds, roots, ctx, display):
         e.pop("_import_hops", None)
         result.append(e)
     return result
+
+
+def mark_team(entries, seeds, team):
+    """`team` = {seed path: touched}: the seeds a teammate wrote most of. Every entry the person's own seeds do not reach (by
+    an import or a pointer, from a file that loads) is their team's: `team` True, `touched` when a seed the person made a
+    commit to reaches it. A doc both reach is the person's."""
+    def reach(starts):
+        seen, stack = set(), [p for p in starts if p in entries]
+        while stack:
+            q = stack.pop()
+            if q in seen:
+                continue
+            seen.add(q)
+            if entries[q]["loads"] == "not_loaded":
+                continue   # Claude Code never reads it, so nothing is reached through it
+            for ptr in entries[q].get("pointers", []):
+                t = ptr.get("_abs")
+                if ptr.get("exists") and t in entries and t not in seen:
+                    stack.append(t)
+        return seen
+    mine = reach([p for p in seeds if p not in team])
+    touched = reach([p for p in seeds if team.get(p)]) - mine
+    for p, e in entries.items():
+        if p not in mine:
+            e["team"], e["touched"] = True, p in touched
 
 
 def totals(entries):
@@ -826,9 +899,12 @@ def build(run_dir, projects=3, home=None, only=(), skip=()):
 
     # discovery from the inventory
     instr = {r: [] for r in [*roots, "user"]}
+    team = {r: {} for r in roots}   # a teammate's file: path -> whether the person made one of its commits
     for x in anat.get("instruction_files") or []:
-        p = x.get("path")
-        if not p or x.get("origin") != "own" or x.get("in_fixture_path") or x.get("kind") not in ("claude", "claude_local", "agents"):
+        p, origin = x.get("path"), x.get("origin")
+        if not p or x.get("in_fixture_path") or x.get("kind") not in ("claude", "claude_local", "agents"):
+            continue
+        if origin != "own" and not (origin in TEAM_ORIGINS and x.get("scope") != "home"):
             continue
         p = os.path.normpath(p)
         if x.get("scope") == "home":
@@ -836,8 +912,12 @@ def build(run_dir, projects=3, home=None, only=(), skip=()):
                 instr["user"].append(p)
             continue
         o = owner(p)
-        if o and o != "user":
+        if not o or o == "user":
+            continue
+        if origin == "own":
             instr[o].append(p)
+        elif repo_rows.get(o, {}).get("authors_here") is not False:   # a clone they write nothing in has no team of theirs
+            team[o][p] = origin == "mixed"
     arts = {r: {"skill": [], "agent": [], "command": []} for r in [*roots, "user"]}
     seen_art = set()
     for a in (inv.get("own_artifacts") or {}).get("own") or []:
@@ -870,30 +950,38 @@ def build(run_dir, projects=3, home=None, only=(), skip=()):
 
     def place(key, root, claude_level):
         display = (lambda p: os.path.relpath(p, root) if inside(os.path.normpath(p), [root]) else ctx.tilde(p))
+        mates = {} if claude_level else team[key]
         if claude_level:
             seeds = [(p, "always", None) for p in sorted(set(instr[key]))] + rules_seeds(os.path.join(ctx.claude, "rules"))
         else:
             # a repo the inventory says is someone else's contributes no rule files (they carry no ownership mark)
             theirs = repo_rows.get(root, {}).get("authors_here") is not False
-            seeds = instruction_seeds(root, instr[key], theirs, os.path.join(root, ".claude", "rules"), ctx.home)
+            seeds = instruction_seeds(root, instr[key] + sorted(mates), theirs, os.path.join(root, ".claude", "rules"), ctx.home)
         ptr_roots = [root] if claude_level else [root, ctx.claude]
         out = {}
         try:
-            ents = load_instructions(seeds, ptr_roots, ctx, display)
+            ents = load_instructions(seeds, ptr_roots, ctx, display, team=mates)
         except Exception as e:  # noqa: BLE001 - the map goes on without this part
             ents, out["error"] = [], f"instruction files: {e}"
-        tot = totals(ents)
-        # the totals count every file; the list keeps the first (shallowest, then biggest) of the long kinds
-        keep, not_listed = [], {}
-        for kind in ("always", "scoped", "on_demand", "not_loaded"):
-            group = sorted((e for e in ents if e["loads"] == kind), key=lambda e: (e["depth"], -e.get("words", 0), e["path"]))
-            keep += group[:LISTED]
-            if len(group) > LISTED:
-                not_listed[kind] = len(group) - LISTED
+        own = [e for e in ents if not e.get("team")]
+        mine = [e for e in ents if e.get("team")]
+        # the totals count every file; the list keeps the first (shallowest, then biggest) of the long kinds, the person's
+        # own and their team's each up to LISTED, so team files never push the person's own out of the list
+        keep, not_listed, team_not_listed = [], {}, {}
+        for group_of, cut in ((own, not_listed), (mine, team_not_listed)):
+            for kind in ("always", "scoped", "on_demand", "not_loaded"):
+                group = sorted((e for e in group_of if e["loads"] == kind), key=lambda e: (e["depth"], -e.get("words", 0), e["path"]))
+                keep += group[:LISTED]
+                if len(group) > LISTED:
+                    cut[kind] = len(group) - LISTED
         out["instruction_files"] = keep
         if not_listed:
             out["not_listed"] = not_listed
-        out["totals"] = tot
+        out["totals"] = totals(own)
+        if mine:
+            out["team_totals"] = {**totals(mine), "touched": totals([e for e in mine if e.get("touched")])}
+            if team_not_listed:
+                out["team_not_listed"] = team_not_listed
         out["memory"] = [{**memory_store(p, ctx, display), **memory_shape_answer(asked.get(os.path.normpath(p)))}
                          for p in dict.fromkeys(stores[key])]
         out["memory"].sort(key=lambda s: (s["kind"] != "builtin", -(s.get("total_words") or 0), s["path"]))
@@ -914,7 +1002,7 @@ def build(run_dir, projects=3, home=None, only=(), skip=()):
         result["skipped"] = sorted({ctx.tilde(r) for r in [*extra, *rule_roots, *(targets or [])] if out(r)})
     for r, meta in roots.items():
         try:
-            p = {"root": ctx.tilde(r), **meta, **place(r, r, False)}
+            p = {"root": ctx.tilde(r), **meta, **place(r, r, False), **({"branch": b} if (b := branch_facts(r)) else {})}
         except Exception as e:  # noqa: BLE001
             p = {"root": ctx.tilde(r), **meta, "error": str(e)}
         result["projects"].append(p)
@@ -986,6 +1074,13 @@ def render(m, cap):
         if len(ps) > pt_ and pt_:
             L.append(f"    … {len(ps) - pt_} more pointers")
 
+    def team_line(e):
+        at = len(L)
+        file_line(e)
+        # how it loads, and whether the person made one of its commits, after the words: the page reads a line as path, words
+        edited = e.get("touched") and "reached_from" not in e   # a doc it points to was not edited by them for that
+        L[at] += f" [{TEAM_LOADS[e['loads']]}{'; you edited it' if edited else ''}]"
+
     def memory_line(s):
         if "error" in s:
             L.append(f"- {s['path']} ({s['kind']}): {s['error']}")
@@ -1037,15 +1132,20 @@ def render(m, cap):
         if "error" in p and "instruction_files" not in p:
             L.append(f"error: {p['error']}\n")
             continue
-        t = p["totals"]
+        t, tt = p["totals"], p.get("team_totals") or {}
         L.append(f"{t['files']} instruction files; always {t['always_words']}w, scoped {t['scoped_words']}w, "
                  f"on demand {t['on_demand_words']}w; deepest pointer layer {t['max_depth']}"
+                 + (f"; plus {tt['files']} written mostly by your team" if tt.get("files") else "")
                  + (f"; typed sessions {p['typed_sessions']}" if "typed_sessions" in p else "") + "\n")
         for title, kind in (("Always loaded", "always"), ("Scoped", "scoped"), ("On demand", "on_demand"),
                             ("Not loaded by Claude Code", "not_loaded")):
-            section(title, [e for e in p["instruction_files"] if e["loads"] == kind], file_line)
+            section(title, [e for e in p["instruction_files"] if e["loads"] == kind and not e.get("team")], file_line)
         if p.get("not_listed"):
             L.append("- not listed, but counted in the totals: " + ", ".join(f"{n} {k.replace('_', ' ')}" for k, n in p["not_listed"].items()))
+        # a teammate's files load the same way, but are never listed among the person's own (view_review draws them apart)
+        order = {"always": 0, "scoped": 1, "on_demand": 2, "not_loaded": 3}
+        section(TEAM_SECTION, sorted((e for e in p["instruction_files"] if e.get("team")), key=lambda e: order[e["loads"]]),
+                team_line)
         section("Memory", p["memory"], memory_line)
         section("Skills", p["skills"][:sk], skill_line)
         if len(p["skills"]) > sk:

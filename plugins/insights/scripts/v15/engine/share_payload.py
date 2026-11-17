@@ -9,8 +9,14 @@ Proxify sets it beside the person's evaluation call (engine calibration: above /
 Since 11-11 it also carries the read the level now rests on (NEW_KEYS): which read is in use, each thing's state, and
 the setup read's verdict per part (did the code prove the structure, what the agent judged, did its quote check out)
 with the ids of the holds that fired and of the advice cards (counted from Claude Code's records, or by code from
-their files: an id such as dead-pointer, never the file or the line). The practice rungs stay
-under `practices`, which tools/calibrate.py reads.
+their files: an id such as dead-pointer, never the file or the line).
+
+Since 11-16 built_areas, evals_shown and call_questions follow the read the level rests on (from_the_level), like
+laptop_level: on the read from things they are code-decided, so one laptop sends one summary. Before, they came from the
+practice read, which the AI pass decides, and moved between runs while the page's level held. The practice rungs stay
+under `practices`, AI-decided: the receiver's email lists them, the Share tab shows them with that said, and
+tools/calibrate.py does not read them (it reads the level, could_be, certainty, built_areas, evals_shown, call_questions
+and the kinds).
 
 The deployed receiver refuses a summary with any top-level key it does not know (its check(): "unknown field <key>";
 an Apps Script whose source is kept outside this repo). So Send carries wire(): only RECEIVER_KEYS until
@@ -31,6 +37,7 @@ clock = importlib.util.module_from_spec(_spec)   # the one place the calendar cl
 _spec.loader.exec_module(clock)
 sys.path.insert(0, HERE)
 import things as level_things  # noqa: E402  which level read is in use: from things (default) or from practices
+import engine  # noqa: E402  board_areas and call_entries: the rules the summary shares with the level reads
 SUBSTRATE = os.path.join(HERE, "substrate.json")
 
 BOARD_IDS = {"cap-skills-own", "cap-skills-installed", "cap-instructions", "cap-hooks", "cap-mcp", "cap-subagents", "cap-teams",
@@ -85,19 +92,31 @@ def _setup_read(run):
             "cards": [c["id"] for c in sr.get("cards") or [] if isinstance(c, dict) and ok(c.get("id"))]}
 
 
+def from_the_level(res, lv, level_model):
+    """(built_areas, evals_shown, call_questions) from the read the level rests on, so the summary never says one level
+    and carries the builds and questions of another. The read from things: the areas of what the board shows built and
+    used (engine.board_areas), the evals that read counted (built and in use), and the call's questions for the level
+    the page shows (engine.call_entries). The practice read (the staff switch, or a result made before things): its
+    own L4 trail and questions, as before."""
+    if level_model == "things":
+        return (engine.board_areas(res.get("board")), bool((lv.get("builds") or {}).get("evals_in_use")),
+                [list(ids) for ids, _ in engine.call_entries(lv.get("level"))])
+    l4 = next((t for t in lv.get("trail") or [] if t.get("level") == "L4"), {})
+    built = next((c for c in l4.get("conditions") or [] if str(c.get("test", "")).startswith("things they built")), {})
+    evals = next((c for c in l4.get("conditions") or [] if str(c.get("test", "")).startswith("re-tests what they built")), {})
+    return built.get("by") or [], bool(evals.get("met")), lv.get("call_questions") or []
+
+
 def payload(run, today=None):
     res = json.load(open(os.path.join(run, "v15-result.json")))
     S = json.load(open(SUBSTRATE))
     pids, dids = set(S["practices"]), {d["id"] for d in S["disciplines"]}
-    p = res.get("pointer") or {}  # the practice read: built areas, evals and the call's questions come from its trail
     lv, level_model = level_things.active(res)
+    built_areas, evals_shown, call_questions = from_the_level(res, lv, level_model)
 
     def ids(xs, ok):
         return [x for x in xs if x in ok]
 
-    l4 = next((t for t in p.get("trail") or [] if t.get("level") == "L4"), {})
-    built = next((c for c in l4.get("conditions") or [] if str(c.get("test", "")).startswith("things they built")), {})
-    evals = next((c for c in l4.get("conditions") or [] if str(c.get("test", "")).startswith("re-tests what they built")), {})
     practices = {}
     for d in res.get("disciplines") or []:
         for pr in d.get("practices") or []:
@@ -120,9 +139,10 @@ def payload(run, today=None):
         "level_model": level_model,
         "things": _things(res),
         "setup_read": _setup_read(run),
-        "built_areas": ids(built.get("by") or [], dids),
-        "evals_shown": bool(evals.get("met")),
-        "call_questions": [ids(x, pids) for x in p.get("call_questions") or []],
+        # from the same read as the level (from_the_level): never the builds or questions of another read
+        "built_areas": ids(built_areas, dids),
+        "evals_shown": evals_shown,
+        "call_questions": [ids(x, pids) for x in call_questions],
         # the capability board (v13's 20 rows, v15/engine/board.py): which kinds of thing they built, which they only use
         "built_kinds": ids((res.get("board") or {}).get("built_kinds") or [], BOARD_IDS),
         "uses_kinds": ids((res.get("board") or {}).get("uses_kinds") or [], BOARD_IDS),

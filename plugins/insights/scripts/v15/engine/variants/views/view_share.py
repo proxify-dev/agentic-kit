@@ -8,9 +8,10 @@ Why not Slack itself (11-06): no Slack link can fill in a message or attach a fi
 workspace; a paste of the summary arrived as an unreadable wall.
 
 This view never prints a level: "Your level" is the tab for that, and "What Proxify gets" says the summary holds it. The
-kinds of things built and used lead the summary. The line per practice, and the questions left for the call, sit one
-click away: they are sent, so they must be shown, but they come from the practice read, which the level no longer rests
-on and which can contradict Review (11-11). The file they can download holds the levels, as the share file always has.
+kinds of things built and used lead the summary. The line per practice sits one click away, with the questions left for
+the call: it is sent, so it must be shown, but it comes from the practice read, which the level no longer rests on and
+which can contradict Review (11-11). The areas built in, the evals and the call's questions follow the level the page
+shows (share_payload.from_the_level, 11-16). The file they can download holds the levels, as the share file always has.
 """
 import json
 import os
@@ -121,28 +122,32 @@ SIGN_NAME = {"endless-sessions": "Sessions that only compact automatically", "se
              "restates-repo": "Lines that repeat what the repo says", "weakest-line": "The line that costs the most for what it gives"}
 
 
-# the five lines of the summary that still come from the practice read (share_payload: practices, built_areas,
-# evals_shown, call_questions, certainty). The page's level and parts come from the read of things and of the files, so
-# these can differ from the Review and Your level tabs: each says so, in the same words.
+# the two lines of the summary that still come from the practice read (share_payload: practices, certainty). The page's
+# level and parts come from the read of things and of the files, so these can differ from the Review and Your level tabs:
+# each says so, in the same words. built_areas, evals_shown and call_questions follow the level the page shows
+# (share_payload.from_the_level, 11-16), so their lines carry no note.
 OLDER_NOTE = "from the older read; may differ from this page"
 SURE_WORD = {"high": "Very sure", "medium": "Fairly sure", "low": "Not very sure yet"}
 
 
 def older_lines(esc, sh, disc):
-    """The five lines that come from the older read, each with the same note (empty when the page shows the older read itself)."""
+    """On the read from things: the three lines that follow the page's level (areas built in, evals, the call's
+    questions), then the two that still come from the older read, each with the same note. Empty when the page shows
+    the older read itself."""
     if sh.get("level_model") != "things":
         return ""
     areas = [disc.get(a, a) for a in sh.get("built_areas") or []]
     qs = [g for g in sh.get("call_questions") or [] if g]
     sure = SURE_WORD.get((sh.get("certainty") or {}).get("level"), "Not read")
     n_seen = sum(1 for p in (sh.get("practices") or {}).values() if p.get("rung") in RUNG_CLASS)
-    lines = [("One line for each habit", f"{len(sh.get('practices') or {})} habits, {n_seen} seen"),
-             ("The areas you built in", ", ".join(areas) or "none"),
-             ("Evals on what you built", "shown" if sh.get("evals_shown") else "not shown"),
-             ("Questions left for your call", str(len(qs))),
+    steady = [("The areas you built in", ", ".join(areas) or "none"),
+              ("Evals on what you built", "shown" if sh.get("evals_shown") else "not shown"),
+              ("Questions left for your call", str(len(qs)))]
+    older = [("One line for each habit", f"{len(sh.get('practices') or {})} habits, {n_seen} seen"),
              ("How sure the reading is", sure)]
-    return ('<h4 class="sh-h">Lines from the older read</h4><ul class="sh-old">'
-            + "".join(f"<li><b>{esc(k)}</b>: {esc(v)}<small>{esc(OLDER_NOTE)}</small></li>" for k, v in lines) + "</ul>")
+    return ('<ul class="sh-old">' + "".join(f"<li><b>{esc(k)}</b>: {esc(v)}</li>" for k, v in steady) + "</ul>"
+            + '<h4 class="sh-h">Lines from the older read</h4><ul class="sh-old">'
+            + "".join(f"<li><b>{esc(k)}</b>: {esc(v)}<small>{esc(OLDER_NOTE)}</small></li>" for k, v in older) + "</ul>")
 
 
 def part_word(g, ran):

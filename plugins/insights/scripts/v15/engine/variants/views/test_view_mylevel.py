@@ -115,6 +115,17 @@ class SetupRead(unittest.TestCase):
         self.assertIn(">Partly<", out)
         self.assertIn("its quote wasn't found in your file", out)
 
+    def test_partly_over_a_bar_not_reached_says_the_bar_and_the_number(self):
+        """11-16: a part read "Partly" with no reason; the code wanted changes in 3 different weeks and the page never said so."""
+        bar = "Needs changes in 3 different weeks; your best file has 2."
+        short = {"structure": False, "structure_bar": bar, "judged": "shown", "quote_ok": True,
+                 "why": "Many lines name the mistake and the fix.", "quote": {"path": "app/CLAUDE.md", "line": 2, "text": "Prices are integers in cents."}}
+        sr = {"ran": True, "parts": self.parts(rules=SHOWN, corrections=short), "holds": []}
+        out = html.unescape(page("L2", [{"level": "L3", "conditions": PRACTICES + gate_conds(False)}, {"level": "L2", "conditions": PRACTICES[:1]}],
+                   could_be="L3", setup_read=sr))
+        self.assertIn(">Partly<", out)
+        self.assertIn("The reading says yes, but the map of your files doesn't show the structure behind it. " + bar, out)
+
     def test_a_quote_dropped_for_a_secret_says_so_and_shows_nothing(self):
         """setup_read.py drops a quote whose line holds a secret: the tab says why the part doesn't count, and what to do."""
         dropped = {"structure": True, "judged": "shown", "quote_ok": False, "quote": None,

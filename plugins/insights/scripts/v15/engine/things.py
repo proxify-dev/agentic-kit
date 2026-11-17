@@ -163,15 +163,18 @@ def part_state(g):
     judged = g.get("judged")
     if g.get("structure") and judged == "shown" and g.get("quote_ok"):
         return "shown", ""
+    # what the bar asks beside what the person has (setup_read writes it, from the constants it decides with): said only
+    # where the code's side is what fell short, so a "Partly" never shows without its reason (11-16)
+    bar = "" if g.get("structure") else str(g.get("structure_bar") or "")
     if judged == "shown":
-        return "partly", ("The reading says yes, but the map of your files doesn't show the structure behind it."
+        return "partly", (("The reading says yes, but the map of your files doesn't show the structure behind it." + (" " + bar if bar else ""))
                           if not g.get("structure") else
                           # setup_read.py drops a quote whose line holds a secret, so no page ever prints one
                           "The reading says yes, but the line it rests on holds a key or a token, so we don't keep or "
                           "show it. Move the secret out of that file and run the tool again."
                           if g.get("quote_dropped") else "The reading says yes, but its quote wasn't found in your file.")
     if judged == "partly":
-        return "partly", ""
+        return "partly", bar
     if judged == "not shown" or (g.get("structure") is False and judged in (None, "", "can't tell")):
         return "notshown", ""
     return "unread", ""
