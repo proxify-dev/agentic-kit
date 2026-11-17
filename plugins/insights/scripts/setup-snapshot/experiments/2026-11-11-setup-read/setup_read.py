@@ -75,6 +75,12 @@ LINES_CAP = 40               # ... blocks asked about in one project, after code
 LINES_USER_CAP = 20          # ... and blocks of the user-level file, once per run, in the first project's brief
 DEAD_ONLY_WORDS = 6          # a block that is a dead pointer and at most this many other words is code's to report, not the reader's
 MAX_CARDS = 4
+# Ruling R1, NOT DECIDED (11-16 study): what a project's AGENTS.md written mostly by teammates (setup_map: `team`) counts for.
+#   "rules"   option 1: it counts toward "instructions the agent starts with", worded as the team's; never toward
+#             corrections (only the person's own commits count, history()) or memory.
+#   "none"    option 2: shown to the reader and on the page as the team's; counts toward no part.
+#   "touched" option 3: as option 1 for a file the person made at least one commit to (ownership.py `mixed`), else as 2.
+TEAM_FILES = "none"
 SHAPED = ("indexed", "layered", "linked")
 
 GIT_TIMEOUT, GIT_FILES, GIT_BUDGET = 4, 12, 20   # seconds per file, files per project, seconds per project
@@ -94,7 +100,7 @@ The outline at the end was drawn by code. It shows structure and judges nothing.
 judge the three parts below and no more than this: {always}; up to {scoped} scoped files; up to {docs}
 docs they link to (the ones an `AGENTS.md` sends the agent to most plainly); the memory index and {notes} notes; the
 SKILL.md of up to {skills} skills. `git log` on at most {logs} files, the main `AGENTS.md` first. When the outline lists
-nothing for a part, judge it from the outline and open nothing.{lines_open}
+nothing for a part, judge it from the outline and open nothing.{lines_open}{team}
 
 Judge three parts, each `shown`, `partly`, `not shown` or `can't tell`:
 
@@ -173,6 +179,23 @@ SECOND_JOB = "A second job, in the same answer file. "
 # The line-by-line read (11-12, from the instruction read trial: experiments/2026-11-12-instruction-read/): the same reader, one
 # more answer key. Advice only: nothing here reaches a level, and no number the reader counts reaches the page.
 LINES_OPEN = (" The text of the always-loaded files is in \"The lines\" below: do not open them.")
+LINES_OPEN_TEAM = (" The text of the person's own always-loaded files is in \"The lines\" below: do not open those. The files"
+                   " under \"Your team's files\" are not in it: open them as you would any always-loaded file.")
+# what a file a teammate wrote most of is to the reader, under each option of ruling R1 (TEAM_FILES); in a brief only when the
+# project has one
+TEAM_NOTE = """
+
+The outline lists some files under "Your team's files (written mostly by others)": git shows most of their commits are a
+teammate's. They load in the sessions here as any file does. {counts} Never say the person wrote one: call it "your team's
+`AGENTS.md`". A teammate's line or a teammate's edits are never the person's correction, and never the person's work in `works`."""
+TEAM_COUNTS = {
+    "rules": "Judge `rules` on them as on any file, and quote them when they show it best. Judge `corrections` and `memory` "
+             "on the person's own files and their own changes only.",
+    "none": "They count for no part: judge all three parts on the person's own files only, and never quote a team file. "
+            "You may name them in the summary.",
+    "touched": "One marked \"you edited it\" counts for `rules` like any file, and may be quoted there; the others count "
+               "for no part and are never quoted. Judge `corrections` and `memory` on the person's own files and their own "
+               "changes only."}
 LINES_SHAPE = """,
       "lines": {
         "blocks": [{"id": "B1", "kind": "...", "known": "yes|no", "situation": null, "action": null, "checkable": "yes|no",
@@ -291,7 +314,7 @@ def reader_files(p, user, root, home, inv, first):
     (`rules_reaching`). The user-level `~/.claude/CLAUDE.md` joins the first project's brief only, once per run. Files above
     the repo root are not read. An unreadable or unlisted file is left out."""
     out = []
-    ents = [e for e in p.get("instruction_files") or [] if "error" not in e]
+    ents = [e for e in p.get("instruction_files") or [] if "error" not in e and not e.get("team")]   # advice on their own lines only
     always = sorted((e for e in ents if e.get("loads") == "always"), key=lambda e: (e.get("depth", 0), e["path"]))
     for e in always[:LINES_ALWAYS]:
         out.append((absolute(e["path"], root, home), "every session in this project"))
@@ -528,7 +551,9 @@ def brief(run, home=None, proxify=None):
                 crafts = ""
         section = READER.format(mark=MARK, out=out, tree=drawn, intro=SECOND_JOB if second else "", scoped=OPEN_SCOPED,
                                 docs=OPEN_DOCS, notes=OPEN_NOTES, skills=OPEN_SKILLS, logs=OPEN_GIT_LOGS,
-                                always="the always-loaded files", lines_open=LINES_OPEN if listing else "",
+                                always="the always-loaded files",
+                                lines_open=(LINES_OPEN_TEAM if p.get("team_totals") else LINES_OPEN) if listing else "",
+                                team=TEAM_NOTE.format(counts=TEAM_COUNTS[TEAM_FILES]) if p.get("team_totals") else "",
                                 lines_shape=LINES_SHAPE if listing else "", lines=(listing or "") + crafts)
         with open(path, "w", encoding="utf-8") as f:
             f.write(text + section)
@@ -547,62 +572,166 @@ def brief(run, home=None, proxify=None):
     return n
 
 
+def branch_said(facts):
+    """One sentence for a project read on a branch that is not the remote's default, else "". Nothing when the default is
+    unknown (setup_map.branch_facts). The review reads the working tree, so a project left on an old branch reads
+    "no AGENTS.md" where its default branch has one."""
+    f = facts if isinstance(facts, dict) else {}
+    on, default = f.get("on"), f.get("default")
+    if not default or on == default:
+        return ""
+    return (f"You had `{on}` checked out, not `{default}`. This read is of that branch, so files that only {default} has aren't in it."
+            if on else f"You had no branch checked out here (a commit by itself), not `{default}`. This read is of that commit, "
+                       f"so files that only {default} has aren't in it.")
+
+
 # ------------------------------------------------------------------ structure (code)
 
-def rules_structure(p):
-    t = p.get("totals") or {}
-    a, s, d = t.get("always_files", 0), t.get("scoped_files", 0), t.get("on_demand_files", 0)
+def team_counted(p, option=None):
+    """The totals of the team's files that count toward the rules part under ruling R1's option (TEAM_FILES): {} for none."""
+    option = TEAM_FILES if option is None else option
+    tt = p.get("team_totals") or {}
+    return {} if option == "none" else (tt.get("touched") or {}) if option == "touched" else tt
+
+
+def counts_for_rules(e, option=None):
+    """Whether one map entry may back the rules part: the person's own always; a team file as TEAM_FILES says."""
+    option = TEAM_FILES if option is None else option
+    return not e.get("team") or option == "rules" or (option == "touched" and bool(e.get("touched")))
+
+
+def rules_structure(p, option=None):
+    ok, said, _ = rules_bar(p, option)
+    return ok, said
+
+
+def rules_bar(p, option=None):
+    """(met, what the code counted, what the bar asks beside what the person has: "" when met).
+    `option` = ruling R1's option (TEAM_FILES when None); "none" reads the person's own files alone."""
+    t, tt = p.get("totals") or {}, team_counted(p, option)
+    a, s, d = (t.get(k, 0) + tt.get(k, 0) for k in ("always_files", "scoped_files", "on_demand_files"))
+    depth = max(t.get("max_depth", 0), tt.get("max_depth", 0))
+    k = sum(tt.get(x, 0) for x in ("always_files", "scoped_files", "on_demand_files"))
     said = (f"{a} file{'s' if a != 1 else ''} read at the start of every session, {s} for part of the project, {d} doc{'s' if d != 1 else ''} they link to"
-            + (f" ({t.get('max_depth', 0)} layer{'s' if t.get('max_depth', 0) != 1 else ''} deep)" if d else ""))
+            + (f" ({depth} layer{'s' if depth != 1 else ''} deep)" if d else "")
+            + (f"; {k} of these written mostly by your team" if k else ""))
     if not a:
-        return False, "no AGENTS.md of yours at the top of this project, and no .claude/rules/ file that always loads (" + said + ")"
+        return (False, "no AGENTS.md of yours at the top of this project, and no .claude/rules/ file that always loads (" + said + ")",
+                "Needs a file the agent reads at the start of every session, at the top of this project; none was found.")
     ok = s >= 1 or d >= RULES_ON_DEMAND_MIN
-    return ok, said if ok else said + ": one layer, nothing scoped to a folder and too little behind pointers"
+    return (ok, said if ok else said + ": one layer, nothing scoped to a folder and too little behind pointers",
+            "" if ok else f"Needs a file for part of the project, or {plural(RULES_ON_DEMAND_MIN, 'doc')} your files link to; "
+                          f"you have {s} and {d}.")
 
 
-def history(path):
-    """Weeks a file changed in and lines removed over its history, from git. None when git has no history of it."""
+def identity(inv, an=None):
+    """Who the person is in git, as the scan found it: inventory.json `person` (every email their git config knows, and
+    their names; 2026-11-02-evidence/identity.py) joined with anatomy.json `identity` (the one ownership.py's `origin`
+    was decided by). The union: a file the scan called theirs never has fewer of its commits counted as theirs here.
+    None when the run holds neither (a run made before they were saved)."""
+    emails, names, found = set(), set(), False
+    p, a = (inv or {}).get("person"), (an or {}).get("identity")
+    if isinstance(p, dict) and isinstance(p.get("identities"), list):
+        found = True
+        emails |= {str(e).strip().lower() for e in p["identities"] if e}
+        names |= {str(n).strip().lower() for n in p.get("names") or [] if n}
+    if isinstance(a, dict) and isinstance(a.get("emails"), list):
+        found = True
+        emails |= {str(e).strip().lower() for e in a["emails"] if e}
+        names |= {str(n).strip().lower() for n in a.get("names") or [] if n}
+    return {"emails": emails, "names": names} if found else None
+
+
+def is_me(email, name, me):
+    """The scan's own rule for "this commit is theirs" (2026-10-27-anatomy/inventory.py Identity.is_user, which ownership.py's
+    verdicts rest on): one of their emails, its GitHub noreply form, or one of their names longer than three letters."""
+    e = (email or "").strip().lower()
+    if e in me["emails"]:
+        return True
+    m = re.match(r"(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$", e)
+    if m and any(m.group(1) == x.split("@")[0] for x in me["emails"]):
+        return True
+    n = (name or "").strip().lower()
+    return len(n) > 3 and n in me["names"]
+
+
+def history(path, me=None):
+    """Weeks a file changed in and lines removed over its history, from git, counting only the person's own commits when
+    `me` (identity) is known: a teammate's edits are no correction of theirs. Why (11-16): once a file a teammate wrote
+    is in the map, a person who never touched it passed "corrections that stick" on the teammate's weeks; a
+    `.claude/rules/` file, seeded with no ownership check, already could. `me` None (an older run): every commit counts,
+    as before. `others` = commits by someone else, left out. None when git has no history of it."""
     try:
-        r = subprocess.run(["git", "-C", os.path.dirname(path), "log", "--follow", "--numstat", "--format=@%ad",
+        r = subprocess.run(["git", "-C", os.path.dirname(path), "log", "--follow", "--numstat", "--format=@%ad%x09%ae%x09%an",
                             "--date=format:%G-%V", "--", os.path.basename(path)],
                            capture_output=True, text=True, timeout=GIT_TIMEOUT)
     except (OSError, subprocess.SubprocessError):
         return None
     if r.returncode != 0 or not r.stdout.strip():
         return None
-    weeks, removed = set(), 0
+    weeks, removed, others, mine = set(), 0, 0, True
     for line in r.stdout.splitlines():
         if line.startswith("@"):
-            weeks.add(line[1:].strip())
-        else:
+            week, _, who = line[1:].partition("\t")
+            email, _, name = who.partition("\t")
+            mine = me is None or is_me(email, name, me)
+            if mine:
+                weeks.add(week.strip())
+            else:
+                others += 1
+        elif mine:
             cols = line.split("\t")
             if len(cols) >= 2 and cols[1].isdigit():
                 removed += int(cols[1])
-    return {"weeks": len(weeks), "removed": removed}
+    return {"weeks": len(weeks), "removed": removed, "others": others}
 
 
 def correction_files(p, user, root, home):
-    """Rule files and skills of theirs that load in this project: the project's, then the user level's."""
-    out = []
+    """Rule files and skills of theirs that load in this project: the project's, then the user level's. A file the map marks
+    as their team's is in only when ruling R1's option lets it count at all (TEAM_FILES); its history then counts the
+    person's own commits only (history). Team files come last: only GIT_FILES are read, and a dozen of a teammate's files
+    must not push the person's own skills out of that read."""
+    out, team = [], []
     for place, base in ((p, root), (user or {}, os.path.join(home, ".claude"))):
         for e in place.get("instruction_files") or []:
-            if e.get("loads") in ("always", "scoped") and "error" not in e:
-                out.append(absolute(e["path"], base, home))
+            if e.get("loads") in ("always", "scoped") and "error" not in e and counts_for_rules(e):
+                (team if e.get("team") else out).append(absolute(e["path"], base, home))
         for e in place.get("skills") or []:
             if "error" not in e:
                 out.append(absolute(e["path"], base, home))
-    return list(dict.fromkeys(out))
+    return list(dict.fromkeys(out + team))
 
 
-def corrections_structure(p, user, root, home):
+def team_paths(p, user, root, home):
+    """Paths on disk of the files the map marks as written mostly by the person's team (setup_map: `team`)."""
+    out = set()
+    for place, base in ((p, root), (user or {}, os.path.join(home, ".claude"))):
+        for e in place.get("instruction_files") or []:
+            if e.get("team"):
+                out.add(absolute(e["path"], base, home))
+    return out
+
+
+def corrections_structure(p, user, root, home, me=None):
+    ok, said, _ = corrections_bar(p, user, root, home, me)
+    return ok, said
+
+
+def corrections_bar(p, user, root, home, me=None):
+    """(met, what the code counted, what the bar asks beside what the person has: "" when met).
+    `me`: the person's identity (identity()); only their own commits count. With none known, a file the map marks as
+    their team's counts for nothing: whose its commits are can't be told."""
     files = correction_files(p, user, root, home)
     if not files:
-        return False, "no AGENTS.md or skill of yours here"
+        return False, "no AGENTS.md or skill of yours here", "Needs an AGENTS.md or a skill of yours that loads in this project; none was found."
+    team = team_paths(p, user, root, home)
     best, in_git, t0 = None, 0, time.monotonic()
     for f in files[:GIT_FILES]:
         if time.monotonic() - t0 > GIT_BUDGET:
             break
-        h = history(f)
+        if me is None and f in team:
+            continue
+        h = history(f, me)
         if not h:
             continue
         in_git += 1
@@ -610,12 +739,24 @@ def corrections_structure(p, user, root, home):
         if best is None or key > best[0]:
             best = (key, f, h)
     if best is None:
-        return False, "your AGENTS.md files and skills are not in git, so their history can't be read"
+        return (False, "your AGENTS.md files and skills are not in git, so their history can't be read",
+                "Needs your files in git, so their changes over time can be read; they are not in git.")
     _, f, h = best
     name = os.path.relpath(f, root) if f.startswith(root + os.sep) else "~/" + os.path.relpath(f, home)
-    said = (f"{name} changed in {h['weeks']} different week{'s' if h['weeks'] != 1 else ''}, "
+    if not h["weeks"]:
+        # Not "made by someone else": a person who commits through GitHub, or from another machine, does so under an
+        # email this laptop's git config doesn't know, and would be told their own work is a stranger's. Structure stays
+        # unmet (a person who only uses the team's file must not reach L3), and the words are the page's "only a call
+        # can tell" ones (card_kit "call").
+        return (False, f"the tool can't tell whose changes to {name} these are; the call will ask",
+                f"Can't tell whose changes to {name} these are: none match the emails this laptop's git config knows. "
+                "Only a call can tell, so the call will ask.")
+    said = (f"{name} changed in {h['weeks']} different week{'s' if h['weeks'] != 1 else ''}"
+            + (" by you" if me is not None and h.get("others") else "") + ", "
             + (f"{h['removed']} lines removed along the way" if h["removed"] else "and no line was ever removed"))
-    return best[0][0], said
+    asks = ([f"changes in {CORRECTION_WEEKS_MIN} different weeks; your best file has {h['weeks']}"] if h["weeks"] < CORRECTION_WEEKS_MIN else []) \
+        + (["a line removed at some point; none was"] if not h["removed"] else [])
+    return best[0][0], said, "" if best[0][0] else "Needs " + " and ".join(asks) + "."
 
 
 def has_shape(store):
@@ -655,15 +796,22 @@ def settle_memory(row, p, user, root, home):
 
 
 def memory_structure(p, user, root, home, reads):
+    ok, said, _ = memory_bar(p, user, root, home, reads)
+    return ok, said
+
+
+def memory_bar(p, user, root, home, reads):
+    """(met, what the code counted, what the bar asks beside what the person has: "" when met)."""
     stores = memory_stores(p, user, root, home)
     if not stores:
-        return False, "no notes folder found for this project"
+        return False, "no notes folder found for this project", "Needs a notes folder for this project; none was found."
     # Claude Code's built-in memory folder never shows a design by its shape: Claude Code itself writes the index and
     # the typed notes there, for everyone. 11-11: a person's built-in folders (24 files, read in 27 sessions) read
     # as her notes. Whether the person shaped it is the reader's call, and it then needs an own store to count.
     own = [(s, base) for s, base in stores if s.get("kind") != "builtin"]
     if not own:
-        return False, "only Claude Code's built-in memory folder, in the shape Claude Code writes by default"
+        return (False, "only Claude Code's built-in memory folder, in the shape Claude Code writes by default",
+                "Needs notes of your own: the memory Claude Code keeps by itself doesn't count.")
     scored = []
     for s, base in own:
         n = reads.get(absolute(s["path"], base, home))
@@ -680,7 +828,11 @@ def memory_structure(p, user, root, home, reads):
     said = f"{s['path']}: {shape}, {s.get('files', 0)} file{'s' if s.get('files', 0) != 1 else ''}"
     if n is not None:
         said += f", read in {n} session{'s' if n != 1 else ''}"
-    return key[0], said
+    # the unmet bars only; sessions are named only when the inventory counted them (no count is no miss)
+    asks = ([] if key[1] else ["an index, or notes that link each other; yours has neither"]) \
+        + ([f"{plural(MEMORY_NOTES_MIN, 'note')}; yours has {s.get('files', 0)}"] if s.get("files", 0) < MEMORY_NOTES_MIN else []) \
+        + ([f"to be read in {MEMORY_SESSIONS_MIN} sessions; yours was read in {n}"] if n is not None and n < MEMORY_SESSIONS_MIN else [])
+    return key[0], said, "" if key[0] else "Needs " + "; ".join(asks) + "."
 
 
 # ------------------------------------------------------------------ the reader's quote, checked by code
@@ -689,16 +841,20 @@ def squash(text):
     return " ".join(str(text).split())
 
 
-def allowed(p, user, root, home, memory_part=False):
+def allowed(p, user, root, home, memory_part=False, team=False):
     """Where a quote may come from: (files, folders, docs_root). Files and folders are the person's own in this
     project's map and the user level's (memory stores and skill folders count whole). docs_root is the project root
     when the map reached more docs than it lists: any doc below it may then be one of them, and only a doc.
     memory_part: the quote backs "memory shown", so Claude Code's built-in memory folders are left out: they are not
-    the person's work. The other two parts take them as before."""
+    the person's work. The other two parts take them as before.
+    team: a file the map marks as their team's may back the quote, as ruling R1's option says (counts_for_rules): the rules
+    part only. Never corrections, memory or "what works": a teammate's line is not the person's."""
     files, dirs = set(), set()
     for place, base in ((p, root), (user or {}, os.path.join(home, ".claude"))):
         for k in ("instruction_files", "agents", "commands"):
             for e in place.get(k) or []:
+                if e.get("team") and not (team and counts_for_rules(e)):
+                    continue
                 files.add(absolute(e["path"], base, home))
         for s in place.get("memory") or []:
             if memory_part and s.get("kind") == "builtin":
@@ -947,7 +1103,8 @@ def instruction_findings(run, m, home):
     out = []
     for slug, root, p in projects_of(run, m, home):
         files = []
-        entries = [e for e in p.get("instruction_files") or [] if e.get("loads") in ("always", "not_loaded") and "error" not in e]
+        entries = [e for e in p.get("instruction_files") or []   # cards advise on the person's own files: never a teammate's
+                   if e.get("loads") in ("always", "not_loaded") and "error" not in e and not e.get("team")]
         entries.sort(key=lambda e: (e["loads"] != "always", e.get("depth", 0), e["path"]))
         try:
             view = setup_instruction.repo_view(root)
@@ -1156,7 +1313,7 @@ def own_always_loaded(m, home):
     for p in ((m or {}).get("projects") or []) + [(m or {}).get("user") or {}]:
         root = os.path.normpath(expand(p.get("root") or "", home))
         for e in p.get("instruction_files") or []:
-            if e.get("loads") == "always" and e.get("path"):
+            if e.get("loads") == "always" and e.get("path") and not e.get("team"):
                 out.add(absolute(e["path"], root, home))
     return out
 
@@ -1262,6 +1419,9 @@ PART_SAYS = {"rules": "instructions the agent starts with", "corrections": "corr
              "memory": "memory that carries across sessions"}
 
 
+PART_SAYS_TEAM = "instructions the agent starts with (in your team's files)"
+
+
 def _and(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
@@ -1279,9 +1439,13 @@ def opening(projects, first, which="most active"):
         return []
     k = {pid: sum(1 for p in read for g in p["parts"]
                   if g["id"] == pid and level_things.part_state(g)[0] == "shown") for pid, _ in PARTS}
-    names = [PART_SAYS[pid] for pid, _ in PARTS]
+    says = dict(PART_SAYS)
+    if k["rules"] and all(g.get("team") for p in read for g in p["parts"]
+                          if g["id"] == "rules" and level_things.part_state(g)[0] == "shown"):
+        says["rules"] = PART_SAYS_TEAM   # it shows only in files a teammate wrote most of: never "your files show" it alone
+    names = [says[pid] for pid, _ in PARTS]
     if n == 1:
-        yes, no = [PART_SAYS[i] for i, _ in PARTS if k[i]], [PART_SAYS[i] for i, _ in PARTS if not k[i]]
+        yes, no = [says[i] for i, _ in PARTS if k[i]], [says[i] for i, _ in PARTS if not k[i]]
         if not yes:
             line = (f"In your {which} project, your files don't yet show a setup that carries the context: "
                     f"{_and(no)} are each missing or thin.")
@@ -1295,7 +1459,7 @@ def opening(projects, first, which="most active"):
                 f" or {names[2]}.")
     else:
         line = (f"Across your {n} {which} projects, your files show "
-                + _and([f"{PART_SAYS[i]} in {k[i]}" for i, _ in PARTS]) + ".")
+                + _and([f"{says[i]} in {k[i]}" for i, _ in PARTS]) + ".")
     out = [line]
     saw = text((first or {}).get("saw") or (first or {}).get("do"))
     if saw:
@@ -1313,6 +1477,19 @@ def first_change(out):
     return next((c for c in items if c.get("saw") or c.get("do")), None)
 
 
+TEAM_RULES_NAME = "Instructions the agent starts with (your team's files)"
+
+
+def rests_on_team(row, p, root, home):
+    """Whether the rules part, as read, stands on the team's files: its structure holds only with them, or its quote is in one."""
+    if not p.get("team_totals"):
+        return False
+    q = row.get("quote") if isinstance(row.get("quote"), dict) else {}
+    quoted_team = bool(q.get("path")) and absolute(str(q["path"]), root, home) in {
+        absolute(e["path"], root, home) for e in p.get("instruction_files") or [] if e.get("team")}
+    return bool(row["structure"] and not rules_structure(p, "none")[0]) or (quoted_team and row.get("quote_ok", False))
+
+
 def merge(run, home=None):
     home = home or os.path.expanduser("~")
     m = load(run, "setup-map.json") or {}
@@ -1321,6 +1498,7 @@ def merge(run, home=None):
     reads = {os.path.normpath(s["path"]): s.get("chats_reading") for s in inv.get("memory_stores") or []
              if s.get("path") and s.get("chats_reading") is not None}
     per, projects, ran, checked, craft_answer = {pid: [] for pid, _ in PARTS}, [], False, {}, None
+    me = identity(inv, load(run, "anatomy.json"))
     for s, root, p in projects_of(run, m, home):
         doc = load(run, f"anatomy-ai-{s}.json") or {}
         if not doc:   # a reader may have named its file by the folder, not the slug
@@ -1338,24 +1516,29 @@ def merge(run, home=None):
         answers = {a.get("id"): a for a in sr.get("parts") or [] if isinstance(a, dict)}
         ran = ran or bool(answers)
         where = allowed(p, user, root, home)
+        where_rules = allowed(p, user, root, home, team=True)
         where_memory = allowed(p, user, root, home, memory_part=True)
-        structure = {"rules": rules_structure(p), "corrections": corrections_structure(p, user, root, home),
-                     "memory": memory_structure(p, user, root, home, reads)}
+        structure = {"rules": rules_bar(p), "corrections": corrections_bar(p, user, root, home, me),
+                     "memory": memory_bar(p, user, root, home, reads)}
         for pid, name in PARTS:
             a = answers.get(pid) or {}
-            ok, why = structure[pid]
-            row = {"id": pid, "name": name, "structure": bool(ok), "structure_why": why,
+            ok, why, bar = structure[pid]
+            row = {"id": pid, "name": name, "structure": bool(ok), "structure_why": why, "structure_bar": "" if ok else bar,
                    "judged": judged_of(a.get("judged")),
-                   **quoted(a.get("quote"), where_memory if pid == "memory" else where, root, home),
+                   **quoted(a.get("quote"), where_memory if pid == "memory" else where_rules if pid == "rules" else where, root, home),
                    "why": text(a.get("why")),
                    "complexity": text(a.get("complexity")), "next": text(a.get("next")), "project": s}
+            if pid == "rules" and rests_on_team(row, p, root, home):
+                row.update(team=True, name=TEAM_RULES_NAME)
             per[pid].append(settle_memory(row, p, user, root, home) if pid == "memory" else row)
         projects.append({
             "slug": s, "label": os.path.basename(root), "tagline": tagline(sr.get("tagline")),
+            **({"branch_said": said} if (said := branch_said(p.get("branch"))) else {}),
             "headline": text(sr.get("headline"), 240),
             "summary": text(sr.get("summary"), 700), "map_md": tree(m, p, PAGE_TREE_WORDS, with_user=False),
             # this project's own verdicts (no text): the opening says in how many projects each part shows
-            "parts": [{k: per[pid][-1][k] for k in ("id", "judged", "structure", "quote_ok")} for pid, _ in PARTS],
+            "parts": [{k: per[pid][-1][k] for k in ("id", "judged", "structure", "structure_bar", "quote_ok", "team") if k in per[pid][-1]}
+                      for pid, _ in PARTS],
             # what the page shows when a person opens one of those verdicts: the line it rests on and the next step
             # (scrubbed like every string a reader wrote); the share summary never reads it (share_payload: verdicts only)
             "read": {pid: {k: per[pid][-1].get(k) for k in ("why", "quote", "quote_ok", "quote_dropped", "next")
@@ -1369,7 +1552,7 @@ def merge(run, home=None):
     for pid, name in PARTS:
         rows = per[pid]
         if not rows:
-            parts.append({"id": pid, "name": name, "structure": False, "structure_why": "no project was read",
+            parts.append({"id": pid, "name": name, "structure": False, "structure_why": "no project was read", "structure_bar": "",
                           "judged": "can't tell", "quote_ok": False, "quote": None, "why": "", "complexity": "",
                           "next": "", "project": None})
             continue

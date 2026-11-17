@@ -159,6 +159,15 @@ def board_areas(board):
                    if r.get("id") in BOARD_BUILD_AREAS and r.get("state") == "built and used"})
 
 
+def call_entries(level):
+    """The call's questions for a level: the entries no laptop can count (CALL_ONLY) for the level above it, or for L4
+    itself at L4; none when the level can't be told. [(ids, step)]. One rule for the practice read (level_pointer) and
+    for the share summary, which asks it of the level the page shows (share_payload, 11-16)."""
+    if level not in RANK:
+        return []
+    return CALL_ONLY.get({"L1": "L2", "L2": "L3", "L3": "L4"}.get(level) or level, [])
+
+
 def level_pointer(S, rung, states=None, built_by_board=()):
     """levels.md: the highest level whose list is fully met (11-05; each level takes the level below's list, which
     retires the 10-13 "a level below never blocks a level above"). Only shown rungs count (never "said").
@@ -248,7 +257,7 @@ def level_pointer(S, rung, states=None, built_by_board=()):
                                "change): ask on the call")
     elif lvl == "L4" and built:
         reasons.append(f"built things that change how the agent runs, in {len(built_areas)} areas: {', '.join(built)}")
-    call_q = CALL_ONLY.get(nxt or lvl, []) if lvl != "can't tell" else []
+    call_q = call_entries(lvl)
     if call_q:
         reasons.append(f"no laptop can count these yet, so they are questions for the call, never a minus: "
                        + "; ".join(entry(ids, need) for ids, need in call_q))

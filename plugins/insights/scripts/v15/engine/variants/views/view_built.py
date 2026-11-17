@@ -558,6 +558,7 @@ def render(ctx):
         out.append(_section(ctx, kind, row, items, n, unit, title, what, member))
     out.append(_crafts(ctx))
     out.append(_also(ctx, rows, member))
+    out.append(f'<p class="note">{ctx["esc"](wording.CANT_SEE)}</p>')
     return "".join(out)
 
 

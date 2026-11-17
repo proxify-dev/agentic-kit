@@ -84,7 +84,9 @@ SHAPE = {
 }
 SHAPED = ("indexed", "layered", "linked")
 # where a file of theirs reaches the agent, as the outline's sections name it (setup_map.py's setup-map.md)
-LOADS = {"always": ("Always loaded", "always"), "scoped": ("Loads in its folder", "scoped"), "demand": ("On demand", "demand")}
+LOADS = {"always": ("Always loaded", "always"), "scoped": ("Loads in its folder", "scoped"), "demand": ("On demand", "demand"),
+         # setup_map's "Your team's files" section: files a teammate wrote most of, never drawn as the person's own
+         "team": ("Your team's", "team")}
 
 # The first change, by card id (setup_read.py `cards`): the consequence as a headline, the step and the pay-off in one
 # line each. The card's own sentences (what was counted, what it costs, the full step) open under "What we saw".
@@ -185,6 +187,7 @@ CSS = """
 .v-review .kn-name{min-width:0}
 .v-review .kn-name b{display:block;font-size:15px;font-weight:600;color:#15172F;overflow-wrap:anywhere}
 .v-review .kn-plus{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:6px}
+.v-review .kn-off{font-size:12px;color:#B54708;margin:6px 0 0;max-width:46ch}
 .v-review .kn-plus i{font-style:normal;font-size:12px;font-weight:500;color:#027A48;background:#F6FEF9;border:1px solid #C4F3D8;border-radius:999px;padding:1px 8px;overflow-wrap:anywhere}
 .v-review .kn-name span{display:block;font-size:13px;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v-review .kn-c{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;min-height:40px;padding:6px 10px 6px 12px;
@@ -318,6 +321,7 @@ CSS = """
 .v-review .ld.always{background:#EEEFFE;color:#3C3ED4}
 .v-review .ld.scoped{background:#F6FEF9;color:#027A48;box-shadow:inset 0 0 0 1px #C4F3D8}
 .v-review .ld.demand{background:#FFFFFF;color:#475467;box-shadow:inset 0 0 0 1px #EAECF0}
+.v-review .ld.team{background:#F9FAFB;color:#475467;box-shadow:inset 0 0 0 1px #D0D5DD}
 .v-review .ft-more{font:12px/1.4 Inter,system-ui,sans-serif;color:#667085;padding:4px 0 0 22px}
 .v-review .ft-mem{display:grid;gap:6px;margin-top:12px}
 .v-review .ft-mem div{display:flex;align-items:center;gap:8px;font-size:13px;color:#344054;flex-wrap:wrap}
@@ -611,6 +615,8 @@ def _receipt(ctx, i, p, pid, state, note, store):
     # a quote the code did not find in the file is never shown: the verdict then rests on the sentence alone
     if g.get("quote_ok") and q.get("text"):
         out.append(_quote(ctx, q))
+        if state == "partly" and note:   # a quote the file backs, and still "Partly": the note says what the code's side lacks
+            out.append('<p class="rc-none">' + esc(note) + "</p>")
     elif state != "unread":
         out.append('<p class="rc-none">' + esc(note or "No line from your file backs this one yet.") + "</p>")
     if g.get("why"):
@@ -641,7 +647,9 @@ def _knows(ctx, projects):
         plus = [x for x in p.get("plus") or [] if isinstance(x, str) and x]   # what code found they do well: only ever adds
         rows.append(f'<div class="kn-row"><div class="kn-main"><div class="kn-name"><b>{esc(_name(p))}</b>'
                     + (f'<span title="{esc(tag)}">{esc(tag)}</span>' if tag else "")
-                    + (f'<div class="kn-plus">{"".join(f"<i>+ {esc(x)}</i>" for x in plus)}</div>' if plus else "") + "</div>"
+                    + (f'<div class="kn-plus">{"".join(f"<i>+ {esc(x)}</i>" for x in plus)}</div>' if plus else "")
+                    # the project was read on a branch that is not its default: setup_read.branch_said worded it
+                    + (f'<p class="kn-off">{_text(ctx, p["branch_said"])}</p>' if p.get("branch_said") else "") + "</div>"
                     + "".join(cells) + "</div>" + "".join(receipts) + "</div>")
     if not rows:
         return ""
@@ -897,7 +905,7 @@ def _parse_map(md):
                 block, sec = new_block(m.group(1) if m else name), None
                 continue
             block = block or new_block()
-            kind = ("always" if "always" in name.lower() else "scoped" if re.search(r"scoped|folder", name, re.I) else
+            kind = ("team" if re.match(r"your team", name, re.I) else "always" if "always" in name.lower() else "scoped" if re.search(r"scoped|folder", name, re.I) else
                     "demand" if "demand" in name.lower() else "memory" if "memory" in name.lower() else
                     "skills" if "skill" in name.lower() else "agents" if re.search(r"agent|command", name, re.I) else "other")
             sec = {"name": name, "kind": kind, "items": [], "more": 0}
@@ -1015,7 +1023,7 @@ def tree(ctx, md):
             more.insert(0, f"{len(entries) - TREE_FILES} more files")
             entries = entries[:TREE_FILES]
         # always-loaded first, then folder files, then on demand: the order the agent meets them
-        order = {"always": 0, "scoped": 1, "demand": 2}
+        order = {"always": 0, "scoped": 1, "demand": 2, "team": 3}
         entries.sort(key=lambda e: order[e[1]])
         body = _draw(ctx, _dir_tree(entries))
         if not (body or mem or chips):
@@ -1087,6 +1095,7 @@ def _about(ctx):
             ("This laptop", a.get("laptop")),
             ("How it was made", "Code mapped the files your agent loads. An agent then read them the way a colleague "
                                 "would, and code checked every quoted line against your file. Nothing left this laptop."),
+            ("What it can't see", wording.CANT_SEE),
             ("This copy", ("Experimental. " + a["stamp"][:1].upper() + a["stamp"][1:]) if a.get("stamp") else "Experimental.")]
     return ('<details class="about"><summary>' + _chev() + 'About this report</summary><dl>'
             + "".join(f"<dt>{k}</dt><dd>{esc(v)}</dd>" for k, v in rows if v) + "</dl></details>")
