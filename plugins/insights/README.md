@@ -23,7 +23,7 @@ A run spends AI tokens in your own session: on a large setup, a few hundred thou
 
 ## Privacy
 
-- It reads only. Nothing is installed or changed. What it writes goes to `~/agentic-setup/`, plus a speed-up cache in `~/.cache/setup-snapshot/` that the next run clears once it is 6 hours old; delete either folder whenever you like.
+- It reads only. It installs nothing without asking you, and changes no repo. What it writes goes to `~/agentic-setup/`, plus a speed-up cache in `~/.cache/setup-snapshot/` that the next run clears once it is 6 hours old; delete either folder whenever you like.
 - The page holds real project names, excerpts of your prompts and lines quoted from your rule and memory files. It stays on your machine. A line that looks like it holds a secret is never quoted.
 - The page's Share tab sends Proxify a short summary (practice ids and how far each goes, no file names, no prompt
   text) only when you press Send there.
@@ -35,7 +35,9 @@ A run spends AI tokens in your own session: on a large setup, a few hundred thou
 /plugin install insights@agentic-kit
 ```
 
-Needs Python 3.12+, or `uv` (it brings its own Python and PyYAML).
+Then run `/reload-plugins` (or restart Claude Code) before the command, or it answers "Unknown command".
+
+Needs Python 3.12+, or `uv` (it brings its own Python and PyYAML). If you have neither, it explains why and asks before installing `uv`.
 
 ## Update
 
