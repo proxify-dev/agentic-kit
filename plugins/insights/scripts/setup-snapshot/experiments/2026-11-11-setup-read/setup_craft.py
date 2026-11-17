@@ -220,6 +220,11 @@ def crafts_of(run, home):
             continue
         out.append({"kind": "plugin", "name": nm, "path": r, "parts": parts, "use": sum(p["use"] for p in parts),
                     "did": {k: sum(p["use"] for p in parts if p["kind"] == k) for k in ("skill", "command", "agent", "hook", "eval")}})
+    # a repo the person left out of the review (run.py pre --skip; setup-map.json "skipped") gives no craft to a reader
+    left = [os.path.normpath(os.path.join(home, r[2:]) if r.startswith("~/") else r) for r in (load(run, "setup-map.json") or {}).get("skipped") or []]
+    if left:
+        out = [c for c in out if not any(os.path.normpath(os.path.expanduser(str(c.get("path") or ""))).startswith(r + os.sep)
+                                         or os.path.normpath(str(c.get("path") or "")) == r for r in left)]
     picked = []
     for kind, n in PICK.items():
         pool = sorted((c for c in out if (c["kind"] in ("skill", "command") if kind == "skill" else c["kind"] == kind) and c["use"] > 0),

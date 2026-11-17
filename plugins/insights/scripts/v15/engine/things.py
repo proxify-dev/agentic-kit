@@ -345,7 +345,8 @@ def mapped_projects(setup_map, setup_read=None):
         label = os.path.basename(str(p.get("root") or "").rstrip("/")) or "project"
         out.append({"label": label, "root": p.get("root"), "always": wording.count_or_zero(t.get("always_files")),
                     "scoped": wording.count_or_zero(t.get("scoped_files")), "docs": wording.count_or_zero(t.get("on_demand_files")),
-                    "sessions": p.get("typed_sessions"), "ranked": p.get("typed_sessions") is not None,
+                    "sessions": p.get("typed_sessions"),
+                    "ranked": p.get("typed_sessions") is not None and p.get("picked_by") != "you",   # chosen: not "busiest"
                     "found_under": p.get("found_under"), "picked_by": p.get("picked_by"), "read": reads.pop(label, None)})
     for label, r in reads.items():
         out.append({"label": label, "root": None, "always": 0, "scoped": 0, "docs": 0, "sessions": None,
@@ -367,7 +368,48 @@ def project_how(p):
         return plural(wording.count_or_zero(p["sessions"]), "session")
     if p.get("picked_by") == "rule-files":
         return "added for its recently edited AGENTS.md"
+    if p.get("picked_by") == "you":   # run.py pre --only (setup_choice.py)
+        n = wording.count_or_zero(p.get("sessions"))
+        return "chosen by you" + (f", {plural(n, 'session')}" if n else "")
     return "found from your work" if not p.get("found_under") else f"found under {p['found_under']}"
+
+
+NOT_REVIEWED_SHOWN = 5   # repos named under the Review's projects; the rest are counted
+
+
+def not_reviewed(setup_map):
+    """The repos with sessions the review did not read (setup-map.json "not_read": anatomy_scan's list, busiest first,
+    less any a fill took), as label and sessions, and whether the person left some out (run.py pre --skip). What the
+    Review tab says under its projects: the page never said which repos with sessions it left unread (11-16)."""
+    m = setup_map if isinstance(setup_map, dict) else {}
+    rows = [{"label": os.path.basename(str(x.get("root")).rstrip("/")), "sessions": wording.count_or_zero(x.get("typed_sessions"))}
+            for x in m.get("not_read") or [] if isinstance(x, dict) and x.get("root")]
+    ps = [x for x in m.get("projects") or [] if isinstance(x, dict)]
+    return {"projects": rows, "skipped": bool(m.get("skipped")),
+            "chosen": bool(ps) and all(x.get("picked_by") == "you" for x in ps),
+            "confirmed": len(ps) if ps and all(x.get("picked_by") == "confirmed" for x in ps) else 0}
+
+
+def not_reviewed_said(nr, masked=False):
+    """One short paragraph from not_reviewed(): which repos were not read (names only on the person's own copy; a count
+    when `masked`), and how to change the pick, in the command a member types (wording.change_pick_said). "" when every
+    repo with sessions was read, none was left out and the busiest were read without asking (an old run folder)."""
+    ps = (nr or {}).get("projects") or []
+    chosen, confirmed = bool((nr or {}).get("chosen")), (nr or {}).get("confirmed") or 0
+    if not ps and not (nr or {}).get("skipped") and not chosen and not confirmed:
+        return ""
+    out = [f"These are {wording.confirmed_said(confirmed)}."] if confirmed else []
+    if ps and masked:
+        out.append(f"{plural(len(ps), 'other project')} with sessions {'was' if len(ps) == 1 else 'were'} not reviewed.")
+    elif ps:
+        named = [f"{p['label']} ({plural(p['sessions'], 'session')})" for p in ps[:NOT_REVIEWED_SHOWN]]
+        if len(ps) > NOT_REVIEWED_SHOWN:
+            named.append(f"{len(ps) - NOT_REVIEWED_SHOWN} more")
+        out.append("Not reviewed: " + (named[0] if len(named) == 1 else ", ".join(named[:-1]) + " and " + named[-1]) + ".")
+    if (nr or {}).get("skipped"):
+        out.append("The projects you asked to leave out were not read.")
+    out.append(wording.change_pick_said(chosen))
+    return " ".join(out)
 
 
 def _lc(name):

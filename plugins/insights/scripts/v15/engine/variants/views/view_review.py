@@ -1053,9 +1053,11 @@ def _project(ctx, p):
 def _projects(ctx, projects):
     if not projects:
         return ""
+    rest = level_things.not_reviewed_said(level_things.not_reviewed(ctx.get("setup_map")), masked=bool(ctx.get("masked")))
     return ('<section class="rv-sec" id="review-projects"><h3>Each project</h3>'
             '<p class="rv-sub">The review of each one, and how its files are laid out.</p>'
-            f'<div class="pj-list">{"".join(_project(ctx, p) for p in projects)}</div></section>')
+            f'<div class="pj-list">{"".join(_project(ctx, p) for p in projects)}</div>'
+            + (f'<p class="note pj-rest">{ctx["esc"](rest)}</p>' if rest else "") + '</section>')
 
 
 # ------------------------------------------------------------------ the rest

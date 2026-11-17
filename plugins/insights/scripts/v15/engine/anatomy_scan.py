@@ -2,10 +2,10 @@
 """The anatomy's code-only step on this machine: its own checks, the files its AI questions need, and one brief per
 most-active project for the AI pass. Read-only on the machine; writes only into RUN_DIR.
 
-    python3 anatomy_scan.py RUN_DIR [--anatomy ANATOMY.yaml] [--days 30] [--projects 3]
+    python3 anatomy_scan.py RUN_DIR [--anatomy ANATOMY.yaml] [--days 30] [--projects 3] [--only NAME]... [--skip NAME]...
 
 Writes
-  RUN_DIR/anatomy-scan.json        {meta, projects, checks: {id: {value, sessions, evidence, secs}}, files: {finder: {root: [paths]}}}
+  RUN_DIR/anatomy-scan.json        {meta, projects, not_read: [{root, typed_sessions}], checks: {id: {value, sessions, evidence, secs}}, files: {finder: {root: [paths]}}}
   RUN_DIR/anatomy-brief-<slug>.md  per project: every SCAN → AI and PROJECT READ question, with the files the scan found
 The AI pass (one sonnet sub-agent per brief, as in the setup tool's SKILL.md) answers into RUN_DIR/anatomy-ai-<slug>.json.
 
@@ -27,6 +27,12 @@ import importlib.util  # noqa: E402
 _spec = importlib.util.spec_from_file_location("clock", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "setup-snapshot", "experiments", "2026-11-02-evidence", "clock.py"))
 clock = importlib.util.module_from_spec(_spec)   # the one place the calendar clock is read
 _spec.loader.exec_module(clock)
+_cspec = importlib.util.spec_from_file_location("setup_choice", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "setup-snapshot", "experiments", "2026-11-11-setup-read", "setup_choice.py"))
+choice = importlib.util.module_from_spec(_cspec)   # --only / --skip: the projects the person named; setup_map.py reads them the same way
+_cspec.loader.exec_module(choice)
+_wspec = importlib.util.spec_from_file_location("worked_in", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "setup-snapshot", "experiments", "2026-11-02-evidence", "worked_in.py"))
+W = importlib.util.module_from_spec(_wspec)   # the repos a session worked in: the rule inventory.py's worked-in.json uses
+_wspec.loader.exec_module(W)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import anatomy_model as M  # noqa: E402
@@ -74,9 +80,11 @@ def typed_text(msg):
     return c
 
 
-def scan_file(path):
-    """One session log → its counts. Only lines that can matter are parsed."""
+def scan_file(path, start=0):
+    """One session log → its counts, and `worked`: the repos it changed, records since `start` (worked_in.py's rule, on
+    the lines this pass parses anyway). Only lines that can matter are parsed."""
     s = Counter()
+    worked = Counter()
     s["file"] = 0
     cwd, entry, conditions, hooks, own_id, ran = None, None, [], Counter(), os.path.basename(path)[:-6], set()
     edited = False
@@ -95,6 +103,8 @@ def scan_file(path):
                 continue
             if cwd is None and d.get("cwd"):
                 cwd, entry = d.get("cwd"), d.get("entrypoint")
+            if W.marked(line):
+                worked.update(W.worked_of_record(d, start))
             t = d.get("type")
             if t == "attachment":
                 a = d.get("attachment") or {}
@@ -144,7 +154,7 @@ def scan_file(path):
                     if SESSIONS_DIR.search(json.dumps(inp)):
                         s["session_search"] += 1
     return {"path": path, "cwd": cwd, "entry": entry, "counts": dict(s), "conditions": conditions, "hooks": dict(hooks),
-            "ran_hooks": sorted(ran)}
+            "ran_hooks": sorted(ran), "worked": W.keep(worked)}
 
 
 def git(root, *args, timeout=20):
@@ -170,16 +180,23 @@ def repo_of(cwd):
     return root
 
 
+def credited(r, worked, top_worked):
+    """(the repo a session started in, the other repos it counts for): each repo it changed from another folder
+    (`worked`, kept to `top_worked`). most_active counts sessions by it, and the list's "last active" dates by it."""
+    repo = repo_of(r["cwd"])
+    also = {repo_of(w) for w in (worked or {}).get(os.path.basename(r["path"])[:-6], {}) if w in top_worked} - {repo}
+    return repo, also
+
+
 def most_active(per, n, worked=None, top_worked=()):
     """(by_repo, active): sessions per main checkout (a session typed in any app counts as typed, a headless run only
-    as a session), also for each repo the session worked in (`worked`: worked-in.json's sessions, kept to
-    `top_worked`), and the n busiest repos (`busiest`: most typed sessions, ties by path; a folder that is no git repo
+    as a session), also for each repo the session worked in (`worked`: read_logs' worked-in links, worked_in.py's rule,
+    kept to `top_worked`), and the n busiest repos (`busiest`: most typed sessions, ties by path; a folder that is no git repo
     is skipped)."""
     by_repo = defaultdict(Counter)
     for r in per:
-        repo = repo_of(r["cwd"])
+        repo, also = credited(r, worked, top_worked)
         typed = person_session(r["entry"]) and r["counts"].get("typed")
-        also = {repo_of(w) for w in (worked or {}).get(os.path.basename(r["path"])[:-6], {}) if w in top_worked} - {repo}
         for rp in also:
             by_repo[rp]["worked_sessions"] += 1
             if typed:
@@ -370,12 +387,175 @@ def busiest(by_repo, n):
     return [root for root, _ in ranked if root and os.path.isdir(root) and os.path.isdir(os.path.join(root, ".git"))][:n]
 
 
+def tilde(p):
+    return "~" + p[len(HOME):] if p == HOME or p.startswith(HOME + os.sep) else p
+
+
+def as_asked(run_dir, by_repo, n, only=(), skip=(), home=HOME, resolve=None, say=print):
+    """(the projects to read, the set --only chose) when the person named projects (setup_choice.py): the `n` busiest with
+    --skip's left out, or exactly --only's. The pool is every repo sessions ran or worked in, then the inventory's other
+    repos (inventory.json), in that order. Raises setup_choice.Refused (the run stops; nothing is read in its place)."""
+    resolve = resolve or repo_of
+    ranked = busiest(by_repo, len(by_repo))
+    extra, rule_roots, targets = choice.pool_extras(_load_json(run_dir, "inventory.json"), _load_json(run_dir, "anatomy.json"))
+    pool = ranked + [r for r in extra if r not in set(ranked)]
+    # a repo named by its path counts even when the logs never ranked it; a path that is no git repo stops here
+    pool += [r for r in choice.named_repos(only, home, resolve, lambda r: os.path.isdir(os.path.join(r, ".git"))) if r not in pool]
+    skipped = choice.skipper(skip, home, resolve)
+    choice.check_skips(skip, pool + rule_roots, home, resolve)
+    if only:
+        chosen, notes = choice.choose(only, pool, home, resolve, targets, skipped, tilde)
+        for x in notes:
+            say("note: " + x)
+        return chosen, set(chosen)
+    return [r for r in ranked if not skipped(r)][:n], set()
+
+
+def _load_json(run_dir, name):
+    if not run_dir:   # no run folder (a pick before any scan): nothing to read, and never a file of the current folder
+        return None
+    try:
+        with open(os.path.join(run_dir, name)) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def _scan(args):
+    return scan_file(*args)
+
+
+def _helper_worked(args):
+    return W.worked_of_log(args)
+
+
+def read_logs(days, logs=None):
+    """(the session logs written in the last `days` days, what scan_file read from each, worked: {session: {repo: calls}}
+    the repos each session changed wherever it started, its sub-agents' work included). The one log read: `main` (the
+    anatomy step of `pre`) and `run.py candidates` / `pre --dry-run` call it, so the list a person chooses from and the
+    real pick rank the same sessions with the same worked-in links. `worked` is worked_in.py's rule, the one inventory.py
+    writes as worked-in.json; main logs give it in scan_file's pass, sub-agent logs in a pass of their own."""
+    cutoff = clock.now() - days * 86400
+    files, helpers = W.log_files(cutoff, logs or LOGS)
+    with Pool(max(2, (os.cpu_count() or 4) - 1)) as pool:
+        per = [r for r in pool.map(_scan, [(f, cutoff) for f in files], chunksize=16) if r]
+        helper_worked = pool.map(_helper_worked, [(f, cutoff) for f in helpers], chunksize=16)
+    worked = W.by_session([(r["path"], r.get("worked")) for r in per] + helper_worked)
+    return files, per, worked
+
+
+def top_worked_of(worked):
+    """The WORKED_REPOS repos most sessions worked in: only those count for a session that started elsewhere."""
+    return {w for w, _ in sorted(Counter(w for v in worked.values() for w in v).items(), key=lambda kv: (-kv[1], kv[0]))[:WORKED_REPOS]}
+
+
+def pick(per, n, only=(), skip=(), run_dir=None, worked=None, top_worked=(), say=print):
+    """(sessions per repo, the projects the review reads, the set --only chose): the busiest `n`, or what --only/--skip
+    ask (as_asked). The one pick: `main` and the dry run both call it. Raises choice.Refused. `run_dir` may be a folder
+    that holds nothing yet (a pre-scan answer: no inventory.json or anatomy.json to widen the pool or limit its reach)."""
+    by_repo, active = most_active(per, n, worked, top_worked)
+    chosen = set()
+    if only or skip:
+        active, chosen = as_asked(run_dir, by_repo, n, only, skip, say=say)
+    return by_repo, active, chosen
+
+
+def not_read_of(by_repo, active, skip):
+    """The repos the person typed in that the review does not read, busiest first (a --skip one is not listed: they know)."""
+    left_out = choice.skipper(skip, HOME, repo_of)
+    return [{"root": r, "typed_sessions": by_repo[r]["typed_sessions"]} for r in busiest(by_repo, len(by_repo))
+            if r not in active and by_repo[r].get("typed_sessions") and not left_out(r)]
+
+
+def keys_of(pool):
+    """root -> the one word to pass to --only/--skip for it: its folder name when no other repo of the pool has that
+    name, else its `~` path (several clones can share a folder name). A key is checked to name exactly its own repo."""
+    names = Counter(choice.label(r).lower() for r in pool)
+    out = {}
+    for r in pool:
+        k = choice.label(r)
+        if names[k.lower()] > 1 or choice._is_path(k):
+            k = tilde(r)
+        hits = [x for x in pool if choice.matches(k, x, HOME, repo_of)]
+        out[r] = k if hits == [r] else r   # absolute path, when even `~/...` is ambiguous
+    return out
+
+
+BASIS = ("Ranked by the sessions you typed in each git repo in the last {days} days. A session counts for the folder it "
+         "started in and for each repo it changed from there (an edit or a commit), so work started in a parent folder "
+         "counts for the repo it was done in. The scan picks with this same count.")
+# setup_map.pick_projects fills a pick of fewer than 3 (no --only) from what only the inventory finds: a repo below a
+# folder sessions started in that is no repo, or, after sessions started in the home folder, the repo whose own
+# AGENTS.md/CLAUDE.md was edited last. The list can't show those, so it says so when its default is short.
+MAY_FILL = ("This is fewer than {n} projects, so the scan may add a repo it finds below a folder your sessions started "
+            "in, or the one whose AGENTS.md or CLAUDE.md you edited last. It prints the projects it took.")
+
+
+def candidates(per, n, only=(), skip=(), run_dir=None, worked=None, typed=False, days=30):
+    """What `run.py candidates` shows: every git repo the person typed sessions in during the window (and any repo the
+    pick takes), busiest first, each with the key to give --only/--skip, and which of them the default pick and the
+    pick with --only/--skip take. `worked` is read_logs' third value: the same input the real pick (main) ranks by,
+    through the same `pick`, so the default shown is the default the scan takes. `typed`: the names are what a person
+    typed (setup_choice.resolve_typed: a unique start of a folder name is taken and said; else Refused with the closest
+    keys). Raises choice.Refused on a name the pick can't honour."""
+    notes = []
+    top_worked = top_worked_of(worked or {})
+    by_repo, default, _ = pick(per, n, run_dir=run_dir, worked=worked, top_worked=top_worked)
+    ranked = busiest(by_repo, len(by_repo))
+    keys = keys_of(ranked)
+    if typed:
+        only, said = choice.resolve_typed(only, ranked, HOME, repo_of, keys.get)
+        skip, said2 = choice.resolve_typed(skip, ranked, HOME, repo_of, keys.get, "--skip")
+        notes += said + said2
+    _, picked, chosen = pick(per, n, only, skip, run_dir, worked, top_worked, say=notes.append)
+    keys = keys_of(ranked + [r for r in picked if r not in ranked])   # a repo named by its path that no session ranked
+    try:   # the busiest passed back as --only (what the skill does once they are confirmed): refused before the scan, not after
+        pick(per, n, [keys[r] for r in default], (), run_dir, worked, top_worked, say=lambda x: None)
+        default_refused = None
+    except choice.Refused as e:
+        default_refused = str(e)
+    last = {}
+    for r in per:
+        try:
+            t = os.path.getmtime(r["path"])
+        except OSError:
+            continue
+        repo, also = credited(r, worked, top_worked)
+        for rp in {repo} | also:
+            last[rp] = max(last.get(rp, 0), t)
+    listed = [r for r in ranked if by_repo[r].get("typed_sessions") or r in picked or r in default]
+    names = Counter(choice.label(r).lower() for r in listed)
+    rows = [{"key": keys[r], "name": choice.label(r), "path": tilde(r), "same_name": names[choice.label(r).lower()] > 1,
+             "rank": i + 1, "typed_sessions": by_repo[r].get("typed_sessions", 0),
+             "worked_sessions": by_repo[r].get("worked_sessions", 0),
+             "sessions": by_repo[r].get("sessions", 0), "in_default": r in default,
+             "default_rank": default.index(r) + 1 if r in default else None, "in_pick": r in picked,
+             "last_active": time.strftime("%Y-%m-%d", time.localtime(last[r])) if r in last else None}
+            for i, r in enumerate(listed)]
+    # folders sessions started in that are no git repo (the home folder, a notes folder): never reviewed themselves;
+    # their sessions count for the repos they changed
+    loose = sorted(((root, c["typed_sessions"]) for root, c in by_repo.items()
+                    if root and c.get("typed_sessions") and root not in set(ranked) and os.path.isdir(root)
+                    and not W.TMP.match(root) and not (root + os.sep).startswith(os.path.join(HOME, ".claude") + os.sep)),
+                   key=lambda kv: (-kv[1], kv[0]))
+    return {"window_days": days, "pick_size": n, "picked_by": choice.picked_by(picked, default) if chosen else "busiest",
+            "default": [keys[r] for r in default], "pick": [keys[r] for r in picked], "pick_roots": {keys[r]: r for r in picked},
+            "only": list(only), "skip": list(skip), "projects": rows,
+            "not_repos": [{"path": tilde(r), "typed_sessions": k} for r, k in loose], "notes": notes,
+            "default_refused": default_refused, "may_fill": MAY_FILL.format(n=n) if len(picked) < n and not chosen else None,
+            "basis": BASIS.format(days=days)}
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("run_dir")
     ap.add_argument("--anatomy", default=DEFAULT_ANATOMY)
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--projects", type=int, default=3)
+    ap.add_argument("--only", action="append", default=[], metavar="NAME",
+                    help="review this project and no busiest pick (repeat for more; a folder name or a path): setup_choice.py")
+    ap.add_argument("--skip", action="append", default=[], metavar="NAME",
+                    help="leave this project out of the review (repeat for more; a folder name or a path)")
     a = ap.parse_args(argv)
     try:
         import yaml
@@ -385,20 +565,13 @@ def main(argv):
     A = yaml.safe_load(open(a.anatomy))
     os.makedirs(a.run_dir, exist_ok=True)
     t0 = time.monotonic()
-    cutoff = clock.now() - a.days * 86400
-    files = [f for f in glob.glob(os.path.join(LOGS, "*", "*.jsonl")) if os.path.getmtime(f) >= cutoff]
-    with Pool(max(2, (os.cpu_count() or 4) - 1)) as pool:
-        per = [r for r in pool.map(scan_file, files, chunksize=16) if r]
+    # worked: the repos each session changed, from the logs themselves (read_logs), not from the inventory's
+    # worked-in.json: `run.py candidates` reads exactly this before anything runs, so the list a person chose from and
+    # this pick are one function of one input. A session that started in the home folder, or in a folder above its
+    # repos, belongs to the repos it edited and committed in.
+    files, per, worked = read_logs(a.days)
     t_logs = time.monotonic() - t0
-
-    # the repos each session worked in (inventory.py writes it from the same pass over the logs): a session that started
-    # in the home folder, or in a folder above its repos, belongs to the repos it edited and committed in
-    try:
-        with open(os.path.join(a.run_dir, "worked-in.json")) as f:
-            worked = json.load(f)["sessions"]
-    except (OSError, ValueError, KeyError):
-        worked = {}
-    top_worked = {w for w, _ in sorted(Counter(w for v in worked.values() for w in v).items(), key=lambda kv: (-kv[1], kv[0]))[:WORKED_REPOS]}
+    top_worked = top_worked_of(worked)
 
     total, sessions = Counter(), Counter()
     conditions, hooks, ran = defaultdict(list), Counter(), set()
@@ -420,7 +593,11 @@ def main(argv):
             goal_sessions += 1
             goal_wake += bool(c.get("wakeups"))
         rounds += c.get("stop_blocks", 0) >= 2
-    by_repo, active = most_active(per, a.projects, worked, top_worked)
+    try:
+        by_repo, active, chosen = pick(per, a.projects, a.only, a.skip, a.run_dir, worked, top_worked)
+        how = choice.picked_by(active, busiest(by_repo, a.projects))   # "confirmed": --only named exactly the busiest
+    except choice.Refused as e:
+        sys.exit(f"stopped: {e}")
 
     t1 = time.monotonic()
     found, gits, readers = {}, {}, {"tools": [], "hooks": []}
@@ -470,8 +647,12 @@ def main(argv):
     }
     meta = {"days": a.days, "logs": len(files), "secs_logs": round(t_logs, 1), "secs_git": round(t_git, 1),
             "anatomy": os.path.abspath(a.anatomy), "at": time.strftime("%Y-%m-%d %H:%M", time.localtime(clock.now()))}
-    projects = [{"root": r, "slug": slug(r), "typed_sessions": 0, "sessions": 0, **by_repo[r]} for r in active]
-    json.dump({"meta": meta, "projects": projects, "checks": checks, "files": found},
+    projects = [{"root": r, "slug": slug(r), "typed_sessions": 0, "sessions": 0, **by_repo[r],
+                 **({"picked_by": how} if r in chosen else {})} for r in active]
+    # the repos the person typed in that the review does not read, busiest first (a --skip one is not listed: they know):
+    # the Review tab names them, so a member sees what was left unread and how to have it read (11-16 feedback)
+    not_read = not_read_of(by_repo, active, a.skip)
+    json.dump({"meta": meta, "projects": projects, "not_read": not_read, "checks": checks, "files": found},
               open(os.path.join(a.run_dir, "anatomy-scan.json"), "w"), indent=1)
 
     qs = M.ai_questions(A)

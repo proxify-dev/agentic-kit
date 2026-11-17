@@ -159,6 +159,9 @@ def load_module(name, path):
 
 clock = load_module("clock", os.path.join(HERE, "clock.py"))   # the one place the calendar clock is read
 memory_shape = load_module("memory_shape", os.path.join(HERE, "memory_shape.py"))   # what counts as memory, whose it is, whether it is used
+W = load_module("worked_in", os.path.join(HERE, "worked_in.py"))   # the repos a session worked in: the one rule the project pick reads too
+parent_dir, repo_root, tidy_path, worked_repo, worked_dirs_of = W.parent_dir, W.repo_root, W.tidy_path, W.worked_repo, W.worked_dirs_of
+HEREDOC = W.HEREDOC
 START = clock.now() - 30 * 86400  # set in main() from --days
 ANATOMY = os.path.join(EXP, "2026-10-27-anatomy", "inventory.py")
 LOGS = os.path.join(EXP, "2026-11-02-problems", "logs.py")
@@ -239,32 +242,6 @@ def history_rows(path):
     return _histories.rows(top, os.path.relpath(path, top))
 
 
-def parent_dir(q):
-    """The folder above q, or None at the top. A walk up a path stops here: a root is its own parent ("/", "//" (POSIX
-    keeps a leading double slash), "C:\\"), so a loop that waits to reach "/" or the home folder never ends on those."""
-    up = os.path.dirname(q)
-    return up if up and up != q else None
-
-
-def repo_root(path):
-    """The repo a folder belongs to, read from the files (worktrees resolve to their main repo). No git call."""
-    q = path
-    while q and q not in ("/", HOME):
-        g = os.path.join(q, ".git")
-        if os.path.isdir(g):
-            return q
-        if os.path.isfile(g):
-            try:
-                t = open(g).read().split("gitdir:")[-1].strip()
-            except OSError:
-                return q
-            if not os.path.isabs(t):
-                t = os.path.normpath(os.path.join(q, t))
-            return t.split("/.git/")[0] if "/.git/" in t else q
-        q = parent_dir(q)
-    return None
-
-
 def in_linked_worktree(path):
     q = path
     while q and q not in ("/", HOME):
@@ -276,7 +253,7 @@ def in_linked_worktree(path):
     return False
 
 
-TMP = re.compile(r"^(/private)?/(tmp|var/folders)(/|$)")
+TMP = W.TMP   # temporary folders: copies made for one run
 
 
 def place(cwd):
@@ -359,90 +336,6 @@ def rank_folders(all_folders, roots, from_work, head_folders, last, cap=15):
 def sort_repos(repos):
     """The inventory's repo rows, busiest first (typed + headless + worked sessions), a tie by path. In place."""
     repos.sort(key=lambda x: (-(x["typed_chats"] + x["headless_runs"] + x.get("worked_chats", 0)), x["repo"]))
-# What a Bash call does to a repo: these git subcommands change it; a read (log, diff, status, show, grep) does not,
-# and neither does a pull or a checkout, which is how a reference clone is brought up to date.
-GIT_WRITES = {"commit", "add", "apply", "am", "mv", "rm", "merge", "rebase", "cherry-pick", "revert", "restore"}
-FILE_WRITERS = {"tee", "touch", "mv", "cp", "rm", "mkdir", "patch", "install"}   # `sed` only with -i
-WORKISH_RX = re.compile(r"\bgit\b|\b(sed|tee|touch|mv|cp|rm|mkdir|patch|install)\b|>")
-NOT_WORKED_IN = re.compile(r"/node_modules/|/\.git/")
-_WORKED = {}
-NOT_A_PATH = re.compile(r"[$`<>*?|\x00]|://")   # a shell variable, a command substitution, a here-doc marker, a glob, a URL
-LEADING_SLASHES = re.compile(r"^/{2,}")
-
-
-def tidy_path(p):
-    """A path a command names, cleaned for a walk up the tree: `//x` is `/x` (normpath keeps a leading double slash, and
-    a walk up from it never reached `/`). None when it is not a real path: empty, `-`, `/dev/...`, `&1`, a shell variable
-    (`$OUT/file`), a URL, a here-doc marker."""
-    if not p or p == "-" or p.startswith(("/dev/", "&")) or NOT_A_PATH.search(p):
-        return None
-    return LEADING_SLASHES.sub("/", os.path.normpath(p))
-
-
-def worked_repo(folder):
-    """The repo a folder belongs to when work done in it counts as worked in; None otherwise. Left out: temporary folders,
-    Claude Code's own ~/.claude (its plugin cache is other people's files), node_modules. No git call."""
-    folder = tidy_path(folder)
-    if not folder:
-        return None
-    if folder not in _WORKED:
-        bad = TMP.match(folder) or (folder + "/").startswith(os.path.join(HOME, ".claude") + "/") or NOT_WORKED_IN.search(folder + "/")
-        root = None if bad else repo_root(folder)
-        _WORKED[folder] = None if root and TMP.match(root) else root
-    return _WORKED[folder]
-
-
-def worked_dirs_of(cmd, cwd):
-    """Folders a shell command CHANGES, for the repos a session worked in: where a git commit, add, apply, merge...
-    ran (the cwd, a `cd X` before it, or `git -C X`), and the paths a file-writing program (sed -i, tee, touch, mv, cp's
-    target, a `>` redirect) writes. Reading is not working: cat, grep, git log or diff name no folder. Follows
-    files_named_by: the same segments, `cd` moves the folder, `~` is expanded; whether the folder is a repo is asked later."""
-    out, here = [], cwd or ""
-
-    def absolute(w):
-        w = os.path.expanduser(w)
-        if not tidy_path(w) or not (w.startswith("/") or here):
-            return None
-        return tidy_path(w if w.startswith("/") else os.path.join(here, w))
-
-    def folder_of(a):
-        return a if a and os.path.isdir(a) else os.path.dirname(a) if a else None
-
-    for seg in re.split(r"&&|\|\||;|\||\n", HEREDOC.sub("", cmd)):
-        try:
-            tok = shlex.split(seg)
-        except ValueError:
-            tok = seg.split()
-        while tok and (re.match(r"^\w+=", tok[0]) or tok[0] in ("sudo", "time", "exec", "nohup", "env")):
-            tok = tok[1:]
-        if not tok:
-            continue
-        if tok[0] == "cd":
-            here = (absolute(tok[1]) if len(tok) > 1 and tok[1] != "-" else None) or here
-            continue
-        prog = os.path.basename(tok[0])
-        if prog == "git":
-            where, i = here, 1
-            while i < len(tok) and tok[i].startswith("-"):
-                if tok[i] == "-C" and i + 1 < len(tok):
-                    where = absolute(tok[i + 1]) or where
-                i += 2 if tok[i] in ("-C", "-c") else 1
-            if i < len(tok) and tok[i] in GIT_WRITES and where:
-                out.append(where)
-        elif prog in FILE_WRITERS or (prog == "sed" and any(re.match(r"^-\w*i", x) or x.startswith("--in-place") for x in tok[1:])):
-            args = [x for x in tok[1:] if not x.startswith("-") and ("/" in x or "." in x or x.startswith("~"))]
-            for x in (args[-1:] if prog in ("cp", "sed") else args):   # cp reads its sources; sed's first word is its script
-                out.append(folder_of(absolute(x)))
-        for j, w in enumerate(tok):   # a redirect writes its target: `> file`, `>> file`, `>file`
-            m = re.match(r"^\d*&?>>?(.*)$", w)
-            if m:
-                target = m.group(1) or (tok[j + 1] if j + 1 < len(tok) else "")
-                if target:
-                    out.append(folder_of(absolute(target)))
-    return [d for d in dict.fromkeys(out) if d]
-
-
-HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\s*\1\b", re.S)
 QUOTED = re.compile(r"'[^']*'|\"(?:[^\"\\]|\\.)*\"")
 RUNNERS = ("uv", "uvx", "npx", "bunx", "pnpm", "python", "python3", "node", "bun", "bash", "sh", "zsh", "deno", "tsx")
 
@@ -669,14 +562,8 @@ def read_log(args):
                 rec = json.loads(line)
             except ValueError:
                 continue
-            ts = rec.get("timestamp")
-            if not ts:
-                continue
-            try:
-                t = datetime.fromisoformat(ts[:19] + "+00:00").timestamp()
-            except ValueError:
-                continue
-            if t < start:
+            t = W.record_time(rec)   # the same window gate as worked_in.worked_of_log
+            if t is None or t < start:
                 continue
             r["t0"] = r["t0"] or t
             r["t1"] = t
@@ -772,6 +659,7 @@ def read_log(args):
                     name = b.get("name") or "?"
                     inp = b.get("input") if isinstance(b.get("input"), dict) else {}
                     r["tools"][name] += 1
+                    r["worked"].update(W.repos_of_call(name, inp, rec.get("cwd")))   # the repos it changed (worked_in.py)
                     if job_task and name not in NOT_A_RETURN_TO_A_JOB:
                         named = json.dumps(inp)
                         job_back.update(tid for tid in job_task if tid in named)
@@ -800,10 +688,6 @@ def read_log(args):
                             r["dirs_read"][d] += 1
                         for p in PATH_RX.findall(cmd)[:6]:
                             note_path(r, "paths_read", p, rec.get("cwd"))
-                        if WORKISH_RX.search(cmd):
-                            for d in worked_dirs_of(cmd, rec.get("cwd") or ""):
-                                if worked_repo(d):
-                                    r["worked"][worked_repo(d)] += 1
                     elif name in ("Agent", "Task"):
                         r["agents"].append([inp.get("subagent_type") or "general-purpose", inp.get("model"),
                                             bool(inp.get("run_in_background")), (inp.get("description") or "")[:60]])
@@ -837,10 +721,6 @@ def read_log(args):
                             for d in dirs_of([p]):
                                 r["dirs_written"][d] += 1
                             note_path(r, "paths_written", p, rec.get("cwd"))
-                            q = os.path.expanduser(p)
-                            q = q if q.startswith("/") else os.path.join(rec.get("cwd") or "/", q)
-                            if worked_repo(os.path.dirname(q)):
-                                r["worked"][worked_repo(os.path.dirname(q))] += 1
                             wd = r.setdefault("written_dirs", set())   # whole folders, for ownership.written_in_logs
                             if len(wd) < 3000:
                                 wd.add(os.path.dirname(p.replace("~", HOME, 1) if p.startswith("~") else p))
@@ -936,7 +816,7 @@ def read_log(args):
         r[k] = [[list(key), v] for key, v in r[k].items()]
     r["agent_names"] = sorted(r["agent_names"])
     r["written_dirs"] = sorted(r.get("written_dirs", ()))
-    r["worked"] = dict(r["worked"].most_common(8))
+    r["worked"] = W.keep(r["worked"])
     return r
 
 
@@ -3434,6 +3314,9 @@ def main(argv=None):
     ap.add_argument("--days", type=int, default=30)
     ap.add_argument("--anatomy", help="reuse an existing anatomy.json instead of re-running it")
     ap.add_argument("--chats", help="reuse an existing chats.jsonl")
+    ap.add_argument("--also", action="append", default=[], metavar="REPO",
+                    help="a repo the person chose (run.py pre --only, resolved to its root): the file scan opens it too, "
+                         "however few sessions started there, so the review of it reads files the scan read")
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     T = {}
@@ -3470,12 +3353,9 @@ def main(argv=None):
         json.dump(WRITTEN_DIRS, f)
     # the repos each typed session worked in, whatever folder it started in (a helper's work counts for the session that
     # started it): the start-folder rows below find what Claude Code loads; these find where the work happened
-    worked_by_session = defaultdict(Counter)
-    for r in recs:
-        sid = r["chat"] if not r["helper"] else os.path.basename(os.path.dirname(os.path.dirname(r["file"])))
-        worked_by_session[sid].update(r.get("worked") or {})
-    with open(os.path.join(a.out, "worked-in.json"), "w") as f:   # the anatomy scan ranks projects by the same link
-        json.dump({"sessions": {sid: dict(c) for sid, c in worked_by_session.items() if c}}, f)
+    worked_by_session = W.by_session((r["file"], r.get("worked")) for r in recs)
+    with open(os.path.join(a.out, "worked-in.json"), "w") as f:   # the project pick reads the same link (worked_in.worked_in)
+        json.dump({"sessions": worked_by_session}, f)
     worked_chats = Counter()      # repo → typed sessions that worked in it
     for c in typed:
         worked_chats.update(worked_by_session.get(c["chat"], {}).keys())
@@ -3508,7 +3388,10 @@ def main(argv=None):
         # removed first, so a scan that fails can't leave the old one to be read as this run's
         if os.path.exists(anat_path):
             os.remove(anat_path)
-        targets = list(dict.fromkeys(list(ranked) + own_marketplace_folders()))   # + their own marketplaces' folders
+        # + their own marketplaces' folders, + every repo the person chose: a chosen repo outside the 15 busiest folders
+        # (1 session started there, the rest worked in from elsewhere) used to stop the run after this step (11-17)
+        chosen = [os.path.normpath(os.path.abspath(r)) for r in a.also if os.path.isdir(r)]
+        targets = list(dict.fromkeys(list(ranked) + own_marketplace_folders() + chosen))
         starts = [c for c, _ in sorted((cwd_count + head_cwds).items(), key=lambda kv: (-kv[1], str(kv[0]))) if c and not TMP.match(c)][:300]
         proc = subprocess.Popen([sys.executable, ANATOMY, "--out", anat_path, "--written-dirs", written_path, *targets,
                                  *[x for f in starts for x in ("--start-folder", f)]],

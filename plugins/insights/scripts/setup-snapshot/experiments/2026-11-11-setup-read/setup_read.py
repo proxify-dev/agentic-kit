@@ -1266,12 +1266,13 @@ def _and(xs):
     return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
-def opening(projects, first):
+def opening(projects, first, which="most active"):
     """The Review's first lines and the skill's closing words: one or two sentences about the PERSON, across every
     project that was read. Why (11-11): the page opened on the most active project's headline ("a mature, layered
     setup for a video studio…"), which describes one repo and not the person. Built by code from the verdicts, no new
     AI call: in how many projects each part shows (the level's own test: the code's structure, a "shown" reading and
-    a quote found in the file), then the first thing to change. [] when no reader answered."""
+    a quote found in the file), then the first thing to change. [] when no reader answered. `which`: "chosen" when the
+    person named the projects (run.py pre --only), where "most active" would be untrue."""
     read = [p for p in projects if any(g.get("judged") != "can't tell" for g in p.get("parts") or [])]
     n = len(read)
     if not n:
@@ -1282,18 +1283,18 @@ def opening(projects, first):
     if n == 1:
         yes, no = [PART_SAYS[i] for i, _ in PARTS if k[i]], [PART_SAYS[i] for i, _ in PARTS if not k[i]]
         if not yes:
-            line = ("In your most active project, your files don't yet show a setup that carries the context: "
+            line = (f"In your {which} project, your files don't yet show a setup that carries the context: "
                     f"{_and(no)} are each missing or thin.")
         else:
-            line = f"In your most active project, your files show {_and(yes)}" + (
+            line = f"In your {which} project, your files show {_and(yes)}" + (
                 f"; {_and(no)} {'is' if len(no) == 1 else 'are'} not shown yet." if no else ".")
     elif all(v == n for v in k.values()):
-        line = f"In all {n} of your most active projects, your files show {_and(names)}."
+        line = f"In all {n} of your {which} projects, your files show {_and(names)}."
     elif not any(k.values()):
-        line = (f"An agent read your {n} most active projects. In none of them do your files yet show {_and(names[:2])}"
+        line = (f"An agent read your {n} {which} projects. In none of them do your files yet show {_and(names[:2])}"
                 f" or {names[2]}.")
     else:
-        line = (f"Across your {n} most active projects, your files show "
+        line = (f"Across your {n} {which} projects, your files show "
                 + _and([f"{PART_SAYS[i]} in {k[i]}" for i, _ in PARTS]) + ".")
     out = [line]
     saw = text((first or {}).get("saw") or (first or {}).get("do"))
@@ -1386,7 +1387,8 @@ def merge(run, home=None):
         if pj["slug"] in checked:   # what the reader's line-by-line answer came to, after code's check: words, no number is shown
             pj["lines"] = {k: v for k, v in checked[pj["slug"]].items() if v not in (None, "")}
     out = {"ran": ran, "parts": parts, "holds": [hold], "cards": cards(run, inv, m, hold, home, found, checked), "projects": projects}
-    out["opening"] = opening(projects, first_change(out)) if ran else []
+    chosen = bool(m.get("projects")) and all(p.get("picked_by") == "you" for p in m["projects"])   # run.py pre --only
+    out["opening"] = opening(projects, first_change(out), "chosen" if chosen else "most active") if ran else []
     with open(os.path.join(run, "setup-read.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)
     try:   # advice only, in its own file: nothing in the engine opens craft-read.json

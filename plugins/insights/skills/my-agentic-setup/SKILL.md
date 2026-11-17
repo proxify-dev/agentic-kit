@@ -2,6 +2,7 @@
 name: my-agentic-setup
 description: Read how this person really works with Claude Code from the files Claude Code keeps on this machine (sessions, helpers, hooks, skills, agents, evals, git) and build one local page: what they do, what they built, problems, next steps, a written review of their setup on its first tab, and the level their laptop reads on the Your level tab (a call confirms or raises it; AGENTIC_SETUP_NO_LEVEL=1 leaves it out). The page's Share tab can send Proxify a summary of practice ids and levels, only when the person presses Send there. One AI pass (a sonnet subagent) fills in the practice rungs. Read-only; the page is a local file. Use when asked "/my-agentic-setup", "what's my agentic setup", or to try the v15 setup tool.
 allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Read, Agent, AskUserQuestion
+argument-hint: "[--dry-run] [--only NAME]... [--skip NAME]..."
 ---
 
 # My agentic setup (Proxify internal trial, v15)
@@ -13,8 +14,8 @@ saw and next steps, a written review of their setup (the first tab, "Review"), a
 confirms or raises, never a final score. A person who wants the copy with no level sets `AGENTIC_SETUP_NO_LEVEL=1` before running.
 Say it is a beta when you start.
 
-It is read-only. It reads `~/.claude` and the git repos Claude Code ran in, and writes only into the run folder
-(`~/agentic-setup/`), the page beside it, and `archive/` there (each rebuild keeps the page it replaces), plus a
+It is read-only. It reads `~/.claude` and the git repos Claude Code ran in, and writes only into its run folder
+(a new one under `~/agentic-setup/` each run), the page beside it, and `archive/` there (each rebuild keeps the page it replaces), plus a
 speed-up cache in `~/.cache/setup-snapshot/portable/` (up to a few GB; used for 6 hours, then deleted by the next run). It installs nothing and changes no repo. The scan sends
 nothing anywhere. The one AI pass is a Claude Code subagent in this very session, so the digest it reads goes
 through Claude Code like any chat does, nowhere else. Opening the page in a browser fetches the Inter font from
@@ -26,7 +27,12 @@ Proxify's labs code; `scripts/GENERATED.md` says when.
 
 ## Where things go
 
-The run folder is `~/agentic-setup/run-<YYYY-MM-DD>/` and the page is `~/agentic-setup/my-setup.html`. Never `/tmp`:
+Every run gets a folder of its own, so a second run never overwrites the first one's answers. Make it after the
+projects are chosen (section 1), just before `pre`, and never for a dry run, with
+`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" newrun`: it creates `~/agentic-setup/run-<YYYY-MM-DD-HHMM>/` and prints
+that path, which is RUN_DIR below. Earlier runs' folders stay (each holds a copy of the scan, so they add up: they can
+delete the ones they don't need). The page is `~/agentic-setup/my-setup.html`; each rebuild keeps the page it replaces in
+`archive/`. Never `/tmp`:
 on Ubuntu, Firefox installed as a snap has its own private `/tmp` and shows "File not found" for a page written
 there. A non-hidden folder in the home directory is readable by every browser. On Windows that is
 `%USERPROFILE%\agentic-setup`. Write RUN_DIR below as an **absolute** path (expand `~` yourself): the subagent's Read
@@ -41,19 +47,84 @@ fetches, say so if it happens). With no `uv`, a Python older than 3.12 stops wit
 
 ## 1. Before the AI pass (code only)
 
-Tell them first: a scan of about 3 minutes on a heavy machine (a minute on a light one), then one AI pass of a few
-minutes, then the page. Then:
+Talk to them in short, plain sentences, "you". Every message below is what they read; say it before the wait it is about.
+
+**Flags.** The skill takes the same flags as `run.py`, given after the command: `$ARGUMENTS`
+- `--dry-run`: show the plan and stop (see Dry run below).
+- `--only NAME` (repeatable): review exactly these projects, nothing else. `--skip NAME` (repeatable): leave a project out.
+When any flag is given, ask no question: the flags are the answer.
+
+**The list.** Say: "First I look at your sessions of the last 30 days to see which projects you work in most. About half a
+minute; nothing is written." Then, with the Bash timeout at 300000 ms and every `--only`/`--skip` given, unchanged:
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" pre RUN_DIR
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" candidates --json [--only NAME ...] [--skip NAME ...]
 ```
 
-Set the Bash timeout to the maximum (600000 ms). It prints each step as it goes: inventory of the machine and the
-sessions, a check of whether the agent's commits were looked at, the named problems decided by code, what they built,
-and the brief for the AI pass. If it stops, it says which step and why; read the message to them and stop. Nothing
-outside the run folder was touched. Re-running it on the same folder is fine.
+It reads only the session logs and writes nothing. It ranks exactly as the scan will (a session counts for the folder it
+started in and for each repo it changed from there), so the busiest it shows are the ones the scan would take. Its JSON:
+`default` (the keys of their busiest 3, or fewer), `pick` (the keys the review would read with the flags given),
+`projects` (every git repo with sessions, busiest first: `key`, `name`, `path`, `same_name`, `typed_sessions`,
+`last_active`, `in_default`), `notes` (how a typed name was read), `not_repos` (folders with sessions that are no git
+repo: never reviewed themselves, their sessions count for the repos they changed). Call a project by its `name`; when
+`same_name` is true, add its `path` (two folders share that name).
+
+If it stops (exit not 0), it printed why and then every name to give. Read them the first line and the names, ask which
+they meant, and run this step again with what they say. Never run the scan on a name it refused.
+
+**Which projects.** Skip this when a flag was given. Otherwise:
+- `projects` empty: say "No git repo has sessions you typed in during the last 30 days." Then `may_fill` in your own
+  words (the scan may still find a repo to review, and says which). Go on with no flags.
+- One project: say "The review reads <name>, your only project with sessions", and from `may_fill` that the scan may add
+  one it finds. Go on with no flags.
+- Two or more: ask with AskUserQuestion, one single-select question, "Which projects should the review read?": option 1
+  "Your busiest <n>: A, B, C (Recommended)", its description the session counts; option 2 "Let me choose".
+- On "Let me choose", ONE AskUserQuestion call, so it is one screen:
+  - 4 projects or fewer: one multiSelect question, "Which should the review read?", every project.
+  - more: two multiSelect questions, "Keep which of your busiest 3?" (the 3 `in_default` projects) and "Add any of
+    these?" (the next up to 4 by rank, `in_default` false).
+  Each option's label is the name; its description "<typed_sessions> sessions, last active <last_active>" (and the path
+  when `same_name`). "Other" lets them type names: split what they type on commas.
+- Kept + added + typed are the names. None at all: say "Pick at least one project" and ask again. More than 5: say "The
+  review reads at most 5 projects, one AI reader each; you picked <n>" and ask again.
+- They took the busiest: `default_refused` empty means the `default` keys are the names, already checked. When it holds
+  a sentence (two of them share a folder name, say), read it to them and show the "Let me choose" lists.
+- Check any other names by code, before anything is scanned: run `candidates --json` again with `--only NAME` for each
+  (a project's `key`; a typed name as typed). It reads a typed name by a unique start
+  of a folder name ("api" for api-server) and says so in `notes`: tell them. If it stops, read them its first line (it
+  names the closest projects) and ask again. Never pick for them on a guess.
+
+Then say which projects will be reviewed: "Reviewing A, B and C." The flags for every later step:
+- a choice was shown, or `--only` was given: `--only KEY` for each key they confirmed (`default` when they took the
+  busiest, else the last `pick`), so what they confirmed is what is read even if the logs move on;
+- only `--skip` was given: `--skip NAME` for each name in the JSON's `skip`;
+- neither: no flags.
+
+**Dry run.** With `--dry-run`, run this (no RUN_DIR: do not run `newrun`), show them what it printed, and stop here: no
+scan, no AI pass, nothing written.
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" pre --dry-run [--only KEY ...] [--skip NAME ...]
+```
+
+**The scan.** Say: "Now I read your setup: your sessions, settings, skills, hooks and the reviewed projects' files.
+About 3 minutes on a heavy laptop, a minute on a light one. Nothing leaves your laptop." Make the run folder
+(`newrun`, above), then:
+
+```
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" pre RUN_DIR [--only KEY ...] [--skip NAME ...]
+```
+
+Set the Bash timeout to the maximum (600000 ms). It prints each step as it goes. The anatomy step prints `projects:`
+with the ones it took: the ones they confirmed (the scan opens every chosen repo). With `--only`/`--skip` it first
+checks the names (about half a minute) and stops before any slow step if one can't be read (no such folder, not a git
+repo), with the names to give: read that to them and ask which they meant. If a later step stops, it says which and
+why: read the message to them. Nothing outside the run folder was touched. Re-running it on the same folder is fine.
 
 ## 2. The AI pass (one subagent)
+
+Before the AI work, say: "Now <1 + number of briefs> AI readers (sonnet) in this session read what the scan found:
+the practices, and one reader per project. A few minutes."
 
 Do not read `RUN_DIR` files yourself: they hold real project names, paths and excerpts of their prompts. Only the
 subagent reads them. This works without the Workflow tool: call the **Agent** tool once, with `subagent_type:
@@ -97,7 +168,7 @@ not "seen"), could_be ("L2" | "L3" | "L4" | ""), why (string), basis (string), e
 When it returns, check that `RUN_DIR/ai-result.json` exists (`post` validates its shape and says what is wrong). If the
 subagent wrote nothing or something unusable, run the pass once more; if that fails too, tell them and stop.
 
-**The readers (the "Review" tab).** `pre` lists one `RUN_DIR/anatomy-brief-<project>.md` per most active project. In
+**The readers (the "Review" tab).** `pre` lists one `RUN_DIR/anatomy-brief-<project>.md` per reviewed project. In
 the same message as the subagent above, call the **Agent** tool once per brief, all at once, with
 `subagent_type: "general-purpose"`, `model: "sonnet"`, and as `prompt`, with BRIEF replaced by the brief's absolute path:
 
@@ -159,7 +230,10 @@ if pt and pt.get('level') and not off:
 ## 4. Tell them what it says
 
 Plain words, short, "you". Say what the terminal just printed, in this order, so it matches the page:
-1. Where the page is, and that it opens on a review of their setup (the "Review" tab).
+1. Where the page is, and that it opens on a review of their setup (the "Review" tab). Which projects were reviewed, and
+   that the Review tab lists the ones it did not read. To review others they run this command again (it asks which), or
+   name them at once with `--only NAME`. A project left out is out of the review only: the rest of the page still
+   counts its sessions.
 2. What the review found about them (`REVIEW`): it is about the person across the projects that were read, so say it
    first. Then each project in one short sentence, by its name (`PROJECT <name>:`). If `REVIEW` says the read of the
    files did not finish, say that and offer to run the tool again; do not make a review up.
