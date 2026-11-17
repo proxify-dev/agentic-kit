@@ -11,6 +11,27 @@ You get a new version only when it is released: each entry below is one release,
 brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3, 0.4.1 and 0.6.7 were never sent out; their
 changes arrived in the version after them.
 
+## 0.6.11 — 2026-11-17
+
+### What changes for you
+
+- **You choose which projects the review reads, before the scan** (#50). The skill first lists your git repos with sessions in the last 30 days, busiest first, and asks: your busiest 3 (recommended), or let me choose. Choosing shows one screen: keep which of your busiest 3, and add any of the next 4. What you confirm is exactly what is read.
+- **Flags after the command.** `/insights:my-agentic-setup --only NAME` reviews exactly the projects you name (up to 5, once per project); `--skip NAME` leaves one out. With a flag there is no question.
+- **`--dry-run` shows the plan and stops.** It prints the run folder it would make, the projects and why, the ones left out, every step with what it reads and writes, how many AI readers it would start with a token estimate, and that nothing leaves your laptop. It writes nothing and starts no AI.
+- **The list and the scan now count projects the same way.** A session counts for the folder it started in and for each repo it changed from there, so work started in a parent folder counts for the repo it was done in.
+- **A name the scan can't open is refused at the start**, with the names you can give, instead of after the slow steps.
+- **Each run gets its own folder** (`~/agentic-setup/run-<date>-<time>/`), so a second run on the same day no longer overwrites the first one's answers.
+- The Review tab says which projects were read, which repos with sessions were not, and how to change the choice.
+
+### Known limits
+
+- The list takes about 20 to 30 seconds on a laptop with a long session history.
+- Where PyYAML is missing (no uv, offline), the older project picker runs and its pick can differ from the list.
+- A repo with no session in the last 30 days is refused by name; give its path instead.
+- Everything listed under 0.6.10 still holds.
+
+Pull requests: #50.
+
 ## 0.6.10 — 2026-11-13
 
 ### What changes for you
