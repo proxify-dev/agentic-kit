@@ -4,7 +4,7 @@
 and the shape of their skills, agents and commands. It records structure only and judges nothing: an AI reader
 judges the map afterwards (README.md in this folder).
 
-    python3 setup_map.py RUN_DIR [--projects 3]   -> RUN_DIR/setup-map.json and RUN_DIR/setup-map.md
+    python3 setup_map.py RUN_DIR [--projects 3] [--only NAME]... [--skip NAME]...   -> RUN_DIR/setup-map.json and RUN_DIR/setup-map.md
 
 Discovery comes from what the earlier steps wrote into RUN_DIR; this step decides nothing about whose a file is:
   anatomy-scan.json   projects (the same pick anatomy_scan.py made: most sessions the person typed in, in any app)
@@ -23,6 +23,9 @@ import os
 import re
 import sys
 from collections import Counter
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import setup_choice as choice  # noqa: E402  --only / --skip: the projects the person named; anatomy_scan.py reads them the same way
 
 MAX_BYTES = 300_000
 DOC_EXT = (".md", ".txt", ".mdc")
@@ -695,15 +698,18 @@ def load_json(run, name):
         return None
 
 
-def pick_projects(run, ctx, n, inv, anat, scan):
+def pick_projects(run, ctx, n, inv, anat, scan, only=(), skip=()):
     """[(root, {typed_sessions, ...})]: anatomy_scan's pick; when it is missing, the same count from chats.jsonl; sessions
     started in a folder above the repos (a start folder that is not a repo) leave the rest to the repos the inventory
     found below it; a session started in HOME names no repo, so the repos it worked in (worked-in.json: files it edited,
     commits it made, wherever it started) rank by sessions, and only then the repos whose own root file was edited last
-    (those carry `picked_by: "rule-files"`: the pages say "busiest" only for a list ranked by sessions or work)."""
+    (those carry `picked_by: "rule-files"`: the pages say "busiest" only for a list ranked by sessions or work).
+    The person's own say (setup_choice.py) comes first: a --skip repo is never taken, by the ranking or by either
+    fill; --only takes exactly the repos it names (`picked_by: "you"`, or "confirmed" when they are the busiest) and fills nothing. Raises setup_choice.Refused."""
+    skipped = choice.skipper(skip, ctx.home, ctx.repo_root)
     picked = []
     if scan and scan.get("projects"):
-        picked = [(p["root"], {k: p[k] for k in ("typed_sessions", "sessions") if k in p}) for p in scan["projects"]]
+        picked = [(p["root"], {k: p[k] for k in ("typed_sessions", "sessions", "picked_by") if k in p}) for p in scan["projects"]]
     else:
         counts, home_start = Counter(), False
         worked = (load_json(run, "worked-in.json") or {}).get("sessions") or {}
@@ -731,13 +737,29 @@ def pick_projects(run, ctx, n, inv, anat, scan):
         except OSError:
             pass
         picked = [(r, {"typed_sessions": k}) for r, k in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]   # a tie ends by path, not by read order
-    picked = [(r, m) for r, m in picked if os.path.isdir(r)][:n]
+    if only and picked and all(m.get("picked_by") in choice.BY_ONLY for _, m in picked):
+        return [(r, m) for r, m in picked if os.path.isdir(r) and not skipped(r)]   # anatomy_scan took --only's repos: no fill
+    if only or (skip and not (scan and scan.get("projects"))):   # no anatomy scan checked the names: check them here
+        extra, rule_roots, targets = choice.pool_extras(inv, anat)
+        pool = [r for r, _ in picked] + [r for r in extra if r not in dict(picked)]
+        pool += [r for r in choice.named_repos(only, ctx.home, ctx.repo_root, lambda r: os.path.isdir(os.path.join(r, ".git")))
+                 if r not in pool]
+        choice.check_skips(skip, pool + rule_roots, ctx.home, ctx.repo_root)
+        if only:
+            chosen, notes = choice.choose(only, pool, ctx.home, ctx.repo_root, targets, skipped, ctx.tilde)
+            for x in notes:
+                print("note:", x)
+            got = dict(picked)
+            default = [r for r, _ in picked if os.path.isdir(r)][:n]   # what no flag would read, before any fill
+            how = choice.picked_by(chosen, default)
+            return [(r, {"typed_sessions": (got.get(r) or {}).get("typed_sessions", 0), "picked_by": how}) for r in chosen]
+    picked = [(r, m) for r, m in picked if os.path.isdir(r) and not skipped(r)][:n]
     have = {r for r, _ in picked}
     for row in sorted((inv or {}).get("repos") or [], key=lambda x: (-(x.get("worked_chats") or 0), str(x.get("repo") or ""))):
         r = row.get("repo")
         if len(picked) >= n:
             break
-        if not r or r in have or not os.path.isdir(r) or row.get("not_a_repo"):
+        if not r or r in have or not os.path.isdir(r) or row.get("not_a_repo") or skipped(r):
             continue
         if "found_under" in row:
             picked.append((r, {"found_under": ctx.tilde(row["found_under"])}))
@@ -751,7 +773,7 @@ def pick_projects(run, ctx, n, inv, anat, scan):
         for x in anat.get("instruction_files") or []:
             p, proj = x.get("path", ""), x.get("project")
             if x.get("scope") == "project" and x.get("origin") == "own" and not x.get("in_fixture_path") and proj \
-                    and os.path.dirname(p) == proj and proj not in have and ctx.repo_root(proj) == proj:
+                    and os.path.dirname(p) == proj and proj not in have and ctx.repo_root(proj) == proj and not skipped(proj):
                 roots[proj] = max(roots.get(proj, ""), x.get("mtime") or "")
         if _home_start(run, ctx):
             for r, _ in sorted(sorted(roots.items()), key=lambda kv: kv[1], reverse=True)[:n - len(picked)]:   # newest first; equal times keep path order (reverse keeps ties stable)
@@ -779,13 +801,13 @@ def claude_slug(path):
     return re.sub(r"[^A-Za-z0-9]", "-", path)
 
 
-def build(run_dir, projects=3, home=None):
+def build(run_dir, projects=3, home=None, only=(), skip=()):
     ctx = Ctx(home or os.path.expanduser("~"))
     inv = load_json(run_dir, "inventory.json") or {}
     anat = load_json(run_dir, "anatomy.json") or {}
     scan = load_json(run_dir, "anatomy-scan.json")
     read_files = [f for f, d in (("inventory.json", inv), ("anatomy.json", anat), ("anatomy-scan.json", scan)) if d]
-    picked = pick_projects(run_dir, ctx, projects, inv, anat, scan)
+    picked = pick_projects(run_dir, ctx, projects, inv, anat, scan, only=only, skip=skip)
     roots = {os.path.normpath(r): m for r, m in picked}
     repo_rows = {r.get("repo"): r for r in inv.get("repos") or []}
 
@@ -884,12 +906,24 @@ def build(run_dir, projects=3, home=None):
         return out
 
     result = {"schema": "setup-map/1", "home": "~", "read": read_files, "projects": []}
+    if skip:
+        # the repos --skip left out, for the steps after this one that read the person's files beyond the picked
+        # projects (setup_craft.py's craft read): a skipped repo's skills and agents must not reach a reader either
+        out = choice.skipper(skip, ctx.home, ctx.repo_root)
+        extra, rule_roots, targets = choice.pool_extras(inv, anat)
+        result["skipped"] = sorted({ctx.tilde(r) for r in [*extra, *rule_roots, *(targets or [])] if out(r)})
     for r, meta in roots.items():
         try:
             p = {"root": ctx.tilde(r), **meta, **place(r, r, False)}
         except Exception as e:  # noqa: BLE001
             p = {"root": ctx.tilde(r), **meta, "error": str(e)}
         result["projects"].append(p)
+    if scan and scan.get("not_read"):
+        # the repos with sessions this map does not hold (anatomy_scan's list, less any a fill took): the Review tab
+        # names them (things.not_reviewed). Not in setup-map.md: the readers' briefs stay as they were.
+        result["not_read"] = [{"root": ctx.tilde(x["root"]), "typed_sessions": x.get("typed_sessions", 0)}
+                              for x in scan["not_read"] if isinstance(x, dict) and x.get("root")
+                              and os.path.normpath(x["root"]) not in roots]
     try:
         result["user"] = {"root": "~/.claude", **place("user", ctx.claude, True)}
     except Exception as e:  # noqa: BLE001
@@ -1037,9 +1071,14 @@ def main(argv):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("run_dir")
     ap.add_argument("--projects", type=int, default=3)
+    ap.add_argument("--only", action="append", default=[], metavar="NAME", help="map this project and no busiest pick (setup_choice.py)")
+    ap.add_argument("--skip", action="append", default=[], metavar="NAME", help="leave this project out of the map")
     a = ap.parse_args(argv)
     run = os.path.abspath(os.path.expanduser(a.run_dir))
-    m = build(run, a.projects)
+    try:
+        m = build(run, a.projects, only=a.only, skip=a.skip)
+    except choice.Refused as e:
+        sys.exit(f"stopped: {e}")
     os.makedirs(run, exist_ok=True)
     with open(os.path.join(run, "setup-map.json"), "w", encoding="utf-8") as f:
         json.dump(m, f, indent=1, ensure_ascii=False)

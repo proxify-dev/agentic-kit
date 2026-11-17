@@ -2,8 +2,47 @@
 the board (which counts what the person has), the level read (things.py), the setup read and every view can all use it
 without one depending on another. (11-12: each tab fixed its own "1 sessions", and about 75 of them stayed.)
 Standard library only."""
+import json
+import os
 import re
 import string
+
+
+def command_of(here, levels=6):
+    """The slash command a person types to run this tool, from the plugin it ships in: the nearest
+    `.claude-plugin/plugin.json` above `here` names the plugin ("insights" -> "/insights:my-agentic-setup"). Outside a
+    plugin (the lab copy): "/my-agentic-setup". The page and run.py tell a member how to change what was reviewed in
+    these words, never as a script call (11-17)."""
+    d = os.path.dirname(os.path.abspath(here))
+    for _ in range(levels):
+        try:
+            with open(os.path.join(d, ".claude-plugin", "plugin.json"), encoding="utf-8") as f:
+                name = json.load(f).get("name")
+            if isinstance(name, str) and re.fullmatch(r"[\w.-]+", name):
+                return f"/{name}:my-agentic-setup"
+        except (OSError, ValueError, AttributeError):
+            pass
+        d = os.path.dirname(d)
+    return "/my-agentic-setup"
+
+
+COMMAND = command_of(__file__)
+
+
+def confirmed_said(n):
+    """The projects --only took when they are exactly the busiest (picked_by "confirmed"): "your busiest 3, which you
+    confirmed". The page and the dry run say this, never "chosen by you", for a list the person only accepted."""
+    return ("your busiest project" if n == 1 else f"your busiest {n}") + ", which you confirmed"
+
+
+def change_pick_said(chosen=False):
+    """How to change which projects are reviewed, in the words a member types. One sentence for the page, run.py's list
+    and its dry run."""
+    return (f"To have other projects reviewed, run {COMMAND} again and choose them when it asks, or name them at once: "
+            f"{COMMAND} --only NAME, once per project (up to 5); --skip NAME leaves one out."
+            if not chosen else
+            f"You chose the projects above. To review others, run {COMMAND} again and choose them when it asks, or name them "
+            f"at once: {COMMAND} --only NAME, once per project (up to 5).")
 
 
 def number(x):

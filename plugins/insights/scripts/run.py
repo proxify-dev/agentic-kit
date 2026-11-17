@@ -4,7 +4,17 @@
 frame.py keeps the page it replaces in archive/ there).
 
     python3 run.py pre  RUN_DIR   inventory -> commit probe -> problems, artifacts, practices packet
+                                  (--only NAME: review these projects instead of the 3 busiest; --skip NAME: leave
+                                  this one out of the review; each repeatable, a folder name or a path: setup_choice.py)
     python3 run.py post RUN_DIR   check the AI pass's rows -> assemble -> engine -> page   (--no-open: don't open the browser)
+    python3 run.py pre [RUN_DIR] --dry-run   what a real `pre` and the AI pass would do, in plain words: the run folder it would
+                                  make, the projects it would read and why, each step with what it reads and writes, the AI work
+                                  and a rough token figure. Writes nothing, starts no AI (RUN_DIR optional: it is not made)
+    python3 run.py candidates [--json]   the repos with sessions in the last 30 days, busiest first, each with the key to give
+                                  --only/--skip and whether the default pick takes it; read-only, session logs only (--only/--skip
+                                  show the pick they would give). --json is what the skill reads
+    python3 run.py newrun         a new, empty run folder, ~/agentic-setup/run-<YYYY-MM-DD-HHMM>/ (-2, -3 when that minute is taken): prints its
+                                  path, which is the RUN_DIR of the other phases. Every run gets its own, so no run overwrites another's answers
     python3 run.py share RUN_DIR  share-with-proxify.json beside RUN_DIR: the summary the page's Share tab sends, as a file
                                   (which practices were seen and at which step, as ids and levels; no file names, no text)
 
@@ -23,6 +33,7 @@ When PyYAML is missing and `uv` is on PATH, this re-runs itself under `uv run --
 The code it calls is a copy of labs/ (see GENERATED.md) with labs' layout, so it finds its neighbours by relative path.
 """
 import argparse
+import contextlib
 import glob
 import json
 import os
@@ -73,6 +84,40 @@ def with_pyyaml():
     sys.exit(subprocess.run(cmd + [os.path.abspath(__file__), *sys.argv[1:]], env={**os.environ, "AGENTIC_SETUP_UV": "1"}).returncode)
 
 
+def run_stem(root=None):
+    """(the folder all runs live in, ~/agentic-setup by default; the first name a run takes: run-<YYYY-MM-DD-HHMM>, local
+    time from clock.py). Nothing is made here."""
+    sys.path.insert(0, os.path.join(EXP, "2026-11-02-evidence"))
+    import clock
+    root = root or os.path.join(os.path.expanduser("~"), "agentic-setup")
+    return root, os.path.join(root, "run-" + time.strftime("%Y-%m-%d-%H%M", time.localtime(clock.now())))
+
+
+def would_be_run(root=None):
+    """The folder `newrun` would make now (-2, -3 ... when that minute is taken), without making it. For the dry run."""
+    _, stem = run_stem(root)
+    n = 1
+    while os.path.exists(stem if n == 1 else f"{stem}-{n}"):
+        n += 1
+    return stem if n == 1 else f"{stem}-{n}"
+
+
+def newrun(root=None):
+    """A run folder that did not exist a moment ago: ~/agentic-setup/run-<YYYY-MM-DD-HHMM>, with -2, -3 ... when that minute is
+    taken. os.mkdir fails on an existing folder, so two runs can never share one. The time is clock.py's (local time).
+    Python 3.9 and the standard library only: this runs before with_pyyaml can re-run it under uv."""
+    root, stem = run_stem(root)
+    os.makedirs(root, exist_ok=True)
+    n = 1
+    while True:
+        path = stem if n == 1 else f"{stem}-{n}"
+        try:
+            os.mkdir(path)
+            return path
+        except FileExistsError:
+            n += 1
+
+
 def step(title, argv):
     t = time.time()
     print(f"\n== {title}", flush=True)
@@ -95,29 +140,84 @@ def soft_step(title, argv):
     return True
 
 
-def pre(run, proxify=False):
-    os.makedirs(run, exist_ok=True)
+def pre_steps(run, proxify=False, asked=(), also=()):
+    """The steps `pre` runs, in order: the one list `pre` executes and `pre --dry-run` describes, so they cannot drift.
+    Each: title (as printed), argv (for sys.executable), soft (a failure is not a stop), after_previous (runs only when the
+    step before it worked), reads and writes (plain words for the dry run)."""
+    window = "the last 30 days"
+    return [
+        {"title": "1/3 inventory: what is on this machine and what the sessions did (the slow step)",
+         "argv": ["-I", os.path.join(EXP, "2026-11-02-evidence", "inventory.py"), "--out", run, *[x for r in also for x in ("--also", r)]],
+         "reads": f"your Claude Code session logs ({window}), the settings, skills, agents and hooks in ~/.claude, and the git repos your sessions ran in (git log and file lists only)",
+         "writes": "inventory.json, chats.jsonl, worked-in.json, anatomy.json and a few more files in the run folder"},
+        {"title": "2/3 commit check: were the agent's commits looked at before they landed",
+         "argv": ["-I", os.path.join(EXP, "2026-11-02-problems", "detectors", "comprehension_debt.py"),
+                  "--chats", os.path.join(run, "chats.jsonl"), "--out", os.path.join(run, "comprehension-debt.json")],
+         "reads": f"your session logs ({window}) and the commits made in them",
+         "writes": "comprehension-debt.json in the run folder, and a cache in ~/.cache/setup-snapshot/ (removed by a later run)"},
+        {"title": "3/3 problems (code only), what you built, and the brief for the AI pass",
+         "argv": ["-I", os.path.join(CHEAP, "problems.py"), run, "--commits", os.path.join(run, "comprehension-debt.json")],
+         "reads": "the inventory and the commit check in the run folder",
+         "writes": "cheap-problems.json in the run folder"},
+        {"title": "   artifacts",
+         "argv": ["-I", os.path.join(CHEAP, "artifacts.py"), run],
+         "reads": "the inventory in the run folder, and the hooks, agents, skills and tools of yours it lists",
+         "writes": "cheap-digest.md (what you built, read by the AI pass) and cheap-artifacts.json"},
+        {"title": "   practices packet",
+         "argv": ["-I", os.path.join(CHEAP, "practices_packet.py"), run],
+         "reads": "the list of practices and their ladders shipped with this tool",
+         "writes": "cheap-practices.md (read by the AI pass)"},
+        {"title": "   who-did-it counts -> rungs (code, by the substrate's signal map)",
+         "argv": ["-I", os.path.join(CHEAP, "signals.py"), run],
+         "reads": "the inventory in the run folder",
+         "writes": "signal-rows.json"},
+        {"title": "   portable checks: counts that read the same on any laptop (each with a time budget)",
+         "argv": ["-I", os.path.join(EXP, "2026-11-05-portable", "run_portable.py"), run],
+         "reads": f"your session logs and git repos ({window})",
+         "writes": "portable-checks.json in the run folder, and a speed-up cache in ~/.cache/setup-snapshot/portable/ (up to a few GB, used for 6 hours)"},
+        {"title": "   anatomy: each discipline's parts — its own code checks, and one brief per most active project",
+         "argv": ["-I", ANATOMY, run, *asked],
+         "reads": f"your session logs ({window}) and, for each reviewed project, its files and git history",
+         "writes": "anatomy-scan.json, and one anatomy-brief-<project>.md per reviewed project, in the run folder"},
+        # A member's run: each project's brief holds only the review of its agent-facing files (the member's page has no
+        # part-by-part view, and its questions were most of what a reader spent). Proxify's own run keeps the questions.
+        {"title": "   setup map: the outline of your AGENTS.md files, memory, skills and agents, and what points to what",
+         "argv": ["-I", os.path.join(SETUP_READ, "setup_map.py"), run, *asked], "soft": True,
+         "reads": "the AGENTS.md / CLAUDE.md files, memory, skills and agents of the reviewed projects and of ~/.claude (structure only)",
+         "writes": "setup-map.json and setup-map.md in the run folder"},
+        {"title": "   setup read: the review of those files, " + ("added to each project's brief" if proxify else "one brief per project"),
+         "argv": ["-I", os.path.join(SETUP_READ, "setup_read.py"), "brief", run] + (["--proxify"] if proxify else []),
+         "soft": True, "after_previous": True,
+         "reads": "the outline in the run folder",
+         "writes": "the briefs the readers follow (anatomy-brief-<project>.md) in the run folder"},
+    ]
+
+
+def asked_args(c, only, skip):
+    """(the flags both pickers get, the repos the inventory's file scan must open) from `candidates`' answer `c` to the
+    person's --only/--skip. --only becomes the absolute root of each project it took, so the anatomy step and the setup
+    map take exactly the repos checked before the scan (no name read twice), and the inventory opens each of them even
+    when few sessions started there. --skip stays as given: a folder name leaves every clone of it out."""
+    roots = [c["pick_roots"][k] for k in c["pick"]] if only else []
+    return [x for r in roots for x in ("--only", r)] + [x for t in skip for x in ("--skip", t)], roots
+
+
+def pre(run, proxify=False, only=(), skip=()):
     if not os.path.isdir(os.path.expanduser("~/.claude/projects")):
         sys.exit("No ~/.claude/projects here: Claude Code has not kept any session on this machine, so there is nothing to read.")
-    step("1/3 inventory: what is on this machine and what the sessions did (the slow step)",
-         ["-I", os.path.join(EXP, "2026-11-02-evidence", "inventory.py"), "--out", run])
-    step("2/3 commit check: were the agent's commits looked at before they landed",
-         ["-I", os.path.join(EXP, "2026-11-02-problems", "detectors", "comprehension_debt.py"),
-          "--chats", os.path.join(run, "chats.jsonl"), "--out", os.path.join(run, "comprehension-debt.json")])
-    step("3/3 problems (code only), what you built, and the brief for the AI pass",
-         ["-I", os.path.join(CHEAP, "problems.py"), run, "--commits", os.path.join(run, "comprehension-debt.json")])
-    step("   artifacts", ["-I", os.path.join(CHEAP, "artifacts.py"), run])
-    step("   practices packet", ["-I", os.path.join(CHEAP, "practices_packet.py"), run])
-    step("   who-did-it counts -> rungs (code, by the substrate's signal map)", ["-I", os.path.join(CHEAP, "signals.py"), run])
-    step("   portable checks: counts that read the same on any laptop (each with a time budget)",
-         ["-I", os.path.join(EXP, "2026-11-05-portable", "run_portable.py"), run])
-    step("   anatomy: each discipline's parts — its own code checks, and one brief per most active project", ["-I", ANATOMY, run])
-    # A member's run: each project's brief holds only the review of its agent-facing files (the member's page has no
-    # part-by-part view, and its questions were most of what a reader spent). Proxify's own run keeps the questions.
-    reviewed = soft_step("   setup map: the outline of your AGENTS.md files, memory, skills and agents, and what points to what",
-                         ["-I", os.path.join(SETUP_READ, "setup_map.py"), run]) and \
-        soft_step("   setup read: the review of those files, " + ("added to each project's brief" if proxify else "one brief per project"),
-                  ["-I", os.path.join(SETUP_READ, "setup_read.py"), "brief", run] + (["--proxify"] if proxify else []))
+    # the projects the person named, checked before any slow step: a name the pick can't honour, a path that is no git
+    # repo, more than 5, stop here with the reason and the names to give, not after a 3-minute inventory (11-17)
+    asked, also = asked_args(session_candidates(only, skip), only, skip) if (only or skip) else ([], [])
+    os.makedirs(run, exist_ok=True)
+    worked = True   # did the last soft step work (the setup map and the setup read: no read when the map failed)
+    for s in pre_steps(run, proxify, asked, also):
+        if not s.get("soft"):
+            step(s["title"], s["argv"])
+        elif s.get("after_previous") and not worked:
+            worked = False
+        else:
+            worked = soft_step(s["title"], s["argv"])
+    reviewed = worked
     if not reviewed and not proxify:
         # no review could be asked for: don't start readers on questions whose view this page does not show
         for f in glob.glob(os.path.join(run, "anatomy-brief-*.md")):
@@ -130,6 +230,130 @@ def pre(run, proxify=False):
     briefs = sorted(glob.glob(os.path.join(run, "anatomy-brief-*.md")))
     if briefs:
         print("and one reader per brief (each writes the anatomy-ai-<project>.json its brief names):\n  " + "\n  ".join(briefs))
+
+
+def anatomy_scan_module():
+    """anatomy_scan.py, loaded in this process: `candidates` and `pre --dry-run` rank projects with the functions the real
+    pick calls. No bytecode is written (a dry run writes nothing, not even beside the code)."""
+    sys.dont_write_bytecode = True
+    os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+    sys.path.insert(0, os.path.dirname(ANATOMY))
+    import anatomy_scan
+    return anatomy_scan
+
+
+def wording_module():
+    """v15/engine/wording.py: COMMAND (the slash command, from this plugin's name) and the sentence on changing the pick."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("wording", os.path.join(os.path.dirname(ANATOMY), "wording.py"))
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def sessions_said(k):
+    """"1 session", "2 sessions": a session count with its noun."""
+    return f"{k} session" + ("" if k == 1 else "s")
+
+
+def keys_said(c):
+    """The projects and their keys, one line each, busiest first: what a person picks a name from after a bad one."""
+    n = sessions_said
+    return "\n".join(f"  {r['key']}  ({n(r['typed_sessions'])}" + (f", {r['path']})" if r["key"] != r["path"] else ")")
+                     for r in c["projects"]) or "  (no git repo with sessions you typed in, in the last 30 days)"
+
+
+def whose_pick(c):
+    """Who chose the projects shown, in words: "chosen by you", or "your busiest 3" (2, 1: as many as there are)."""
+    if c["picked_by"] == "confirmed":
+        return wording_module().confirmed_said(len(c["pick"]))
+    if c["picked_by"] == "you":
+        return "chosen by you"
+    k = len(c["default"])
+    return "your busiest 3" if k == 3 else "your busiest project" if k == 1 else "no project with sessions" if not k else f"your {k} busiest"
+
+
+def session_candidates(only=(), skip=(), typed=False):
+    """The dict `candidates` prints (anatomy_scan.candidates): reads the session logs of the window, nothing else, with
+    the same read and the same pick function as the anatomy step of `pre` (read_logs' worked-in links included), so the
+    default it shows is the one the scan takes. `typed`: the names are as a person typed them (a unique start of a
+    folder name is taken and said). A name --only/--skip can't honour stops with setup_choice's message, then the keys."""
+    A = anatomy_scan_module()
+    _, per, worked = A.read_logs(30)
+    try:
+        return A.candidates(per, 3, only, skip, worked=worked, typed=typed)
+    except A.choice.Refused as e:
+        print(f"stopped: {e}\n\nYour projects (name to give, sessions you typed in):\n"
+              + keys_said(A.candidates(per, 3, worked=worked)), file=sys.stderr)
+        sys.exit(2)
+
+
+def show_candidates(only=(), skip=(), as_json=False):
+    c = session_candidates(only, skip, typed=True)
+    if as_json:
+        print(json.dumps(c, indent=1))
+        return
+    rows = c["projects"]
+    if not rows:
+        print("No git repo with sessions you typed in during the last 30 days, so there is nothing to choose between."
+              + (" " + c["may_fill"] if c["may_fill"] else ""))
+        return
+    word = whose_pick(c)
+    print(f"Projects with sessions you typed in, last {c['window_days']} days, busiest first. * = reviewed ({word}).\n")
+    w = min(40, max(len(r["key"]) for r in rows))   # a longer key runs past its column rather than widen every row
+    print(f"   {'key (for --only / --skip)':<{max(w, 25)}}  sessions  last active  path")
+    for r in rows:
+        print(f"{' *' if r['in_pick'] else '  '} {r['key']:<{max(w, 25)}}  {r['typed_sessions']:>8}  {r['last_active'] or '-':<11}  {r['path']}")
+    if c["not_repos"]:
+        print("\nNot git repos, so never reviewed themselves (their sessions count for the repos they changed): "
+              + ", ".join(f"{r['path']} ({r['typed_sessions']})" for r in c["not_repos"][:5])
+              + (f" and {len(c['not_repos']) - 5} more" if len(c["not_repos"]) > 5 else "") + ".")
+    for n in c["notes"] + ([c["may_fill"]] if c["may_fill"] else []):
+        print(n)
+    print("\n" + wording_module().change_pick_said() + "\n" + c["basis"])
+
+
+def tokens(n_agents):
+    """A rough token figure for the AI work: earlier real runs used about 60,000 to 80,000 tokens per agent."""
+    return f"{n_agents * 60}k to {n_agents * 80}k"
+
+
+def dry_run(run=None, proxify=False, only=(), skip=()):
+    """What a real run would do, in plain words. Writes nothing (no run folder, no cache), starts no AI, runs no slow step:
+    the only work is reading the session logs to rank the projects, as `candidates` does."""
+    shown = run or would_be_run()
+    page = os.path.join(os.path.dirname(shown), "my-setup.html")
+    home = os.path.expanduser("~")
+    t = lambda p: "~" + p[len(home):] if p == home or p.startswith(home + os.sep) else p  # noqa: E731
+    out = ["DRY RUN: this wrote nothing and started no AI. A real run would do the following.", ""]
+    out.append(f"Run folder: {t(shown)} ({'already there' if os.path.isdir(shown) else 'not made yet'}). Your page: {t(page)}.")
+    if not os.path.isdir(os.path.join(home, ".claude", "projects")):
+        out += ["", "A real run would stop at once: there is no ~/.claude/projects here, so Claude Code has not kept any session "
+                "on this machine and there is nothing to read."]
+        print("\n".join(out))
+        return
+    c = session_candidates(only, skip)
+    rows = {r["key"]: r for r in c["projects"]}
+    picked = [rows[k] for k in c["pick"]]
+    left = [r for r in c["projects"] if not r["in_pick"] and r["typed_sessions"]]
+    out += ["", "Projects the review would read " + f"({whose_pick(c)})" + ":"]
+    out += [f"  {r['key']}: {sessions_said(r['typed_sessions'])} you typed in, last active {r['last_active'] or '-'}" for r in picked] \
+        or ["  none: no sessions you typed in during the last 30 days"]
+    if left:
+        out.append("Left out, with sessions: " + ", ".join(f"{r['key']} ({r['typed_sessions']})" for r in left[:4])
+                   + (f" and {len(left) - 4} more" if len(left) > 4 else "") + ".")
+    out += ([c["may_fill"]] if c["may_fill"] and c["picked_by"] != "you" else []) \
+        + [wording_module().change_pick_said(c["picked_by"] == "you"), c["basis"]] + c["notes"]
+    out += ["", "Steps `pre` would run, in order. All read-only on your projects; every file goes into the run folder unless said:"]
+    for s in pre_steps(shown, proxify, *asked_args(c, only, skip)):
+        out += [f"  {s['title'].strip()}", f"      reads:  {s['reads']}", f"      writes: {s['writes']}"]
+    n = len(picked)
+    out += ["", f"Then the AI work the skill starts in this Claude Code session (sonnet): the practices pass (1 agent) and one reader per "
+            f"project ({n}). That is {1 + n} agent{'s' if n else ''}; roughly {tokens(1 + n)} tokens in all, an estimate from earlier runs (60k to 80k "
+            "per agent), not a measurement. Then `post` builds the page from their answers, on this machine.",
+            "", "Nothing leaves your laptop in any of this. The page's Share tab sends Proxify a summary of practice ids and "
+            "levels only when you press Send there."]
+    print("\n".join(out))
 
 
 def check_rows(path):
@@ -190,21 +414,42 @@ def share(run, out):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("phase", choices=["pre", "post", "share"])
-    ap.add_argument("run_dir")
+    ap.add_argument("phase", choices=["newrun", "pre", "post", "share", "candidates"])
+    ap.add_argument("run_dir", nargs="?", help="not for newrun")
     ap.add_argument("--out", help="the page (default: my-setup.html beside RUN_DIR)")
     ap.add_argument("--no-open", action="store_true", help="post: do not open the page in the browser")
     ap.add_argument("--proxify", action="store_true",
                     help="Proxify's own run. pre: the readers' briefs keep the part-by-part questions; "
                          "post: the full page for Proxify staff (internal views included)")
     ap.add_argument("--no-level", action="store_true", help="post: the member's copy without the Your level tab")
+    ap.add_argument("--only", action="append", default=[], metavar="NAME",
+                    help="pre: review this project instead of the busiest ones (repeat for more, at most 5; a folder name or a path)")
+    ap.add_argument("--skip", action="append", default=[], metavar="NAME",
+                    help="pre: leave this project out of the review (repeat for more; a folder name or a path)")
+    ap.add_argument("--dry-run", action="store_true", help="pre: say what a real run would do and write nothing (RUN_DIR optional)")
+    ap.add_argument("--json", action="store_true", help="candidates: print what the skill reads")
     ap.add_argument("--member", action="store_true", help=argparse.SUPPRESS)  # old name of --no-level
     a = ap.parse_args()
+    if a.phase == "newrun":
+        print(newrun())
+        return
+    if a.phase == "candidates":
+        with contextlib.redirect_stdout(sys.stderr if a.json else sys.stdout):   # stdout stays pure JSON
+            with_pyyaml()
+        show_candidates(a.only, a.skip, a.json)
+        return
+    if a.phase == "pre" and a.dry_run:
+        with_pyyaml()
+        dry_run(os.path.abspath(os.path.expanduser(a.run_dir)) if a.run_dir else None,
+                a.proxify or os.environ.get("AGENTIC_SETUP_PROXIFY") == "1", a.only, a.skip)
+        return
+    if not a.run_dir:
+        ap.error(f"{a.phase} needs RUN_DIR (python3 run.py newrun makes one)")
     run = os.path.abspath(os.path.expanduser(a.run_dir))
     with_pyyaml()
     proxify = a.proxify or os.environ.get("AGENTIC_SETUP_PROXIFY") == "1"
     if a.phase == "pre":
-        pre(run, proxify=proxify)
+        pre(run, proxify=proxify, only=a.only, skip=a.skip)
     elif a.phase == "share":
         share(run, os.path.abspath(os.path.expanduser(a.out)) if a.out else os.path.join(os.path.dirname(run), "share-with-proxify.json"))
     else:
