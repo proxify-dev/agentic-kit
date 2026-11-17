@@ -251,9 +251,14 @@ def wording_module():
     return m
 
 
+def sessions_said(k):
+    """"1 session", "2 sessions": a session count with its noun."""
+    return f"{k} session" + ("" if k == 1 else "s")
+
+
 def keys_said(c):
     """The projects and their keys, one line each, busiest first: what a person picks a name from after a bad one."""
-    n = lambda k: f"{k} session" + ("" if k == 1 else "s")  # noqa: E731
+    n = sessions_said
     return "\n".join(f"  {r['key']}  ({n(r['typed_sessions'])}" + (f", {r['path']})" if r["key"] != r["path"] else ")")
                      for r in c["projects"]) or "  (no git repo with sessions you typed in, in the last 30 days)"
 
@@ -332,7 +337,7 @@ def dry_run(run=None, proxify=False, only=(), skip=()):
     picked = [rows[k] for k in c["pick"]]
     left = [r for r in c["projects"] if not r["in_pick"] and r["typed_sessions"]]
     out += ["", "Projects the review would read " + f"({whose_pick(c)})" + ":"]
-    out += [f"  {r['key']}: {r['typed_sessions']} sessions you typed in, last active {r['last_active'] or '-'}" for r in picked] \
+    out += [f"  {r['key']}: {sessions_said(r['typed_sessions'])} you typed in, last active {r['last_active'] or '-'}" for r in picked] \
         or ["  none: no sessions you typed in during the last 30 days"]
     if left:
         out.append("Left out, with sessions: " + ", ".join(f"{r['key']} ({r['typed_sessions']})" for r in left[:4])
