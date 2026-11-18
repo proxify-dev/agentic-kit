@@ -1,7 +1,7 @@
 ---
 name: my-agentic-setup
 description: Read how this person really works with Claude Code from the files Claude Code keeps on this machine (sessions, helpers, hooks, skills, agents, evals, git) and build one local page: what they do, what they built, problems, next steps, a written review of their setup on its first tab, and the level their laptop reads on the Your level tab (a call confirms or raises it; AGENTIC_SETUP_NO_LEVEL=1 leaves it out). The page's Share tab can send Proxify a summary of practice ids and levels, only when the person presses Send there. One AI pass (a sonnet subagent) fills in the practice rungs. Read-only; the page is a local file. Use when asked "/my-agentic-setup", "what's my agentic setup", or to try the v15 setup tool.
-allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Read, Agent, AskUserQuestion
+allowed-tools: Bash(python3 *), Bash(python *), Bash(uv *), Bash(mkdir *), Bash(command -v brew), Bash(brew install uv), Bash(curl -LsSf https://astral.sh/uv/install.sh | sh), Bash(PATH="$HOME/.local/bin:$PATH" python3 *), Read, Agent, AskUserQuestion
 argument-hint: "[--dry-run] [--only NAME]... [--skip NAME]..."
 ---
 
@@ -14,13 +14,11 @@ saw and next steps, a written review of their setup (the first tab, "Review"), a
 confirms or raises, never a final score. A person who wants the copy with no level sets `AGENTIC_SETUP_NO_LEVEL=1` before running.
 Say it is a beta when you start.
 
-It is read-only. It reads `~/.claude` and the git repos Claude Code ran in, and writes only into its run folder
-(a new one under `~/agentic-setup/` each run), the page beside it, and `archive/` there (each rebuild keeps the page it replaces), plus a
-speed-up cache in `~/.cache/setup-snapshot/portable/` (up to a few GB; used for 6 hours, then deleted by the next run). It installs nothing and changes no repo. The scan sends
-nothing anywhere. The one AI pass is a Claude Code subagent in this very session, so the digest it reads goes
-through Claude Code like any chat does, nowhere else. Opening the page in a browser fetches the Inter font from
-Google Fonts when online. The page sends one thing, and only when the person presses Send on its "Share with Proxify"
-tab: the summary shown there (practice ids and levels, no file names, no text) and the email they type, to Proxify.
+It reads `~/.claude` and the git repos Claude Code ran in, installs nothing without asking you, and changes no repo.
+The scan sends nothing anywhere. The one AI pass is a Claude Code subagent in this very session, so the digest it reads
+goes through Claude Code like any chat does, nowhere else. Opening the page in a browser makes no network request (system
+fonts only). The page sends one thing, and only when the person presses Send on its "Share with Proxify" tab: the
+summary shown there (practice ids and levels, no file names, no text) and the email they type, to Proxify.
 
 The code is `${CLAUDE_PLUGIN_ROOT}/scripts/` (if that is empty: `../../scripts/` from this file). It is a copy of
 Proxify's labs code; `scripts/GENERATED.md` says when.
@@ -41,13 +39,30 @@ tool does not expand it.
 Python: the code needs Python 3.12 or newer (macOS's own `python3` is 3.9, too old). Run `run.py` with `python3` (on
 Windows `python` or `py`); it re-runs itself under `uv run --with pyyaml` when `uv` is on PATH and the Python is too old
 or PyYAML is missing (uv brings its own Python and fetches PyYAML once; that download is the only thing this tool
-fetches, say so if it happens). With no `uv`, a Python older than 3.12 stops with a message: tell them to install uv
-(https://docs.astral.sh/uv/) and run it again. A new enough Python without PyYAML works too: the substrate tabs say
-"not in this run" and the person's own tabs are complete.
+fetches, say so if it happens). A new enough Python without PyYAML works too: the substrate tabs say "not in this run"
+and the person's own tabs are complete.
+
+**Python too old and no `uv`** (`run.py` stops with "This needs Python 3.12 or newer"): do not just tell them to install
+it, and do not install anything on your own. Say, in one plain line: "Your Mac's Python is 3.9 and this tool needs 3.12;
+`uv` is a small tool that brings its own Python and leaves the one on your Mac alone." Then ask with AskUserQuestion
+(one single-select question, "Install uv now?"; options "Yes, install uv" and "No, I'll stop here"). The command, to show
+in the option's description: `command -v brew` finds Homebrew -> `brew install uv`; otherwise
+`curl -LsSf https://astral.sh/uv/install.sh | sh` (the official installer). Run only those exact commands.
+- Yes: run it, then go on with the same step. After the curl installer `uv` sits in `~/.local/bin`, which this shell may
+  not have on PATH yet: if `uv --version` is not found, start every `run.py` command with
+  `PATH="$HOME/.local/bin:$PATH" ` (Homebrew needs nothing).
+- No: stop, and give the link https://docs.astral.sh/uv/ and "run /insights:my-agentic-setup again after installing".
 
 ## 1. Before the AI pass (code only)
 
 Talk to them in short, plain sentences, "you". Every message below is what they read; say it before the wait it is about.
+
+**Say this first**, before anything runs, in at most 3 short lines (your own words, same facts; this is a beta):
+- what it reads: your Claude Code sessions, settings, skills and hooks, and the git repos you worked in; it changes none of them;
+- what it writes and where: `~/agentic-setup/` (one folder per run, plus the page `my-setup.html`; the AI readers save their
+  answers there as JSON files) and a speed-up cache in `~/.cache/setup-snapshot/` (up to a few GB; the next run deletes it
+  once it is 6 hours old);
+- nothing leaves your laptop unless you press Send on the page (the AI readers run in this Claude Code session, like any chat).
 
 **Flags.** The skill takes the same flags as `run.py`, given after the command: `$ARGUMENTS`
 - `--dry-run`: show the plan and stop (see Dry run below).
@@ -257,7 +272,7 @@ Then say plainly that this is an early trial:
 - Claude Code keeps session logs 30 days unless `cleanupPeriodDays` says otherwise.
 
 If something on the page looks wrong to them, ask what they really do and write it down: that is the feedback this
-trial is for. They can delete `~/agentic-setup/` and `~/.cache/setup-snapshot/` whenever they like. Nothing has been sent unless they press Send on the page.
+trial is for. Nothing has been sent unless they press Send on the page.
 
 ## 5. Sharing with Proxify
 
@@ -271,3 +286,23 @@ If they would rather send a file by hand, this writes the same summary to `~/age
 ```
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run.py" share RUN_DIR
 ```
+
+## 6. Cleaning up
+
+Last, after section 5 (skip it after a dry run: nothing was written). Ask with AskUserQuestion, one single-select
+question, "Delete this run's working files? The page stays.": option 1 "Keep everything", option 2 "Delete the run folder
+and the cache" (description: RUN_DIR, which holds a copy of the scan, and `~/.cache/setup-snapshot/`; `my-setup.html` and its
+`archive/` stay). Earlier runs' folders are left alone: tell them they can delete `~/agentic-setup/` and
+`~/.cache/setup-snapshot/` whenever they like. On "Delete", with RUN_DIR as the absolute run folder:
+
+```
+python3 -I -c "
+import os, shutil, sys
+run = os.path.realpath(sys.argv[1])
+root = os.path.realpath(os.path.expanduser('~/agentic-setup'))
+if os.path.dirname(run) == root and os.path.basename(run).startswith('run-'): shutil.rmtree(run)
+shutil.rmtree(os.path.expanduser('~/.cache/setup-snapshot'), ignore_errors=True)
+" RUN_DIR
+```
+
+Say what was deleted and that the page is still at `~/agentic-setup/my-setup.html`.
