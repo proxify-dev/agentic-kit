@@ -50,6 +50,17 @@ RULES_ON_DEMAND_MIN = 2      # rules: docs behind pointers from the rule files, 
 CORRECTION_WEEKS_MIN = 3     # corrections: different weeks one rule file or skill of theirs changed in
 MEMORY_NOTES_MIN = 5         # memory: notes in a store with an index or links between notes
 MEMORY_SESSIONS_MIN = 3      # memory: sessions that read the store, when the inventory counted them
+# Claude Code's own memory folder (~/.claude/projects/<project>/memory). "never": it never counts toward the memory part
+# (the 11-11 rule). "curated": it counts when builtin_bar passes, like any store: the reader's verdict and the quote check
+# still apply (the owner's ruling 11-18, "this should actually count but we should check how well it is curated").
+# Switch back to "never" to ship it off. Study: setup-insights/feedback-round-2026-11-16/studies/builtin-memory.md.
+BUILTIN_MEMORY = "curated"
+BUILTIN_REACHED_SHARE = 0.5  # built-in memory: share of its notes MEMORY.md must reach (MEMORY_NOTES_MIN of them at least)
+BUILTIN_RESOLVED_SHARE = 0.9 # built-in memory: share of MEMORY.md's links that must lead to a note still there
+BUILTIN_INDEX_LINES = 200    # built-in memory: Claude Code loads the first 200 lines of MEMORY.md, or 25KB (its memory docs, 11-18)
+BUILTIN_INDEX_BYTES = 25_000
+BUILTIN_WEEKS_MIN = 3        # built-in memory: different weeks its notes were last changed in (not written in one sitting)
+BUILTIN_FRESH_DAYS = 30      # built-in memory: a note changed this recently (still kept, not left alone months ago)
 HOLD_AUTO_COMPACTIONS = 5    # endless sessions: automatic compactions in the window
 HOLD_SESSIONS_TWICE = 3      # endless sessions: sessions compacted more than once
 QUOTE_MIN_CHARS = 20         # a shorter quote matches by chance
@@ -121,8 +132,7 @@ Judge three parts, each `shown`, `partly`, `not shown` or `can't tell`:
      current, pruned or merged.
    - partly: notes exist, but as a log that only grows, or as files nothing links.
    - not shown: only Claude Code's built-in memory left as it writes it, or nothing.
-   Claude Code's own memory folder (`~/.claude/projects/<project>/memory`) is not the person's work: it never counts as
-   memory shown, however tidy its index.
+{builtin}
 
 For each part:
 - `why`: one sentence a non-engineer follows, naming the file.
@@ -554,7 +564,8 @@ def brief(run, home=None, proxify=None):
                                 always="the always-loaded files",
                                 lines_open=(LINES_OPEN_TEAM if p.get("team_totals") else LINES_OPEN) if listing else "",
                                 team=TEAM_NOTE.format(counts=TEAM_COUNTS[TEAM_FILES]) if p.get("team_totals") else "",
-                                lines_shape=LINES_SHAPE if listing else "", lines=(listing or "") + crafts)
+                                lines_shape=LINES_SHAPE if listing else "", lines=(listing or "") + crafts,
+                                builtin=BUILTIN_READER[BUILTIN_MEMORY])
         with open(path, "w", encoding="utf-8") as f:
             f.write(text + section)
         kept.add(os.path.normpath(path))
@@ -775,22 +786,72 @@ def memory_stores(p, user, root, home):
 
 
 def only_builtin_memory(p, user, root, home):
-    """The one place that decides whether a project's memory is only what Claude Code keeps by itself: there is at
-    least one store and every one is the built-in kind. The reader's word on the memory part is then ignored
-    (settle_memory): the same 24-note built-in index was judged shown, partly and not shown by different readers."""
+    """The one place that decides whether the reader's word on a project's memory is overridden: there is at least one
+    store, every one is Claude Code's own (the built-in kind), and none of the project's own passes builtin_bar (with BUILTIN_MEMORY "never",
+    none ever does). The part then reads "not shown" whatever the reader said (settle_memory): the same 24-note built-in
+    index was judged shown, partly and not shown by different readers."""
     stores = memory_stores(p, user, root, home)
-    return bool(stores) and all(s.get("kind") == "builtin" for s, _ in stores)
+    return bool(stores) and all(s.get("kind") == "builtin" and not (base == root and builtin_counts(s)) for s, base in stores)
 
 
 BUILTIN_ONLY = "only the memory Claude Code keeps by itself"
+BUILTIN_READER = {
+    "never": """   Claude Code's own memory folder (`~/.claude/projects/<project>/memory`) is not the person's work: it never counts as
+   memory shown, however tidy its index.""",
+    "curated": """   Claude Code's own memory folder (`~/.claude/projects/<project>/memory`) is written by Claude Code itself: an index and
+   typed notes are what it writes for everyone, so neither shows care. Judge whether someone keeps it: shown when its
+   notes are kept current, pruned or merged, and the index says when to open each; not shown when it is notes Claude
+   Code wrote and nobody tended (stale status, duplicates, a pile). Code counts it only when its own check passes.""",
+}
+
+
+def reader_text():
+    """The reader's brief on the three parts, with the lines on Claude Code's own memory folder BUILTIN_MEMORY picks."""
+    return READER.replace("{builtin}", BUILTIN_READER[BUILTIN_MEMORY])
+
+
+def builtin_bar(store):
+    """(met, what the code counted, what the bar asks beside what the person has: [] when met) for one of Claude Code's own
+    memory folders, from the facts the map keeps on it (setup_map.builtin_kept). A map made before those facts were kept
+    has none, and the folder does not count."""
+    k = store.get("kept")
+    if not k or not k.get("notes"):
+        return False, "Claude Code's built-in memory folder, with no notes in it", ["notes in it; it has none yet"]
+    n, reached, links, ok_links = k["notes"], k.get("reached", 0), k.get("index_links", 0), k.get("index_resolved", 0)
+    lines, size, weeks, age = k.get("index_lines"), k.get("index_bytes"), k.get("weeks", 0), k.get("newest_days")
+    asks = []
+    if k.get("index_lines") is None:
+        asks.append("an index, MEMORY.md, linking your notes; yours has none")
+    elif n < MEMORY_NOTES_MIN:
+        asks.append(f"{plural(MEMORY_NOTES_MIN, 'note')} its index links; yours has {n}")
+    elif reached < MEMORY_NOTES_MIN or reached < BUILTIN_REACHED_SHARE * n:
+        asks.append(f"an index reaching at least {plural(MEMORY_NOTES_MIN, 'note')} and half of them; yours reaches {reached} of your {plural(n, 'note')}")
+    if links and ok_links < BUILTIN_RESOLVED_SHARE * links:
+        asks.append(f"index links that lead to a note; {links - ok_links} of its {links} links lead to none")
+    if lines is not None and (lines > BUILTIN_INDEX_LINES or (size or 0) > BUILTIN_INDEX_BYTES):
+        asks.append(f"an index Claude Code loads whole (the first {BUILTIN_INDEX_LINES} lines or 25KB); yours has {lines} lines")
+    if weeks < BUILTIN_WEEKS_MIN:
+        asks.append(f"notes changed in {BUILTIN_WEEKS_MIN} different weeks; yours were changed in {weeks}")
+    if age is None or age > BUILTIN_FRESH_DAYS:
+        asks.append(f"a note changed in the last {BUILTIN_FRESH_DAYS} days; your latest change was {round(age or 0)} days ago")
+    said = (f"Claude Code's built-in memory folder {store['path']}: an index reaching {reached} of {plural(n, 'note')}, "
+            f"changed in {plural(weeks, 'different week')}, the latest {round(age or 0)} days ago")
+    return not asks, said, asks
+
+
+def builtin_counts(store):
+    """Whether one of Claude Code's own memory folders counts as a store of the person's: BUILTIN_MEMORY says it may, and
+    it passes builtin_bar."""
+    return BUILTIN_MEMORY == "curated" and store.get("kind") == "builtin" and builtin_bar(store)[0]
 
 
 def settle_memory(row, p, user, root, home):
     """The memory part's row with code's answer where code already knows it: a project whose every memory store is
-    Claude Code's own reads "not shown", whatever the reader said, and the reader's quote (it can only be from there)
-    is not kept. Nor is its advice: with only built-in stores there is no store of the person's for a path in it to be
-    (a note under docs/ is never one), so following it could not make the part count. Its verdict is kept beside code's,
-    as reader_judged and reader_why, so how often the two disagree can be counted (share_payload reads verdicts only)."""
+    Claude Code's own, none kept to builtin_bar, reads "not shown", whatever the reader said, and the reader's quote (it
+    can only be from there) is not kept. Nor is its advice: with no store that counts there is no store of the person's
+    for a path in it to be (a note under docs/ is never one), so following it could not make the part count; the bar's
+    own words (structure_bar) say what would. Its verdict is kept beside code's, as reader_judged and reader_why, so how
+    often the two disagree can be counted (share_payload reads verdicts only)."""
     if not only_builtin_memory(p, user, root, home):
         return row
     row = {k: v for k, v in row.items() if k != "quote_dropped"}
@@ -810,11 +871,28 @@ def memory_bar(p, user, root, home, reads):
         return False, "no notes folder found for this project", "Needs a notes folder for this project; none was found."
     # Claude Code's built-in memory folder never shows a design by its shape: Claude Code itself writes the index and
     # the typed notes there, for everyone. 11-11: a person's built-in folders (24 files, read in 27 sessions) read
-    # as her notes. Whether the person shaped it is the reader's call, and it then needs an own store to count.
+    # as her notes. With BUILTIN_MEMORY "curated" (11-18) one counts when it shows it is kept (builtin_bar); else it never does.
+    builtin = [s for s, _ in stores if s.get("kind") == "builtin"]
+    # only the project's own: Claude Code loads the home folder's built-in memory in sessions started there, not here
+    kept = [s for s, base in stores if base == root and builtin_counts(s)]
     own = [(s, base) for s, base in stores if s.get("kind") != "builtin"]
+    if kept:
+        own_met = own and memory_own_bar(own, reads, home)[0]
+        if not own_met:
+            best = max(kept, key=lambda s: s["kept"].get("reached", 0))
+            return True, builtin_bar(best)[1], ""
     if not own:
-        return (False, "only Claude Code's built-in memory folder, in the shape Claude Code writes by default",
-                "Needs notes of your own: the memory Claude Code keeps by itself doesn't count.")
+        if BUILTIN_MEMORY != "curated":
+            return (False, "only Claude Code's built-in memory folder, in the shape Claude Code writes by default",
+                    "Needs notes of your own: the memory Claude Code keeps by itself doesn't count.")
+        best = max(builtin, key=lambda s: ((s.get("kept") or {}).get("reached", 0), (s.get("kept") or {}).get("notes", 0)))
+        _, said, asks = builtin_bar(best)
+        return False, said, "Needs notes of your own, or Claude Code's memory folder kept: " + "; ".join(asks) + "."
+    return memory_own_bar(own, reads, home)
+
+
+def memory_own_bar(own, reads, home):
+    """memory_bar over the person's own stores (not Claude Code's built-in folders): the best one, by the bar."""
     scored = []
     for s, base in own:
         n = reads.get(absolute(s["path"], base, home))
@@ -848,8 +926,8 @@ def allowed(p, user, root, home, memory_part=False, team=False):
     """Where a quote may come from: (files, folders, docs_root). Files and folders are the person's own in this
     project's map and the user level's (memory stores and skill folders count whole). docs_root is the project root
     when the map reached more docs than it lists: any doc below it may then be one of them, and only a doc.
-    memory_part: the quote backs "memory shown", so Claude Code's built-in memory folders are left out: they are not
-    the person's work. The other two parts take them as before.
+    memory_part: the quote backs "memory shown", so Claude Code's built-in memory folders are left out unless one
+    counts (builtin_counts: kept to builtin_bar). The other two parts take them as before.
     team: a file the map marks as their team's may back the quote, as ruling R1's option says (counts_for_rules): the rules
     part only. Never corrections, memory or "what works": a teammate's line is not the person's."""
     files, dirs = set(), set()
@@ -860,8 +938,8 @@ def allowed(p, user, root, home, memory_part=False, team=False):
                     continue
                 files.add(absolute(e["path"], base, home))
         for s in place.get("memory") or []:
-            if memory_part and s.get("kind") == "builtin":
-                continue
+            if memory_part and s.get("kind") == "builtin" and not (place is p and builtin_counts(s)):
+                continue   # a built-in folder backs "memory shown" only when it counts (builtin_counts)
             a = absolute(s["path"], base, home)
             (dirs if os.path.isdir(a) else files).add(a)
         for s in place.get("skills") or []:
