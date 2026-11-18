@@ -851,11 +851,14 @@ def settle_memory(row, p, user, root, home):
     can only be from there) is not kept. Nor is its advice: with no store that counts there is no store of the person's
     for a path in it to be (a note under docs/ is never one), so following it could not make the part count; the bar's
     own words (structure_bar) say what would. Its verdict is kept beside code's, as reader_judged and reader_why, so how
-    often the two disagree can be counted (share_payload reads verdicts only)."""
+    often the two disagree can be counted (share_payload reads verdicts only).
+    The page prints a part's `why`, so `why` is the sentence the verdict rests on: with BUILTIN_MEMORY "curated" the bar's
+    own words (what the folder lacks beside what it has: structure_bar), with "never" BUILTIN_ONLY."""
     if not only_builtin_memory(p, user, root, home):
         return row
     row = {k: v for k, v in row.items() if k != "quote_dropped"}
-    return {**row, "judged": "not shown", "why": BUILTIN_ONLY, "quote": None, "quote_ok": False, "next": "",
+    why = BUILTIN_ONLY if BUILTIN_MEMORY != "curated" else row["structure_bar"]
+    return {**row, "judged": "not shown", "why": why, "quote": None, "quote_ok": False, "next": "",
             "reader_judged": row["judged"], "reader_why": row["why"]}
 
 
@@ -887,6 +890,9 @@ def memory_bar(p, user, root, home, reads):
                     "Needs notes of your own: the memory Claude Code keeps by itself doesn't count.")
         best = max(builtin, key=lambda s: ((s.get("kept") or {}).get("reached", 0), (s.get("kept") or {}).get("notes", 0)))
         _, said, asks = builtin_bar(best)
+        if not asks:   # the folder that is kept is the home folder's: Claude Code loads it in sessions started there, not here
+            return False, said, ("Needs notes of your own in this project: the memory folder Claude Code keeps well is your home "
+                                 "folder's, which it loads only in sessions started there.")
         return False, said, "Needs notes of your own, or Claude Code's memory folder kept: " + "; ".join(asks) + "."
     return memory_own_bar(own, reads, home)
 

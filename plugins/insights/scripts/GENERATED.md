@@ -1,4 +1,4 @@
-Copied from labs/ by build.py on 2026-11-18 at 5cfbb274; edit labs, then rebuild.
+Copied from labs/ by build.py on 2026-11-18 at 8d17aae5; edit labs, then rebuild.
 
     python3 plugins/agentic-setup/build.py           # rebuild
     python3 plugins/agentic-setup/build.py --check   # fails when this folder is stale
