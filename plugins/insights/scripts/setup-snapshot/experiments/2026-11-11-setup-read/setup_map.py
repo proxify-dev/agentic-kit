@@ -644,16 +644,13 @@ CLOCK = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__))
 
 
 def now():
-    """clock.now() (AGENTIC_SETUP_NOW fixes it for the tests), or the machine's clock when clock.py can't be loaded."""
-    try:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("setup_map_clock", CLOCK)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return mod.now()
-    except Exception:  # noqa: BLE001
-        import time
-        return time.time()
+    """clock.now(): AGENTIC_SETUP_NOW fixes it for the tests. clock.py ships beside this file, so there is no fallback to the
+    machine's clock: every date the tool uses comes from clock.py (test_clock pins that)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("setup_map_clock", CLOCK)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.now()
 
 
 def builtin_kept(path, notes, info):
