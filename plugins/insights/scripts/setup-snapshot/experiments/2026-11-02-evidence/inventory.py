@@ -77,6 +77,17 @@ EXP = os.path.dirname(HERE)
 HOME = os.path.expanduser("~")
 PROJECTS = os.path.join(HOME, ".claude", "projects")
 UNATTENDED = "sdk"
+# the first message of a session a Claude Code scheduled task started (`~/.claude/scheduled-tasks/<name>/SKILL.md`): the
+# app writes it with the person's own entrypoint (claude-desktop), promptSource "system" and turnOrigin "scheduled"
+SCHEDULED_TASK_RX = re.compile(r'<scheduled-task\s+name="([^"]*)"')
+
+
+def unattended(r):
+    """A main session nobody typed in: a headless run (entrypoint sdk-*: claude -p, the Agent SDK) or a run a Claude
+    Code scheduled task started in the app (read_log: scheduled_task)."""
+    return (r.get("ep") or "").startswith(UNATTENDED) or bool(r.get("scheduled_task"))
+
+
 # attachment kinds only a person's typing produces; counted once per record (see read_log)
 AT_PATH_RX = re.compile(r'@"?([^\s"]+)')
 
@@ -505,6 +516,8 @@ def read_log(args):
          # what reached Claude's context, for ownership later (main, by git): (t, "hook", event, command, talks about
          # sub-agents) from a hook's own run record; (t, "rule", how, path, talks) for a rule file loaded at start or mid-session
          "ctx": [], "block_cmds": Counter(), "blocks_by_name": Counter(), "sched_fires": 0,
+         # the Claude Code scheduled task whose run this session is (SCHEDULED_TASK_RX on its first message), else None
+         "scheduled_task": None,
          # records written while the session runs in the background carry sessionKind "bg" (/bg, or started there)
          "bg_kind": False,
          # when Claude Code loaded the project's auto-memory MEMORY.md into the session (an `instructions` record whose
@@ -732,6 +745,10 @@ def read_log(args):
                 content = (rec.get("message") or {}).get("content")
                 head = content if isinstance(content, str) else " ".join(
                     x.get("text", "") for x in (content or []) if isinstance(x, dict) and x.get("type") == "text")
+                if r["scheduled_task"] is None and not last_typed and r["first_prompt"] is None and (
+                        rec.get("turnOrigin") == "scheduled" or (rec.get("origin") or {}).get("subkind") == "scheduled-trigger"):
+                    m = SCHEDULED_TASK_RX.match(head.lstrip())   # a scheduled task's run: its first message is the task's
+                    r["scheduled_task"] = (m.group(1).strip() if m else "") or "(unnamed)"
                 if rec.get("promptSource") in ("typed", "queued") or (
                         rec.get("promptSource") == "sdk" and rec.get("entrypoint") in PERSON_APPS   # the person, in VS Code / desktop / JetBrains
                         and (rec.get("origin") or {}).get("kind") in (None, "human")) or (
@@ -1009,7 +1026,10 @@ class SchedulerStarts:
                 self.jobs.append({"text": text, "fires": [{"minute": m, "hour": h, "day": dom, "month": mon, "weekday": dow}], "cwd": None})
 
     def started(self, run):
-        """Why a scheduler is this run's parent: "its prompt is in a job", "a job fires at its start", or None."""
+        """Why a scheduler is this run's parent: "a Claude Code scheduled task started it" (the session's own records say
+        so), "its prompt is in a job", "a job fires at its start", or None."""
+        if run.get("scheduled_task"):
+            return "a Claude Code scheduled task started it"
         prompt = prompt_key(run.get("first_prompt"))
         t0 = run.get("t0")
         for j in self.jobs:
@@ -1031,11 +1051,12 @@ def quiet_before(t, times, window=1800):
 
 
 def aggregate(recs, interactive_ids, times=(), scheduler=None):
-    """interactive_ids: the typed chats (logs.py); a main file that isn't one of them and has an sdk entrypoint is
-    headless. Helper files count toward the chat that started them (their parent folder name)."""
+    """interactive_ids: the typed chats (logs.py); a main file that isn't one of them and has an sdk entrypoint, or
+    that a Claude Code scheduled task started, is headless (unattended). Helper files count toward the chat that started
+    them (their parent folder name)."""
     out = {}
-    typed = [r for r in recs if not r["helper"] and not (r["ep"] or "").startswith(UNATTENDED)]
-    headless = [r for r in recs if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED)]
+    typed = [r for r in recs if not r["helper"] and not unattended(r)]
+    headless = [r for r in recs if not r["helper"] and unattended(r)]
     helpers = [r for r in recs if r["helper"]]
     parent = lambda r: os.path.basename(os.path.dirname(os.path.dirname(r["file"])))  # noqa: E731
 
@@ -1178,6 +1199,8 @@ def aggregate(recs, interactive_ids, times=(), scheduler=None):
     away = {r["file"]: quiet_before(r["t0"], times) or bool(by_scheduler[r["file"]]) for r in headless}
     for r in headless:
         tpl = DIGITS.sub("#", UUID.sub("<id>", (r["first_prompt"] or "(no prompt)")[:60]))
+        if r.get("scheduled_task"):   # its prompt is the task's file, not a program's: the task's name is the template
+            tpl = f"scheduled task {r['scheduled_task']}"[:60]
         rr = place(r["cwd"])
         g = groups[(rr, tpl)]
         g["runs"] += 1
@@ -1198,7 +1221,8 @@ def aggregate(recs, interactive_ids, times=(), scheduler=None):
         "started_by_a_scheduled_job": sum(bool(v) for v in by_scheduler.values()),
         "while_away": sum(away.values()),
         "while_away_rule": "nothing typed by the person in the 30 minutes before the run began, or a scheduler is the run's parent "
-                           "(a LaunchAgent or cron line whose prompt is the run's prompt, or whose calendar entry fires at its start)",
+                           "(a LaunchAgent or cron line whose prompt is the run's prompt, or whose calendar entry fires at its start, "
+                           "or a Claude Code scheduled task, which the session's first message names)",
         "entrypoints": dict(Counter(r["ep"] for r in headless)),
         "permission_modes": dict(sum((r["pm"] for r in headless), Counter())),
         "by_repo": top(by_repo, 15),
@@ -1596,11 +1620,11 @@ def who_did_it(inv, chats, raw, meta):
            "Which of these hooks are yours is decided by git.", of=inv["hook_context"]["typed_chats"]),
     ]
     programs = [
-        it("programs.runs_started_by_code", "Headless runs (claude -p, Agent SDK)", inv["headless"]["runs"], None,
-           "Sessions whose entry point is the Agent SDK or claude -p: a program started them, nobody typed."),
+        it("programs.runs_started_by_code", "Headless runs (claude -p, Agent SDK, a scheduled task's run)", inv["headless"]["runs"], None,
+           "Sessions whose entry point is the Agent SDK or claude -p, or that a Claude Code scheduled task started: a program started them, nobody typed."),
         it("programs.runs_unattended", "…of them started while you were away", inv["headless"].get("while_away", inv["headless"]["started_with_no_typed_message_in_30_min_before"]), None,
-           "No message from you in any session in the half hour before the run started, or a scheduler of yours (a LaunchAgent or "
-           f"cron line) started it: {inv['headless'].get('started_by_a_scheduled_job', 0)} runs trace to one.", of=inv["headless"]["runs"]),
+           "No message from you in any session in the half hour before the run started, or a scheduler of yours (a LaunchAgent, a "
+           f"cron line or a Claude Code scheduled task) started it: {inv['headless'].get('started_by_a_scheduled_job', 0)} runs trace to one.", of=inv["headless"]["runs"]),
         it("programs.scheduled_jobs", "Scheduled jobs that start an agent", len(cron) + len(launchd) + sched, None,
            f"crontab entries {len(cron)} and launchd jobs {len(launchd)} whose command or script mentions claude, and Claude Code "
            f"scheduled tasks {sched}. Not counted here: {raw.get('sched_fires', 0)} turns Claude Code resumed on a wakeup "
@@ -2554,7 +2578,7 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
     by_session = defaultdict(list)
     headless_t0 = {}         # session id -> when the headless run (entrypoint sdk-*) started
     for r in recs:
-        if not r.get("helper") and (r.get("ep") or "").startswith(UNATTENDED):
+        if not r.get("helper") and unattended(r):
             headless_t0[r["chat"]] = r.get("t0") or min((e[0] for e in r.get("skill_ev") or ()), default=0)
         if r.get("skill_ev"):
             sid = os.path.basename(os.path.dirname(os.path.dirname(r["file"]))) if r["helper"] else r["chat"]
@@ -2622,7 +2646,7 @@ def skill_depth_facts(A, recs, start, me, roots, own_plugins=()):
     eval_calls, script_calls, headless_prompt = [], set(), {}
     headless_t0 = {}
     for r in recs:
-        if not r.get("helper") and (r.get("ep") or "").startswith(UNATTENDED):
+        if not r.get("helper") and unattended(r):
             headless_prompt[r["chat"]] = prompt_key(r.get("first_prompt"))
             headless_t0[r["chat"]] = r.get("t0") or min((e[0] for e in r.get("skill_ev") or ()), default=0)
     for sid, evs in by_session.items():
@@ -2835,8 +2859,9 @@ def job_is_theirs(args, plist, me):
 
 
 def scheduled_file_is_theirs(path, me):
-    """A Claude Code scheduled_tasks.json: whose it is, by ownership.py, as for any other file of theirs: its authorship in
-    the repo it sits in (a teammate's committed project file is not theirs); one in no repo (~/.claude) is theirs."""
+    """A Claude Code scheduled task's file (scheduled_tasks.json, or a task folder's SKILL.md): whose it is, by ownership.py,
+    as for any other file of theirs: its authorship in the repo it sits in (a teammate's committed project file is not
+    theirs); one in no repo (~/.claude) is theirs."""
     if not path:
         return True
     real = os.path.realpath(path)
@@ -3049,7 +3074,7 @@ def memory_paths(recs):
     for r in recs:
         if r.get("own_tool") or (r["helper"] and parent(r) in tool_chats):
             continue
-        if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED):
+        if not r["helper"] and unattended(r):
             continue
         chat = parent(r) if r["helper"] else r["chat"]
         for p, n in (r.get("paths_read") or {}).items():
@@ -3361,7 +3386,7 @@ def main(argv=None):
         worked_chats.update(worked_by_session.get(c["chat"], {}).keys())
     # repos found only from the work: no session started in them, nor below a start folder (those are read by their rows)
     from_work = repos_from_work(worked_chats, roots)
-    head_cwds = Counter(r["cwd"] for r in recs if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED))
+    head_cwds = Counter(r["cwd"] for r in recs if not r["helper"] and unattended(r))
     head_folders = Counter()
     for cwd, n in head_cwds.items():
         f = scan_folder(cwd)
@@ -3419,7 +3444,7 @@ def main(argv=None):
     # repos: chats, headless runs, commits in the window
     head_by_repo = Counter()
     for r in recs:
-        if not r["helper"] and (r["ep"] or "").startswith(UNATTENDED):
+        if not r["helper"] and unattended(r):
             head_by_repo[place(r["cwd"])] += 1
     repos = []
     for rr in [*sorted(set(roots) | set(head_by_repo)), *below_all, *[r for r in from_work if r not in below_all]]:
@@ -3584,7 +3609,7 @@ def main(argv=None):
     tr = {}
     typed_ids = {c["chat"] for c in typed}
     for r in recs:
-        if r["helper"] or (r["ep"] or "").startswith(UNATTENDED) or r["chat"] not in typed_ids:
+        if r["helper"] or unattended(r) or r["chat"] not in typed_ids:
             continue
         cnt, bare_c = Counter(), Counter()
         for nm, has_args, _ in r["commands"]:
