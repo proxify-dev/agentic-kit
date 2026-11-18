@@ -120,7 +120,7 @@ TAB = {"review": "Review", "mylevel": "Your level", "built": "What you've built"
 
 CSS = """
 *{box-sizing:border-box}html{-webkit-font-smoothing:antialiased}
-body{margin:0;background:#F9FAFB;color:#15172F;font:400 14px/1.6 Inter,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+body{margin:0;background:#F9FAFB;color:#15172F;font:400 14px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
 ::selection{background:#D5D5FE;color:#15172F}
 a{color:#3C3ED4;text-underline-offset:3px}
 :focus-visible{outline:2px solid #5258FB;outline-offset:2px;border-radius:4px}
@@ -332,8 +332,7 @@ def build(run, out, member=False, level=True, masked=False, page=None):
     mark = ('<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" '
             'stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5h10M3 8h7M3 11.5h4"/></svg>')
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{esc(page["title"]) if page else "Setup report"}</title><link rel=preconnect href=https://fonts.googleapis.com>
-<link rel=stylesheet href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<title>{esc(page["title"]) if page else "Setup report"}</title>
 <style>{"".join(css)}</style></head><body>
 <header class="rp-top"><div class="rp-wrap"><div class="rp-bar"><span class="rp-mark">{mark}</span>
 <div class="rp-id"><b>{esc(page["title"]) if page else "Your agentic setup"}</b><span>{esc(page["line"] if page else window_line(meta))}</span></div>
