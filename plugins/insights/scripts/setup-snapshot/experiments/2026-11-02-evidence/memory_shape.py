@@ -28,7 +28,9 @@ instruction file names. The name only finds candidates; it never proves anything
 Every answer sits on the store with its reason: shape + shape_why, origin + origin_why, copy_of, and the verdict counted +
 stopped_at ("shape" | "origin" | "copy" | None), which counts() decides and every reader takes as it is.
 Claude Code's own per-project memory (~/.claude/projects/*/memory) is built in, not the person's work (the 11-11 ruling):
-it keeps its treatment and is never asked questions 1 and 2.
+it keeps its treatment and is never asked questions 1 and 2. Whether one counts toward the memory part is the setup
+read's call (setup_read.builtin_bar, the owner's ruling 11-18: only when it is kept: an index reaching its notes, changed
+across weeks and lately).
 
 Test: test_memory_shape.py. Run: python3 -I memory_shape.py FOLDER...   prints each folder's question 1 answer.
 """

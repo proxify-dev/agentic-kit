@@ -640,6 +640,50 @@ def memory_shape_answer(rec):
     return {"memory_shape": rec["shape"], "memory_shape_why": rec.get("shape_why") or ""}
 
 
+CLOCK = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "2026-11-02-evidence", "clock.py"))
+
+
+def now():
+    """clock.now(): AGENTIC_SETUP_NOW fixes it for the tests. clock.py ships beside this file, so there is no fallback to the
+    machine's clock: every date the tool uses comes from clock.py (test_clock pins that)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("setup_map_clock", CLOCK)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.now()
+
+
+def builtin_kept(path, notes, info):
+    """What keeping Claude Code's own memory folder over time leaves on disk, as facts (setup_read.builtin_bar judges them).
+    Claude Code writes MEMORY.md and typed notes itself and loads MEMORY.md into every session, so notes, an index and
+    reads prove nothing on their own (11-11). Kept: notes besides MEMORY.md; `reached`, the notes MEMORY.md links or
+    reaches through notes it links (a note it never reaches a fresh session never finds); its links and how many resolve
+    (a link to a deleted note is an index nobody pruned); its lines and bytes (Claude Code loads the first 200 lines or
+    25KB); `weeks`, the different weeks the notes were last changed in; `newest_days`, how long ago the newest change was."""
+    top = os.path.normpath(os.path.join(path, "MEMORY.md"))
+    others = [p for p in notes if p != top]
+    mtimes = []
+    for p in notes:
+        try:
+            mtimes.append(os.stat(p).st_mtime)
+        except OSError:
+            pass
+    out = {"notes": len(others), "reached": 0, "index_lines": None, "index_bytes": None, "index_links": 0, "index_resolved": 0,
+           "weeks": len({int(t // (7 * 86400)) for t in mtimes}),
+           "newest_days": round((now() - max(mtimes)) / 86400, 1) if mtimes else None}
+    if top in info:
+        ix = info[top]
+        seen, todo = set(ix["hits"]), list(ix["hits"])
+        while todo:
+            for t in info[todo.pop()]["hits"]:
+                if t not in seen:
+                    seen.add(t)
+                    todo.append(t)
+        out.update(reached=len(seen - {top}), index_lines=len(notes[top].splitlines()), index_bytes=len(notes[top].encode("utf-8")),
+                   index_links=len(ix["links"]), index_resolved=sum(1 for t in ix["links"] if t))
+    return out
+
+
 def memory_store(path, ctx, display):
     kind = "builtin" if re.fullmatch(re.escape(os.path.join(ctx.claude, "projects")) + r"/[^/]+/memory", os.path.normpath(path)) else "own"
     res = {"path": display(path), "kind": kind}
@@ -679,6 +723,8 @@ def memory_store(path, ctx, display):
         links = link_targets("\n".join(lines[body:]), p, notes, by_stem)
         info[p] = {"lines": lines, "body": body, "words": words(text), "links": links,
                    "hits": {t for t in links if t and t != p}}
+    if kind == "builtin":
+        res["kept"] = builtin_kept(os.path.normpath(path), notes, info)
     rel_depth = {p: len(os.path.relpath(p, base).split(os.sep)) if os.path.isdir(path) else 1 for p in notes}
     res.update(total_words=sum(i["words"] for i in info.values()), depth=max(rel_depth.values()))
     res["frontmatter_share"] = round(fm_count / len(notes), 2)
