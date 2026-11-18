@@ -788,11 +788,14 @@ BUILTIN_ONLY = "only the memory Claude Code keeps by itself"
 def settle_memory(row, p, user, root, home):
     """The memory part's row with code's answer where code already knows it: a project whose every memory store is
     Claude Code's own reads "not shown", whatever the reader said, and the reader's quote (it can only be from there)
-    is not kept."""
+    is not kept. Nor is its advice: with only built-in stores there is no store of the person's for a path in it to be
+    (a note under docs/ is never one), so following it could not make the part count. Its verdict is kept beside code's,
+    as reader_judged and reader_why, so how often the two disagree can be counted (share_payload reads verdicts only)."""
     if not only_builtin_memory(p, user, root, home):
         return row
     row = {k: v for k, v in row.items() if k != "quote_dropped"}
-    return {**row, "judged": "not shown", "why": BUILTIN_ONLY, "quote": None, "quote_ok": False}
+    return {**row, "judged": "not shown", "why": BUILTIN_ONLY, "quote": None, "quote_ok": False, "next": "",
+            "reader_judged": row["judged"], "reader_why": row["why"]}
 
 
 def memory_structure(p, user, root, home, reads):
