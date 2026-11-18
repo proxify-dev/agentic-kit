@@ -11,6 +11,28 @@ You get a new version only when it is released: each entry below is one release,
 brackets are pull requests on proxify-dev/agentic-kit. Versions 0.1.1, 0.2.3, 0.4.1 and 0.6.7 were never sent out; their
 changes arrived in the version after them.
 
+## 0.6.12 — 2026-11-18
+
+### What changes for you
+
+- **Only your own changes count** as keeping your instruction files up to date (#52). A teammate's edits to a shared AGENTS.md or rules file no longer count as yours. When none of the changes match an email your git config knows, the page says it can't tell and leaves it to the call.
+- **Your team's AGENTS.md is visible to the review** (#52). A file written mostly by teammates used to be dropped, so the page said "0 instruction files". It is now read, marked as your team's. It does not count toward your level.
+- **The summary you share matches your page** (#52). Its areas, evals and call questions follow the level the page shows.
+- **"Partly" says what's missing** (#52), for example "needs changes in 3 different weeks; your best file has 2".
+- **One line on what the tool can't see** (#52): checks that run in CI, routines on claude.ai, another computer.
+- **A warning when a project isn't on its main branch** (#52).
+- **A smoother first run** (#53). The install steps say to run `/reload-plugins`. If Python is too old, it says why and asks before installing `uv`. It says up front what it reads and writes, and offers to clean up at the end. The page loads nothing from the internet.
+- **No advice the page knows can't help** (#54). When code has settled the memory verdict, the suggestion to create docs files that could never count is gone.
+- **A tended Claude Code memory folder counts** (#55). It needs an index that reaches your notes, links that work, changes across at least 3 weeks, and a change in the last 30 days. When it falls short, the page says where: "your index reaches 2 of your 17 notes". The AI reviewer still has to see it working, with a quoted line.
+
+### Known limits
+
+- A memory folder Claude Code keeps by itself, or reference docs filed as notes, can pass the four memory checks. The AI reviewer is what keeps them out.
+- The suggested next steps can differ from one run to the next. The level does not.
+- Everything listed under 0.6.11 still holds.
+
+Pull requests: #52, #53, #54, #55.
+
 ## 0.6.11 — 2026-11-17
 
 ### What changes for you
