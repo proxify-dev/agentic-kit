@@ -7,6 +7,7 @@ tool-call indexer (`node traces/bin/traces.mjs index`), which the hook launches 
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
@@ -41,7 +42,7 @@ def _run(tmp_path: Path, wait: bool = True, **env) -> bool:
         "CLAUDE_PROJECT_DIR": str(tmp_path),
     }
     full = {**base, **{k: v for k, v in env.items() if v is not None}}
-    proc = subprocess.run([sys.executable, str(HOOK)], env=full, capture_output=True, timeout=10)
+    proc = subprocess.run([sys.executable, str(HOOK)], env=full, input=b"", capture_output=True, timeout=10)
     assert proc.returncode == 0
     if not wait:
         return (tmp_path / ".claude" / "plugins" / "data" / "conversation-index" / "stop-hook.log").exists()
@@ -55,7 +56,8 @@ def _run(tmp_path: Path, wait: bool = True, **env) -> bool:
 @pytest.mark.parametrize("entrypoint", [None, "cli", "claude-desktop", "sdk-ts"])
 def test_people_index(tmp_path, entrypoint):
     assert _run(tmp_path, CLAUDE_CODE_ENTRYPOINT=entrypoint)
-    assert (tmp_path / "uv-ran").read_text().split()[-2:] == ["tracer", "index"]
+    assert (tmp_path / "uv-ran").read_text().split() == [
+        "run", "--quiet", "--project", str(tmp_path / "plugin"), "tracer", "index"]
 
 
 @pytest.mark.parametrize("entrypoint", ["sdk-cli", "sdk-py", "something-new"])
@@ -65,6 +67,33 @@ def test_programs_do_not(tmp_path, entrypoint):
 
 def test_brain_capture_counts_a_program_as_a_person(tmp_path):
     assert _run(tmp_path, CLAUDE_CODE_ENTRYPOINT="sdk-cli", **{env_name("CAPTURE"): "1"})
+
+
+@pytest.mark.parametrize("invalid", ["malformed", "missing", "not-string", "tty"])
+def test_hook_transcript_argument_then_unusable_input(tmp_path, monkeypatch, invalid):
+    hook = _hook_module()
+    plugin = tmp_path / "plugin"
+    for name, value in {"HOME": tmp_path, "USERPROFILE": tmp_path,
+                        "CLAUDE_CONFIG_DIR": tmp_path / "config", "CLAUDE_PROJECT_DIR": tmp_path,
+                        "CLAUDE_PLUGIN_ROOT": plugin, "CLAUDE_CODE_ENTRYPOINT": "cli"}.items():
+        monkeypatch.setenv(name, str(value))
+    monkeypatch.setattr(hook, "traces_index", lambda root, fh: None)
+    monkeypatch.setattr(hook.shutil, "which", lambda name: sys.executable)
+    calls = []
+    monkeypatch.setattr(hook, "spawn", lambda argv, fh, cwd: calls.append((argv, cwd)))
+    argv = [sys.executable, "run", "--quiet", "--project", str(plugin), "tracer", "index"]
+    transcript = str(tmp_path / "projects" / "worktree" / "session.jsonl")
+    payload = json.dumps({"transcript_path": transcript})
+    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
+    hook.main()
+    assert calls == [(argv + ["--transcript", transcript], tmp_path)]
+    unusable = {"malformed": "{", "missing": "{}", "not-string": '{"transcript_path": 3}'}
+    stream = io.StringIO(unusable.get(invalid, payload))
+    if invalid == "tty":
+        monkeypatch.setattr(stream, "isatty", lambda: True)
+    monkeypatch.setattr(sys, "stdin", stream)
+    hook.main()
+    assert calls == [(argv + ["--transcript", transcript], tmp_path), (argv, tmp_path)]
 
 
 # --- the tool-call index: traces/bin/traces.mjs, launched by the same hook ----------------
@@ -97,7 +126,7 @@ def _traces(tmp_path: Path, *, uv: bool = True, **env) -> tuple[subprocess.Compl
     }
     full = {**base, **{k: v for k, v in env.items() if v is not None}}
     t0 = time.monotonic()
-    proc = subprocess.run([sys.executable, str(HOOK)], env=full, capture_output=True, text=True, timeout=10)
+    proc = subprocess.run([sys.executable, str(HOOK)], env=full, input="", capture_output=True, text=True, timeout=10)
     return proc, time.monotonic() - t0
 
 

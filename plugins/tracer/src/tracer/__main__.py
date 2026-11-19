@@ -61,6 +61,7 @@ def cmd_index(args: argparse.Namespace):
             project_path,
             quiet=False,
             index_all=args.all,
+            transcript_path=args.transcript,
         )
     elapsed = time.time() - t0
 
@@ -289,6 +290,7 @@ def main():
     idx.add_argument("--rebuild", action="store_true", help="Force full re-index")
     idx.add_argument("--all", action="store_true", help="Index all discovered projects")
     idx.add_argument("--session", help="Index one session's transcript (UUID) if new or changed")
+    idx.add_argument("--transcript", metavar="PATH", help="Also index the project folder containing this transcript")
 
     # Query command
     q = sub.add_parser("query", help="Query the interaction index")
@@ -368,6 +370,8 @@ def main():
 
     args = parser.parse_args()
     if args.command == "index":
+        if args.transcript is not None and (args.all or args.rebuild or args.session is not None):
+            parser.error("--transcript cannot be combined with --all, --rebuild or --session")
         cmd_index(args)
     elif args.command == "query":
         cmd_query(args)

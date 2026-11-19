@@ -216,9 +216,11 @@ contention when parallel processes query the index concurrently.
 **The index is kept fresh automatically by a Stop hook.** The ak plugin
 registers `hooks/convo-index-stop.py` on the `Stop` event (end of every
 assistant turn) and on `SessionStart` (belt-and-suspenders catchup). The hook
-backgrounds the indexer and returns immediately, so session termination is
-never blocked. By the time the next user turn starts, the new interactions
-from the previous turn are already in the index. Automated sessions
+backgrounds one indexer for the current project and the hook input's transcript
+folder and returns immediately, so session termination is never blocked. By the
+time the next user turn starts, the new interactions from the previous turn are
+already in the index. The extra pass skips sessions also present in the current
+project's folder. Automated sessions
 (`CLAUDE_CODE_ENTRYPOINT` other than cli · claude-desktop · sdk-ts, i.e. `claude -p`
 and the SDKs) start no indexer — `AK_CAPTURE=1` makes one count — and the next
 person's session indexes what they wrote.

@@ -446,7 +446,8 @@ def show(uuid, drill, open_, step, limit, stats, patterns):
 @click.option("--rebuild", is_flag=True, help="force full re-index from JSONL")
 @click.option("--session", "session", default=None, metavar="UUID",
               help="index one session's transcript if it is new or changed (what trace does first)")
-def index(index_all, rebuild, session):
+@click.option("--transcript", metavar="PATH", help="also index the project folder containing this transcript")
+def index(index_all, rebuild, session, transcript):
     """Index conversation transcripts into the session record."""
     argv = ["index"]
     if session:
@@ -455,6 +456,8 @@ def index(index_all, rebuild, session):
         argv.append("--all")
     if rebuild:
         argv.append("--rebuild")
+    if transcript is not None:
+        argv += ["--transcript", transcript]
     _run_engine(argv)
 
 
