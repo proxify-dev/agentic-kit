@@ -239,7 +239,7 @@ enabled plugin's `bin/` on the Bash tool's PATH, so the verbs an agent types (`t
 ## What it ships
 
 ```
-   hooks/                    SessionStart · Stop → convo-index-stop.py (incremental index, backgrounded, never blocks;
+   hooks/                    SessionStart · Stop → convo-index-stop.py (project and transcript folder, backgrounded, never blocks;
                              people's sessions only — `claude -p` and the SDKs skip it unless AK_CAPTURE=1).
                              The same Stop hook also launches the tool-call indexer this plugin ships
                              (`node traces/bin/traces.mjs index`, detached and niced, before anything that needs
@@ -351,6 +351,8 @@ a miss says what it looked for. ✎ marks a verb that writes.
 Every old spelling still runs at the root, out of help: `tracer live|log|inspect|show|replay|grep|blame|index|calls`
 (inside `ak`: `ak tracer …`) — the same click objects (`live`, `replay`, `blame`, `grep`) or the same bodies
 (`inspect`, `show`), so old and new print the same lines; the trace skill and the Stop hook call some of them.
+`tracer index --transcript PATH` also indexes that transcript's project folder; the extra pass skips sessions
+also present in the current project's folder.
 `tracer calls index` is the tool-call index alone, as it was. The old `sessions <project>` and `trace <uuid>`
 leaves are `sessions ls <project>` and `sessions show <uuid> --as-skill`. `ak search` (ak) asks this plugin
 too: `brain_search` in `src/tracer/cli.py`, the sessions `tracer sessions search` ranks first.

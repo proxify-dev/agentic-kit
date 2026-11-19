@@ -8,6 +8,7 @@ Behavior:
 - Skip automated sessions (session_origin.automated(): CLAUDE_CODE_ENTRYPOINT not
   cli/claude-desktop/sdk-ts), unless AK_CAPTURE=1
 - Resolve project via $CLAUDE_PROJECT_DIR (set by Claude Code), fallback to cwd
+- Pass the hook input's transcript_path so its project folder is indexed too
 - Launch this plugin's tool-call indexer (`node traces/bin/traces.mjs index`; under
   $AK_CODE, that checkout's plugins/tracer/traces/), detached and at lower priority,
   before anything that needs uv; node >= 22.13 is looked for on PATH, then where nvm,
@@ -19,12 +20,13 @@ Behavior:
 - Return immediately so session termination / startup is never blocked
 - Always exit 0 — indexing failures must never break the session
 
-We start the indexer in the project instead of passing a flag: cwd is the one input
-every entrypoint agrees on.
+The indexer's cwd selects the ordinary project; --transcript adds the session's
+transcript folder when it differs.
 
-Concurrency safety: the indexer holds a bounded lock that serializes writers, so it's
-safe to invoke concurrently with other hook runs or a manual `tracer index` invocation.
+Conversation passes in this invocation are sequential. Overlapping index runs
+can lose a run to "database is locked"; the next run catches up.
 """
+import json
 import os
 import re
 import shutil
@@ -34,7 +36,7 @@ import time
 from pathlib import Path
 
 try:
-    from _brand import claude_home, data_dir, env, env_name, is_windows, spawn_detached
+    from _brand import claude_home, data_dir, env, env_name, is_windows, spawn_detached, utf8_stdio
     from session_origin import automated
 except Exception:  # a partial copy must not break the session
     sys.exit(0)
@@ -145,7 +147,7 @@ def traces_index(root: Path, fh):
         spawn([node, "--no-warnings", str(entry.resolve()), "index"], fh, Path.home())
 
 
-def convo_index(root: Path, project: Path, fh):
+def convo_index(root: Path, project: Path, fh, transcript: str | None = None):
     uv = shutil.which("uv")
     if not uv or not project.is_dir():
         return
@@ -155,12 +157,26 @@ def convo_index(root: Path, project: Path, fh):
     if venv.is_dir() and not any((venv / p).exists() for p in ("bin/python", "Scripts/python.exe")):
         shutil.rmtree(venv, ignore_errors=True)
     log(fh, f"convo-index-stop: project={project} plugin={root}")
-    spawn([uv, "run", "--quiet", "--project", str(root), "tracer", "index"], fh, project)
+    argv = [uv, "run", "--quiet", "--project", str(root), "tracer", "index"]
+    if transcript is not None:
+        argv += ["--transcript", transcript]
+    spawn(argv, fh, project)
+
+
+def transcript_path():
+    """The hook input's transcript path, or None when unavailable."""
+    try:
+        payload = {} if sys.stdin.isatty() else json.load(sys.stdin)
+        path = payload.get("transcript_path") if isinstance(payload, dict) else None
+        return path if isinstance(path, str) and path else None
+    except Exception:
+        return None
 
 
 def main():
     if automated():
         return
+    utf8_stdio()
     project = Path(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
     root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parents[1])
     log_dir = claude_home() / "plugins" / "data" / "conversation-index"
@@ -170,7 +186,7 @@ def main():
     except OSError:
         return
     with fh:
-        for step in (lambda: traces_index(root, fh), lambda: convo_index(root, project, fh)):
+        for step in (lambda: traces_index(root, fh), lambda: convo_index(root, project, fh, transcript_path())):
             try:
                 step()
             except Exception as e:  # indexing failures must never break the session

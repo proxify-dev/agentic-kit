@@ -46,6 +46,21 @@ def get_conversations_dir_for_hash(project_hash: str) -> Path:
     return claude_home() / "projects" / project_hash
 
 
+def _transcript_dir(transcript_path: str) -> Path | None:
+    """The project directory containing a Claude Code transcript."""
+    try:
+        path = Path(transcript_path).resolve(strict=True)
+        projects = (claude_home() / "projects").resolve()
+        if path.suffix != ".jsonl" or not path.is_file() or path.parent.parent != projects:
+            raise ValueError(f"expected a .jsonl file in {projects}/<project>")
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError, RuntimeError) as exc:
+        print(f"warn: --transcript {transcript_path!r}: {exc}; indexing only the current project", file=sys.stderr)
+        return None
+    return path.parent
+
+
 def list_session_files(conversations_dir: Path) -> dict[str, float]:
     """List all JSONL session files with their mtimes."""
     sessions: dict[str, float] = {}
@@ -342,6 +357,7 @@ def _index_project(
     conversations_dir: Path,
     force: bool = False,
     project_path: str = "",
+    exclude: set[str] | None = None,
 ) -> int:
     """Index a single project. Returns number of interactions written. ``project_path`` is the
     cwd when the caller knows it; otherwise a transcript's recorded cwd names the project."""
@@ -351,6 +367,8 @@ def _index_project(
     writer = IndexWriter(con, project_hash)
 
     session_files = list_session_files(conversations_dir)
+    if exclude:
+        session_files = {name: mtime for name, mtime in session_files.items() if name not in exclude}
 
     # A missing dir used to be indistinguishable from "nothing new" — that is
     # exactly how the dotted-path bug hid for two months. Never silent again.
@@ -496,6 +514,7 @@ def incremental_index(
     quiet: bool = False,
     db_path: Path | None = None,
     index_all: bool = False,
+    transcript_path: str | None = None,
 ) -> int:
     """Run incremental indexing. Returns total interaction count written."""
     # Detect and rebuild from legacy DuckDB if needed. A first run's rebuild counts as indexed: it is
@@ -506,18 +525,26 @@ def incremental_index(
     failed: list[str] = []
 
     if index_all:
-        projects = discover_projects()
+        projects = [(project_hash, directory, False) for project_hash, directory in discover_projects()]
     else:
         project_hash = get_project_hash(project_path)
         conv_dir = get_conversations_dir(project_path)
-        projects = [(project_hash, conv_dir)]
+        projects = [(project_hash, conv_dir, False)]
+        if transcript_path is not None:
+            transcript_dir = _transcript_dir(transcript_path)
+            if transcript_dir == conv_dir.resolve():
+                transcript_dir = None
+            if transcript_dir is not None:
+                projects.insert(0, (transcript_dir.name, transcript_dir, True))
 
     try:
-        for project_hash, conversations_dir in projects:
+        for project_hash, conversations_dir, supplemental in projects:
             con.execute("BEGIN")
             try:
+                # The supplemental pass must not overwrite the current project's sessions.
                 total_indexed += _index_project(con, project_hash, conversations_dir,
-                                                project_path="" if index_all else project_path)
+                                                project_path="" if index_all or supplemental else project_path,
+                                                exclude=set(list_session_files(conv_dir)) if supplemental else None)
             except Exception as exc:  # noqa: BLE001
                 con.execute("ROLLBACK")
                 # A --all sweep is a maintenance pass over ~hundreds of
@@ -525,7 +552,7 @@ def incremental_index(
                 # leave coverage dependent on where it died. Isolate and carry
                 # on. A single-project run still raises — the caller asked
                 # about that project specifically.
-                if not index_all:
+                if not index_all and not supplemental:
                     raise
                 failed.append(project_hash)
                 print(f"  warn: {project_hash}: {exc}", file=sys.stderr)

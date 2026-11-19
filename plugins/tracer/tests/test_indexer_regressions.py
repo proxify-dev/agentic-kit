@@ -7,8 +7,11 @@ Run: uv run python tests/test_indexer_regressions.py
 """
 from __future__ import annotations
 
+import os
 import tempfile
+from contextlib import closing, contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 import json
 
@@ -221,6 +224,153 @@ def test_session_listing_shows_files_errors_and_duration():
     # a session-scoped listing gets the detail lines; a cross-session one does not
     assert "files:" in format_results([rec], QueryFilters(session_id="sess"), 1)
     assert "files:" not in format_results([rec], QueryFilters(), 1)
+
+
+@contextmanager
+def _transcript_index():
+    from click.testing import CliRunner
+    from tracer import cli, db, storage
+
+    runner = CliRunner()
+    with tempfile.TemporaryDirectory() as td:
+        project = Path(td).resolve()
+        path = project / "index.db"
+        env = {"HOME": str(project), "USERPROFILE": str(project),
+               "CLAUDE_CONFIG_DIR": str(project / "config")}
+        with patch.dict(os.environ, env), patch.object(Path, "cwd", return_value=project), \
+                patch.object(db, "DB_PATH", path), patch.object(storage, "DB_PATH", path), \
+                patch.object(cli.engine, "DB_PATH", path):
+            get_write_connection(path).close()  # A first-run sweep would hide the missing worktree pass.
+
+            def invoke(*args):
+                return runner.invoke(cli.cli, ["index", *args])
+
+            yield project, path, invoke
+
+
+def _session_file(project, name, prompt):
+    from conftest import asst, text, user, write_jsonl
+    from tracer.storage import get_conversations_dir
+
+    return write_jsonl(get_conversations_dir(str(project)) / f"{name}.jsonl",
+                       [user(prompt, 0, cwd=str(project)), asst([text("answer")], 1, "message")])
+
+
+def _rows(path):
+    from tracer.db import get_readonly_connection
+
+    con = get_readonly_connection(path)
+    try:
+        return con.execute("SELECT session_id, user_message_preview, session_file FROM interactions ORDER BY session_id").fetchall()
+    finally:
+        con.close()
+
+
+def test_transcript_folder_stores_its_own_project_path():
+    from tracer.db import get_readonly_connection
+
+    with _transcript_index() as (project, db, invoke):
+        main = _session_file(project, "main", "main prompt")
+        worktree = project / ".claude" / "worktrees" / "topic"
+        transcript = _session_file(worktree, "worktree", "worktree prompt")
+        result = invoke("--transcript", str(transcript))
+        assert result.exit_code == 0, result.output
+        assert _rows(db) == [("main", "main prompt", str(main)), ("worktree", "worktree prompt", str(transcript))]
+        with closing(get_readonly_connection(db)) as con:
+            assert con.execute("SELECT project_path FROM project_meta WHERE project_hash = ?",
+                               (transcript.parent.name,)).fetchone() == (str(worktree),)
+
+
+def test_transcript_in_main_folder_is_indexed_once():
+    from tracer import storage
+
+    with _transcript_index() as (project, db, invoke):
+        main = _session_file(project, "main", "main prompt")
+        with patch.object(storage, "_index_project", wraps=storage._index_project) as index_project:
+            result = invoke("--transcript", str(main))
+        assert result.exit_code == 0, result.output
+        assert [call.args[2] for call in index_project.call_args_list] == [main.parent]
+        assert _rows(db) == [("main", "main prompt", str(main))]
+
+
+def test_invalid_transcript_path_keeps_main_indexing():
+    for kind in ("missing", "outside", "nested", "extension", "directory", "symlink"):
+        with _transcript_index() as (project, db, invoke):
+            main = _session_file(project, "main", "main prompt")
+            candidate = _session_file(project / "worktree", "worktree", "worktree prompt")
+            if kind == "missing":
+                candidate.unlink()
+            elif kind in ("outside", "nested", "extension"):
+                target = {"outside": project / "outside.jsonl", "nested": candidate.parent / "nested" / candidate.name,
+                          "extension": candidate.with_suffix(".txt")}[kind]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                candidate.rename(target)
+                candidate = target
+            elif kind == "directory":
+                candidate.unlink()
+                candidate.mkdir()
+            elif kind == "symlink":
+                target = project / "outside.jsonl"
+                candidate.rename(target)
+                candidate.symlink_to(target)
+            result = invoke("--transcript", str(candidate))
+            assert result.exit_code == 0, result.output
+            assert result.stderr.count("warn: --transcript") == (0 if kind == "missing" else 1)
+            assert _rows(db) == [("main", "main prompt", str(main))]
+
+
+def test_transcript_option_conflicts_reach_engine_validation():
+    with _transcript_index() as (project, _, invoke):
+        for option in (("--all",), ("--rebuild",), ("--session", "session")):
+            result = invoke("--transcript", str(project / "session.jsonl"), *option)
+            assert result.exit_code == 2
+            assert "--transcript cannot be combined with --all, --rebuild or --session" in result.output
+
+
+def test_transcript_pass_preserves_main_duplicate_precedence():
+    from tracer import storage
+
+    for fresh in (False, True):
+        with _transcript_index() as (project, db, invoke):
+            _session_file(project, "shared", "main copy")
+            worktree = _session_file(project / "worktree", "shared", "worktree copy")
+            other = _session_file(project / "worktree", "other", "worktree only")
+            baseline = project / "baseline.db"
+            if fresh:
+                db.unlink()
+            else:
+                get_write_connection(baseline).close()
+            storage.incremental_index(str(project), db_path=baseline)
+            expected = [row for row in _rows(baseline) if row[0] == "shared"]
+            result = invoke("--transcript", str(worktree))
+            assert result.exit_code == 0, result.output
+            assert [row for row in _rows(db) if row[0] == "shared"] == expected
+            assert ("other", "worktree only", str(other)) in _rows(db)
+            worktree.write_text(worktree.read_text().replace("worktree copy", "changed worktree copy"))
+            os.utime(worktree, (worktree.stat().st_atime, worktree.stat().st_mtime + 5))
+            assert invoke("--transcript", str(worktree)).exit_code == 0
+            assert [row for row in _rows(db) if row[0] == "shared"] == expected
+
+
+def test_failed_transcript_folder_does_not_skip_main():
+    from tracer import storage
+
+    with _transcript_index() as (project, db, invoke):
+        main = _session_file(project, "main", "main prompt")
+        worktree = _session_file(project / "worktree", "worktree", "worktree prompt")
+        original = storage._index_project
+
+        def index_project(con, project_hash, directory, **kw):
+            if directory == worktree.parent:
+                original(con, project_hash, directory, **kw)
+                raise OSError("cannot read transcript folder")
+            return original(con, project_hash, directory, **kw)
+
+        with patch.object(storage, "_index_project", index_project):
+            result = invoke("--transcript", str(worktree))
+        assert result.exit_code == 0, result.output
+        assert "cannot read transcript folder" in result.stderr
+        assert _rows(db) == [("main", "main prompt", str(main))]
 
 
 if __name__ == "__main__":
