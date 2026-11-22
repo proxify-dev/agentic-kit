@@ -43,7 +43,7 @@ Sections (inventory.json):
   instruction_files  always-loaded files (home + repo roots): size in WORDS now, their history (peak, trims, authors);
                   folder files: count and the largest; skill listing size the agent sees
   memory_stores   stores (notes folders, vaults, databases): size, newest write, who writes (hooks), chats that read them
-  git_hooks       per repo: hooks path, hook files, author
+  git_hooks       per repo: hooks path, hook files, author; a folder that could not be listed: hooks null and error
   launchers       cron, launchd, scheduled tasks, CI, scripts that start agents (from the file inventory)
   probes          the old detectors' numbers, kept only as numeric probes (each labelled with its audit verdict)
 """
@@ -2721,7 +2721,14 @@ def git_hooks(roots, me):
             pass
         d = os.path.join(r, hp) if hp and not os.path.isabs(hp) else (hp or os.path.join(r, ".git", "hooks"))
         d = os.path.expanduser(d)
-        files = [f for f in (os.listdir(d) if os.path.isdir(d) else []) if not f.endswith(".sample")]
+        try:
+            names = os.listdir(d) if os.path.isdir(d) else []
+        except OSError as e:
+            # hooks None, never []: a folder that could not be listed is not a repo without hooks
+            reason = "permission denied" if isinstance(e, PermissionError) else f"os error: {e.strerror or e}"
+            out.append({"repo": r, "hooks_path": hp, "dir": d, "hooks": None, "error": reason})
+            continue
+        files = [f for f in names if not f.endswith(".sample")]
         if not files:
             continue
         item = {"repo": r, "hooks_path": hp, "dir": d, "hooks": files[:12]}
@@ -2729,6 +2736,11 @@ def git_hooks(roots, me):
         item.update(authorship(d, me, r if d.startswith(r) and "/.git/" not in d else None))
         out.append(item)
     return out
+
+
+def hooks_not_read(gh):
+    """meta.could_not_read entries for the git_hooks rows whose folder could not be listed."""
+    return [{"path": g["dir"], "reason": f"git hooks: {g['error']}"} for g in gh if g["hooks"] is None]
 
 
 def sqlite_stores(paths):
@@ -3290,7 +3302,8 @@ def digest(inv):
     w("- memory_stores → " + "; ".join(f"{s['path'].replace(HOME, '~')} ({s['kind']}, {s['files']} files, read in {s['chats_reading']} sessions)"
                                      for s in inv["memory_stores"][:10]))
     w("  databases: " + "; ".join(f"{d['path'].replace(HOME, '~')} {d.get('tables')}" for d in inv["databases"][:6]))
-    w("- git_hooks → " + "; ".join(f"{g['repo'].replace(HOME, '~')}: {g['hooks']}" for g in inv["git_hooks"]))
+    w("- git_hooks → " + "; ".join(f"{g['repo'].replace(HOME, '~')}: " + (str(g["hooks"]) if g["hooks"] is not None else
+                                   f"could not read {g['dir'].replace(HOME, '~')} ({g['error']})") for g in inv["git_hooks"]))
     la = inv["launchers"]
     w(f"- launchers → crontab {len(la['crontab'])} ({[c['command'][:60] for c in la['crontab']]}); launchd matching {la['launchd_matching']}; "
       f"scripts that start agents {la['scripts_that_start_agents']}")
@@ -3599,7 +3612,7 @@ def main(argv=None):
         "meta": {"days": a.days, "to": day(made), "made": made, "main_log_files": n_main, "helper_log_files": n_help,
                  "versions": [v for v, _ in versions.most_common(3)], "seconds": T,
                  "logs_timed_out": len(logs_timed_out),
-                 "could_not_read": files_part.pop("could_not_read") + [
+                 "could_not_read": files_part.pop("could_not_read") + hooks_not_read(gh) + [
                      {"path": p, "reason": f"session log took over {SESSION_SECONDS:g}s: skipped, couldn't check"} for p in logs_timed_out[:30]]},
         "person": {"identities": sorted(me["emails"]), "names": sorted(me["names"]), "sources": ident["sources"],
                    "not_counted": ident["ask_about"],
