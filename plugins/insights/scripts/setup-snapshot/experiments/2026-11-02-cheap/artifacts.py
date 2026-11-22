@@ -285,12 +285,14 @@ def main(run):
         and "/worktrees/" not in s["path"] and "/w/" not in s["path"])[:1500])
     w("MCP servers set up per project: " + "; ".join(f"{m['name']} ({m['scope']}{', ' + cut(' '.join(map(str, m['args'])), 50) if isinstance(m.get('args'), list) and m['args'] else ''})" for m in I["mcp_servers"] if m["scope"] == "project")[:700])
     # one id per git hook (11-05: git hooks had none, so a hook that blocks a commit couldn't carry a practice)
-    w("git hooks: " + ("; ".join(
+    # a hooks folder that could not be listed is named as not read, so the line never says "none" for it
+    unread = [f"could not read {t(g['dir'])} ({g['error']})" for g in I["git_hooks"] if g["hooks"] is None]
+    w("git hooks: " + ("; ".join([*(
         reg(f"git_hook:{t(g['dir'])}/{h}", "git_hook", f"{t(g['dir'])}/{h} — {cut(header(os.path.join(g['dir'], h), 120), 120)}",
             own=g.get("yours", True) is not False)
         + f"{t(g['dir'])}/{h} — {cut(header(os.path.join(g['dir'], h), 120), 120)}"
         + (f" (theirs {g.get('theirs')}/{g.get('commits')} commits)" if g.get("commits") else "")
-        for g in I["git_hooks"] for h in g["hooks"][:6]) or "none"))
+        for g in I["git_hooks"] if g["hooks"] is not None for h in g["hooks"][:6]), *unread]) or "none"))
 
     # ---- behaviour: two lists the AI pass must not mix (11-11). One "by hand" list used to hold the person's own acts
     # beside what Claude Code and the model do by default (the model's own sub-agents, automatic compactions, built-in
