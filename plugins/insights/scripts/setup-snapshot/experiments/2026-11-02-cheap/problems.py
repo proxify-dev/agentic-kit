@@ -73,8 +73,81 @@ def check(kind, looked_at, looked_for, matched, bar, depends_on, moments=None, n
 
 
 # ---- the lethal trifecta: private data, text from outside and a way out in one session, with nothing guarding the way out
-PRIVATE = re.compile(r"\.env\b|mcp__(gdrive|slack|fireflies|supabase|typeform)", re.I)
-OUTSIDE = re.compile(r"WebFetch|WebSearch|mcp__web|curl https?://", re.I)
+# What a call reaches is read from names. Private data: a secrets file by its path, or a connected service by the words in
+# its MCP server's name (a server named by an opaque id, as a claude.ai connector is, by the words in its tool's name).
+# Outside text: a web tool, a curl/wget download from a host that is not this machine, an issue or pull request read, or an
+# MCP server named for a browser, a crawler or a search. Whole words only: the Box in sandbox and the pg in pager are nothing. A tool the Claude app itself
+# mounts (ccd_*, a terminal, a plan) names no service and is neither leg.
+# A secrets file is named as a file: .env as a name, not the end of import.meta.env; secrets as a file or folder, not a word
+# in a commit message.
+SECRETS_RX = re.compile(r"(?<![\w.])\.env\b|credentials|(?<![\w-])secrets?(?:\.[A-Za-z0-9]+|/)|service[-_]?account|\.netrc\b|\.npmrc\b|"
+                        r"\.pypirc\b|\.git-credentials\b|/\.ssh/|/\.aws/|\bid_(rsa|dsa|ecdsa|ed25519)\b|\.pem\b|\.p12\b|\.pfx\b|"
+                        r"\.?kube/?config\b|\.htpasswd\b", re.I)
+PRIVATE_WORDS = frozenset("""
+    gmail mail email imap outlook inbox thread threads message messages draft drafts calendar contacts
+    drive gdrive dropbox onedrive sharepoint box slack teams discord telegram whatsapp
+    notion confluence jira linear asana trello clickup monday github gitlab bitbucket
+    postgres postgresql pg mysql sqlite mongo mongodb redis supabase firebase database db sql bigquery snowflake airtable
+    hubspot salesforce stripe zendesk intercom sentry datadog grafana prometheus fireflies typeform
+    obsidian vault note notes memory filesystem 1password bitwarden aws s3 gcp azure crm records customers secrets credentials
+    """.split())
+OUTSIDE_WORDS = frozenset("""
+    web fetch browser browse chrome chromium firefox playwright puppeteer browserbase navigate screenshot
+    search crawl crawler scrape scraper firecrawl context7 brave tavily exa perplexity serp
+    """.split())
+WEB_TOOLS = ("WebFetch", "WebSearch", "WebFetchRaw")
+ISSUE_READ_RX = re.compile(r"\bgh (issue|pr) (view|list)\b", re.I)
+DOWNLOAD_RX = re.compile(r"\b(?:curl|wget)\b[^|;&]*?https?://([^/\s\"'`]+)", re.I)
+# the person's own machine, or a host a shell variable names (nothing to tell): a download from it is not outside text
+LOCAL_HOST_RX = re.compile(r"^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0|\[?::1\]?|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|"
+                           r"172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|\$)|\.(test|localhost|local|internal)(:\d+)?$", re.I)
+OPAQUE_RX = re.compile(r"^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$|^[0-9a-f]{16,}$", re.I)
+
+
+def _words(s):
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", s)
+    return set(re.split(r"[^a-z0-9]+", s.lower())) - {""}
+
+
+def _mcp_words(name):
+    """The words that say what an MCP tool reaches: its server's name, or its tool's name when the server is an opaque id
+    (a claude.ai connector is mcp__<uuid>__<tool>). None for a tool that is not an MCP tool."""
+    m = re.match(r"mcp__(.+?)__(.+)$", name)
+    if not m:
+        return None
+    server, tool = m.groups()
+    return _words(tool if OPAQUE_RX.match(server) else server)
+
+
+def private_leg(text):
+    """Does one call (its tool name, a space, its key) put private data in reach?"""
+    name, _, _key = text.partition(" ")
+    words = _mcp_words(name)
+    if words is not None:
+        return bool(words & PRIVATE_WORDS)
+    return bool(SECRETS_RX.search(text))
+
+
+def _shell_reads_outside(cmd):
+    """A gh issue or pr read, or a curl/wget from a host that is not the person's own machine."""
+    if ISSUE_READ_RX.search(cmd):
+        return True
+    return any(not LOCAL_HOST_RX.search(h.rsplit("@", 1)[-1]) for h in DOWNLOAD_RX.findall(cmd))
+
+
+def outside_leg(text):
+    """Does one call (its tool name, a space, its key) read text anyone could have written?"""
+    name, _, key = text.partition(" ")
+    words = _mcp_words(name)
+    if words is not None:
+        return bool(words & OUTSIDE_WORDS)
+    return name in WEB_TOOLS or (name == "Bash" and _shell_reads_outside(key))
+
+
+def first_leg(c, leg):
+    """The first call of a chat that makes a leg, as a moment names it: tool name and key, 80 characters; "?" for none."""
+    k = next((k for k in c["calls"] if leg((k.get("name") or "") + " " + (k.get("key") or ""))), None)
+    return (k["name"] + (f" {k['key']}" if k.get("key") else ""))[:80] if k else "?"
 # each way out with the words a guard has to name to cover it: (label, the call, what a blocking hook's text or matcher says).
 # A hook that stops commits covers a push (what it stops from leaving is what a push would carry).
 WAYS_OUT = [
@@ -183,7 +256,7 @@ def lethal_trifecta(C, settings, hooks):
     for c in C:
         calls = c["calls"]
         text = [(k.get("name") or "") + " " + (k.get("key") or "") for k in calls]
-        if not (any(PRIVATE.search(t) for t in text) and any(OUTSIDE.search(t) for t in text)):
+        if not (any(private_leg(t) for t in text) and any(outside_leg(t) for t in text)):
             continue
         cwd = c.get("cwd") or ""
         rules = [r for it, ask, deny in files if _applies(it.get("scope"), it.get("path"), None, cwd) for r in ask + deny]
@@ -413,10 +486,8 @@ def main(argv=None):
     def legs(short):
         """Which call made each leg, so the moment says what actually happened in that chat."""
         c = next(x for x in C if x["chat"].startswith(short))
-        def first(rx):
-            k = next((k for k in c["calls"] if rx.search(k["name"] + " " + (k.get("key") or ""))), None)
-            return (k["name"] + (f" {k['key']}" if k.get("key") else ""))[:80] if k else "?"
-        return f"private data: {first(PRIVATE)} · outside text: {first(OUTSIDE)} · a way out nothing guards: {tf['way_out'][short]}"
+        return (f"private data: {first_leg(c, private_leg)} · outside text: {first_leg(c, outside_leg)} · "
+                f"a way out nothing guards: {tf['way_out'][short]}")
     n_ask, n_deny, n_pre = tf["rules"]
     shows, why = trifecta_words(tf)
     put("lethal-trifecta", shows, why,
@@ -425,7 +496,9 @@ def main(argv=None):
         check("tool calls", f"the tool calls of {len(C):,} sessions, your {n_ask} ask rules, {n_deny} deny rules and {n_pre} before-tool hooks",
               "a private-data call, an outside-text call and a send/push/upload in the same session with no ask rule, deny rule or blocking hook over it",
               f"{len(tri)} sessions ({len(tf['guarded'])} more had a way out behind a rule or hook)", "3 or more sessions",
-              "a fixed list of tool names (.env reads, Drive/Slack/Fireflies/Supabase/Typeform; web fetch; Slack send, git push, pull request, uploads, deploys); other tools are missed, "
+              "names only: private data is a secrets file by its path (.env, credentials, a key file, .ssh, .aws) or a connected service by the words in its MCP server's name "
+              "(its tool's name when the server is an opaque id); outside text is a web tool, a curl or wget download from a host that is not your own machine, a gh issue or pr read, or a server named for a browser, "
+              "a crawler or a search; a way out is a fixed list (Slack send, git push, pull request, uploads, deploys). A server whose name says nothing is missed, "
               "and having all three is not proof one fed the other. A hook counts when its matcher takes the tool, its script can say no (exit 2, deny, block) and it names the way out "
               "(a commit blocker covers a push); an ask rule counts even in sessions run with prompts off",
               [chat_moment(C, t, legs(t)) for t in tri]))
